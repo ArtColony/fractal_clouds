@@ -33,6 +33,8 @@ release lifecycle) for a repo whose product is images, not a binary.
      the PR touches;
    - **determinism:** the same piece rendered twice gives the same PNG hash
      (seeded randomness only, no time or environment dependence);
+     The #1 spike checked this by hand and both renderers passed. It should be
+     a `render.sh` flag;
    - timings recorded in the PR; flag any piece that got more than 2x slower;
    - pscat problems found along the way logged in `docs/pscat-issues.md`.
 6. **PR** with `Closes #N`, a summary, the timings and **preview images
@@ -45,6 +47,29 @@ release lifecycle) for a repo whose product is images, not a binary.
    unless the PR touches an owner path (below).
 9. **After merge:** delete the branch, confirm the issue closed, and check
    that CI on `main` went green for the merge commit.
+
+## Spikes
+
+A spike answers a question that decides how something gets built (for
+fractal_clouds#1: ray-march or splat?). It follows the same lifecycle,
+plus:
+
+- **Plan comment on the issue before the work** (the question, the
+  approach, what will be measured), and a **results comment after it**
+  linking the write-up. The issue is where the decision gets recorded.
+- **Measure the cheapest deciding number first.** In #1 that was the cost of
+  one noise sample, which showed whether per-pixel marching was seconds or
+  hours before any renderer existed.
+- **Review the measurements, not just the code.** In #1 the second-opinion
+  review caught a benchmark that was 3× unfair (one renderer paid for work
+  it then threw away), which turned "3× slower" into "the same speed". A
+  fair comparison means the same scene, the same seed, and each side
+  reasonably optimised.
+- **The outcome is a recommendation**, which the owner confirms by looking
+  at the images. The spike's PR merges as evidence, not as the decision.
+- Pscat problems found along the way go in `docs/pscat-issues.md` with a
+  minimal repro, checked against Ghostscript where possible. Claims about
+  *why* pscat misbehaves are marked unconfirmed unless they are.
 
 ## Two kinds of "done"
 
