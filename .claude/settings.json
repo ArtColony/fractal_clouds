@@ -1,0 +1,9 @@
+{
+  "enabledMcpjsonServers": ["pscat"],
+  "permissions": {
+    "allow": [
+      "Bash(pscat:*)",
+      "Bash(scripts/render.sh:*)"
+    ]
+  }
+}
