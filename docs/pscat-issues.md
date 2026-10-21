@@ -139,6 +139,16 @@ on each channel's distance to its target, colours also
 colour while green stalled, leaving purple fringes on cloud edges
 (`docs/spikes/1-cloud-timing.md`).
 
+**Confirmed in a real scene.** `spikes/composite_check.py` takes the exact
+301,814 discs pscat draws for the splat render, dumped with `/Dump true`,
+and blends them outside pscat over pscat's own sky. A floating-point blend
+has **no fringes**. An 8-bit model (alpha rounded to 1/255, every blend
+rounded) **reproduces the fringes in the same places**. pscat's own render
+is worse than that model: stronger fringes and a greyer cloud field overall.
+So pscat loses even more precision than per-blend 8-bit rounding.
+Side by side (pscat | float | 8-bit model):
+`docs/spikes/1-cloud-timing/fringe-pscat-float-8bit.png`.
+
 **Suggested fix:** composite in a higher-precision buffer (16-bit or float)
 and quantise once at the end, or at least keep alpha unquantised and dither
 the per-blend rounding. Volume splatting, soft glows and airbrush effects

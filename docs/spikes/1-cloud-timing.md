@@ -6,9 +6,11 @@ built from layers of translucent shapes?
 
 **Recommendation: ray marching** (to be confirmed by eye; see the images
 below). At matching quality both take about 22 s at 320×200, so speed
-doesn't decide it. Artifacts do: splats show hue fringes from pscat's 8-bit
-alpha compositing, visible disc edges and spill below the horizon, and the
-marcher has none of these. Splats remain useful as a half-second preview for
+doesn't decide it. Artifacts do. Splats show hue fringes and a greyed
+cloud field, both caused by pscat's alpha compositing (confirmed below),
+plus visible disc edges and spill below the horizon. Those can't be fixed
+here. The marcher's main artifact, grain near the horizon, is in our own
+code and can be. Splats remain useful as a half-second preview for
 composition.
 
 Measured with pscat 0.6.2 on an Apple-silicon Mac (macOS 15), single
@@ -101,6 +103,40 @@ gets expensive fast, while the marcher scales with pixels.
   black should reach 221 and stop at 128 (`docs/pscat-issues.md` #5). A ray
   marcher composites in its own floating-point variables and writes each
   pixel once, so it can't hit this.
+
+## Is the fringe pscat's fault? Yes
+
+To rule out the scene, `splat.ps` can print every disc it would draw
+(`/Dump true`, 301,814 discs at cell 1) and draw just the sky
+(`/SkyOnly true`). `spikes/composite_check.py` then blends those exact discs
+over pscat's sky in two ways (crop of the upper right; pscat | float |
+8-bit model):
+
+![](1-cloud-timing/fringe-pscat-float-8bit.png)
+
+- **Floating-point blend:** no fringes. The colours from the scene are fine.
+- **8-bit model** (alpha rounded to 1/255, every blend rounded): the same
+  purple and cyan fringes in the same places.
+- **pscat:** stronger fringes than the model, and a greyer cloud field
+  overall. It loses more precision than per-blend rounding.
+
+The cause is pscat's compositing (`docs/pscat-issues.md` #5), not the splat
+method. With a fixed pscat, the splat render would look like this (float
+blend of the same discs):
+
+![](1-cloud-timing/splat-cell1-float-composite.png)
+
+The comparison is visual. The pixel statistics don't separate the
+blends cleanly, because the script's disc antialiasing only approximates
+pscat's.
+
+A blind Codex critique of the two renders picked the splat render as more
+realistic (twice, in both orders) and was split on which looked better. Its
+main complaint about the ray march was the grain near the horizon, which this
+write-up had called "a tuning problem". It's a real artifact, and fixing it
+comes first. Splats only become competitive if pscat fixes #5. Until then,
+blending them ourselves would mean computing the whole image in PostScript,
+which is what the ray marcher already does.
 
 ## Decision and next steps for #1
 

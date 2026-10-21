@@ -8,6 +8,9 @@
 %
 % /Cell sets the cell size at distance 100 (default 4; smaller = more,
 % finer splats). The sky behind is a per-pixel image at /IW x /IH (cheap).
+% /Dump true prints each disc as [x y r red green blue alpha] (page points)
+% instead of drawing it; /SkyOnly true draws just the sky. Together they
+% let spikes/composite_check.py re-blend the exact same splats outside pscat.
 
 (spikes/cloud_scene.ps) run
 
@@ -15,6 +18,8 @@
 /IW where { pop } { /IW 160 def } ifelse
 /IH IW 5 mul 8 idiv def
 Seed 2000 add srand
+/Dump where { pop } { /Dump false def } ifelse
+/SkyOnly where { pop } { /SkyOnly false def } ifelse
 
 /PW 320 def /PH 200 def                          % page, points
 /Focal PW 2 div TanH div def                     % screen units per unit x/z
@@ -48,7 +53,7 @@ grestore
 /ZFar TMax def /ZNear 8 def
 /Zs ZFar def
 {
-    Zs ZNear lt { exit } if
+    Zs ZNear lt SkyOnly or { exit } if
     /C Cell Zs mul 100 div def
     /Xr Zs TanH mul 1.15 mul def
     CloudLo C CloudHi {
@@ -75,13 +80,20 @@ grestore
                     /Rn Qx Qx mul Qy Qy mul add Qz Qz mul add sqrt def
                     Qx SunDir 0 get mul Qy SunDir 1 get mul add Qz SunDir 2 get mul add Rn div
                     fc-phase /Qph exch def
-                    Qx Qy Qz Qd Qph fc-light Rn fc-haze setrgbcolor
+                    Qx Qy Qz Qd Qph fc-light Rn fc-haze
                     % a soft splat: wide faint disc, then a tighter core
                     1 2.71828 Sigma Qd mul C mul neg exp sub /Qa exch def
-                    Qa 0.45 mul setalpha
-                    newpath Sx Sy Sr 1.35 mul 0 360 arc fill
-                    Qa 0.6 mul setalpha
-                    newpath Sx Sy Sr 0.75 mul 0 360 arc fill
+                    Dump {
+                        /Qb exch def /Qg exch def /Qr exch def
+                        [ Sx Sy Sr 1.35 mul Qr Qg Qb Qa 0.45 mul ] ==
+                        [ Sx Sy Sr 0.75 mul Qr Qg Qb Qa 0.6 mul ] ==
+                    } {
+                        setrgbcolor
+                        Qa 0.45 mul setalpha
+                        newpath Sx Sy Sr 1.35 mul 0 360 arc fill
+                        Qa 0.6 mul setalpha
+                        newpath Sx Sy Sr 0.75 mul 0 360 arc fill
+                    } ifelse
                 } { pop } ifelse
             } if
         } for
