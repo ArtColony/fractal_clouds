@@ -1,0 +1,72 @@
+%!PS-Adobe-3.0
+% fc_noise3.ps -- fast 3D value noise and fBm for fractal_clouds.
+%
+%   seed fc-noise3-init -      fill the lattice (call once, after srand or
+%                              with its own seed; same seed, same noise)
+%   x y z fc-noise3 v          value noise, v in 0..1, period 32 per axis
+%   x y z oct fc-fbm3 v        fBm: oct octaves, gain 0.5, lacunarity 2,
+%                              normalised to 0..1
+%
+% Built for speed in an interpreter, not for reading like artkit's noise2:
+% the lattice is 33x33x33 with the border copied (index 32 = index 0), so
+% the eight corners of a cell are fixed offsets from one base index and
+% nothing wraps inside the hot path. Smoothing is the cubic smoothstep.
+
+/FcN3 33 33 mul 33 mul array def
+
+/fc-noise3-init {                                % seed -> -
+    srand
+    % 32^3 random values, then copy them out to the 33rd row/col/plane
+    0 1 31 { /fz exch def
+      0 1 31 { /fy exch def
+        0 1 31 { /fx exch def
+          FcN3 fz 1089 mul fy 33 mul add fx add  rand 16#7fffffff div  put
+        } for } for } for
+    0 1 32 { /fz exch def
+      0 1 32 { /fy exch def
+        0 1 32 { /fx exch def
+          fx 32 eq fy 32 eq or fz 32 eq or {
+            FcN3 fz 1089 mul fy 33 mul add fx add
+            FcN3 fz 31 and 1089 mul fy 31 and 33 mul add fx 31 and add get put
+          } if
+        } for } for } for
+} bind def
+
+/fc-noise3 {                                     % x y z -> v
+    % split each coordinate into a wrapped cell index and a smoothed fraction
+    dup floor dup 3 1 roll sub                   % x y zi zf
+    dup dup mul exch 2 mul 3 exch sub mul /Fw exch def
+    cvi 31 and 1089 mul                          % x y zo
+    3 1 roll                                     % zo x y
+    dup floor dup 3 1 roll sub
+    dup dup mul exch 2 mul 3 exch sub mul /Fv exch def
+    cvi 31 and 33 mul                            % zo x yo
+    exch
+    dup floor dup 3 1 roll sub
+    dup dup mul exch 2 mul 3 exch sub mul /Fu exch def
+    cvi 31 and                                   % zo yo xo
+    add add /Fb exch def
+    % trilinear blend of the eight corners
+    FcN3 Fb get       FcN3 Fb 1 add get    1 index sub Fu mul add
+    FcN3 Fb 33 add get FcN3 Fb 34 add get  1 index sub Fu mul add
+    1 index sub Fv mul add
+    FcN3 Fb 1089 add get FcN3 Fb 1090 add get 1 index sub Fu mul add
+    FcN3 Fb 1122 add get FcN3 Fb 1123 add get 1 index sub Fu mul add
+    1 index sub Fv mul add
+    1 index sub Fw mul add
+} bind def
+
+/fc-fbm3 {                                       % x y z oct -> v
+    /Fo exch def /Fz exch def /Fy exch def /Fx exch def
+    0 1 0                                        % sum amp norm
+    Fo {
+        % sum amp norm
+        Fx Fy Fz fc-noise3 2 index mul           % sum amp norm n*amp
+        4 -1 roll add 3 1 roll                   % sum amp norm
+        1 index add exch 0.5 mul exch            % sum amp/2 norm+amp
+        /Fx Fx 2.03 mul 5.3 add def              % odd offsets decorrelate octaves
+        /Fy Fy 2.03 mul 1.7 add def
+        /Fz Fz 2.03 mul 9.1 add def
+    } repeat
+    exch pop div
+} bind def

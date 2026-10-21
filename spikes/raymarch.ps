@@ -1,0 +1,77 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+% raymarch.ps -- fractal_clouds#1 spike: one ray per pixel through the
+% shared cloud layer, front to back, Beer-Lambert absorption, two shadow
+% probes per lit sample, early exit once a ray is nearly opaque.
+%
+% /IW /IH set the image resolution (default 160x100), /Steps the march
+% steps per ray (default 40). The image is scaled to fill the page.
+
+(spikes/cloud_scene.ps) run
+
+/IW where { pop } { /IW 160 def } ifelse
+/IH where { pop } { /IH IW 5 mul 8 idiv def } ifelse
+/Steps where { pop } { /Steps 40 def } ifelse
+Seed 1000 add srand                              % step jitter, reproducible
+
+/Row IW 3 mul string def
+/J 0 def
+/Aspect IH IW div def
+
+/byte { 255 mul round cvi dup 255 gt { pop 255 } if dup 0 lt { pop 0 } if } bind def
+
+/march-pixel {                                   % u v -> r g b
+    fc-ray /Mz exch def /My exch def /Mx exch def
+    Mx My Mz fc-sky /Kb exch def /Kg exch def /Kr exch def
+    My 0.002 gt {
+        /T0 CloudLo My div def
+        /T1 CloudHi My div dup TMax gt { pop TMax } if def
+        T0 TMax lt {
+            /Mph Mx SunDir 0 get mul My SunDir 1 get mul add Mz SunDir 2 get mul add fc-phase def
+            /Dt T1 T0 sub Steps div def
+            /Tc T0 Dt fc-rnd mul add def
+            /Tr 1 def /Cr 0 def /Cg 0 def /Cb 0 def
+            Steps {
+                /Px Mx Tc mul def /Py My Tc mul def /Pz Mz Tc mul def
+                Px Py Pz DensOct fc-density dup 0 gt {
+                    /Md exch def
+                    /Ma 1 2.71828 Sigma Md mul Dt mul neg exp sub def
+                    Px Py Pz Md Mph fc-light Tc fc-haze
+                    Tr Ma mul /W exch def
+                    W mul Cb add /Cb exch def
+                    W mul Cg add /Cg exch def
+                    W mul Cr add /Cr exch def
+                    /Tr Tr 1 Ma sub mul def
+                    Tr 0.01 lt { exit } if
+                } { pop } ifelse
+                /Tc Tc Dt add def
+            } repeat
+            /Kr Cr Kr Tr mul add def
+            /Kg Cg Kg Tr mul add def
+            /Kb Cb Kb Tr mul add def
+        } if
+    } if
+    Kr Kg Kb
+} bind def
+
+/t0 usertime def
+gsave
+320 200 scale
+IW IH 8 [IW 0 0 IH neg 0 IH]
+{
+    /Vv IH 1 sub J sub 0.5 add IH div 2 mul 1 sub Aspect mul def
+    0 1 IW 1 sub {
+        /I exch def
+        I 0.5 add IW div 2 mul 1 sub Vv march-pixel
+        byte Row I 3 mul 2 add 3 -1 roll put
+        byte Row I 3 mul 1 add 3 -1 roll put
+        byte Row I 3 mul 3 -1 roll put
+    } for
+    /J J 1 add def
+    Row
+}
+false 3 colorimage
+grestore
+(raymarch ) print IW 9 string cvs print (x) print IH 9 string cvs print ( steps ) print Steps 9 string cvs print
+( ms ) print usertime t0 sub =
+showpage

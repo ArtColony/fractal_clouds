@@ -1,0 +1,20 @@
+%!PS-Adobe-3.0
+% Times fc-noise3 and fc-fbm3 in a bare loop (issue #1 spike).
+(lib/fc_noise3.ps) run
+/t0 usertime def 7 fc-noise3-init
+(init ms: ) print usertime t0 sub =
+/bench { % name n proc -> prints us per call
+  /bp exch def /bn exch def /bname exch def
+  /t0 usertime def
+  0 1 bn 1 sub { /i exch def i 0.137 mul i 0.071 mul i 0.023 mul bp pop } for
+  bname print ( us/call: ) print usertime t0 sub 1000 mul bn div =
+} def
+(empty loop) 20000 { pop pop pop 0 } bench
+(fc-noise3) 20000 { fc-noise3 } bench
+(fc-fbm3 x4) 50000 { 4 fc-fbm3 } bench
+(fc-fbm3 x6) 5000 { 6 fc-fbm3 } bench
+% sanity: range and mean of fbm
+/lo 1 def /hi 0 def /sum 0 def
+0 1 1999 { /i exch def i 0.37 mul i 0.11 mul i 0.05 mul 4 fc-fbm3
+  dup lo lt { dup /lo exch def } if dup hi gt { dup /hi exch def } if /sum exch sum add def } for
+(fbm4 min max mean: ) print lo 20 string cvs print ( ) print hi 20 string cvs print ( ) print sum 2000 div =
