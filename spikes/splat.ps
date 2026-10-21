@@ -59,15 +59,17 @@ grestore
             /Qx Xw C fc-rnd mul add def
             /Qy Yw C fc-rnd mul add def
             /Qz Zs C fc-rnd mul sub def
-            Qx Qy Qz DensOct fc-density dup 0 gt {
-                /Qd exch def
-                % camera space (undo the pitch), then the screen
-                /Cy Qy CosP mul Qz SinP mul sub def
-                /Cz Qy SinP mul Qz CosP mul add def
-                /Sx Qx Cz div Focal mul PW 2 div add def
-                /Sy Cy Cz div Focal mul PH 2 div add def
-                /Sr C Cz div Focal mul 0.85 mul def
-                Sx Sr add 0 gt Sx Sr sub PW lt and Sy Sr add 0 gt and Sy Sr sub PH lt and {
+            % camera space (undo the pitch), then the screen: cull before
+            % paying for density
+            /Cy Qy CosP mul Qz SinP mul sub def
+            /Cz Qy SinP mul Qz CosP mul add def
+            /Sx Qx Cz div Focal mul PW 2 div add def
+            /Sy Cy Cz div Focal mul PH 2 div add def
+            /Sr C Cz div Focal mul 0.85 mul 1.35 mul def
+            Sx Sr add 0 gt Sx Sr sub PW lt and Sy Sr add 0 gt and Sy Sr sub PH lt and {
+                Qx Qy Qz DensOct fc-density dup 0 gt {
+                    /Qd exch def
+                    /Sr Sr 1.35 div def
                     /NSplat NSplat 1 add def
                     % eye ray for this sample, for the phase function
                     /Rn Qx Qx mul Qy Qy mul add Qz Qz mul add sqrt def
@@ -80,8 +82,8 @@ grestore
                     newpath Sx Sy Sr 1.35 mul 0 360 arc fill
                     Qa 0.6 mul setalpha
                     newpath Sx Sy Sr 0.75 mul 0 360 arc fill
-                } if
-            } { pop } ifelse
+                } { pop } ifelse
+            } if
         } for
     } for
     /Zs Zs C sub def

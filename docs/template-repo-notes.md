@@ -62,6 +62,36 @@ Every project needs the same thing, so it belongs in the template:
   quietly replace the real one;
 - exits 0 on an empty gallery, so a fresh project from the template passes.
 
+Learned in the #1 spike, still to add:
+- **defines**: `-D NAME=VALUE` (prepended as `/NAME VALUE def`). Spikes take
+  parameters (`/IW`, `/Cell`) through `/NAME where`, and `render.sh`
+  couldn't pass them, so timing runs bypassed it with
+  `echo '/IW 320 def (x.ps) run' | pscat ... -`, which also skipped the
+  timing log;
+- **`--determinism`**: render twice and compare SHA-256s. It was done by hand
+  for the spike, and the SDLC notes make it a gate;
+- a `spikes/` glob alongside `gallery/`, or a `--all` that covers both.
+
+### Conventions worth writing down
+- **Prefix repo libraries** (`lib/fc_noise3.ps` here; something like
+  `lib/<project>_*.ps`). The render-script guard catches a clash with
+  today's pscat, but only a prefix protects against a library pscat adds
+  later.
+- **Spikes**: code in `spikes/` and the write-up in
+  `docs/spikes/<issue>-<slug>.md`, with its images committed beside it in
+  `docs/spikes/<issue>-<slug>/`. They're small (under 250 KB each here) and
+  they're the evidence for a decision.
+- **No Ghostscript-only operators.** pscat doesn't have `=only` and friends,
+  and the spike hit that twice. Print numbers with `N string cvs print`.
+  This belongs in `CLAUDE.md`.
+- **Ghostscript as the oracle.** When pscat output looks wrong, render the
+  same file with `gs` (here 10.07.1 from Homebrew) before calling it a pscat
+  bug. That's how issue #4 got confirmed. The README should list it as an
+  optional dependency.
+- **Benchmark helpers:** `usertime` deltas in milliseconds match wall-clock
+  time in pscat, so in-program timings can be trusted. A shared
+  `lib/<project>_bench.ps` helper is worth having.
+
 ### Process
 - **`docs/pscat-issues.md`**: a log of pscat bugs and skill-doc mistakes, each
   with kind, status (`open` / `filed #N` / `wontfile`), location, repro and a

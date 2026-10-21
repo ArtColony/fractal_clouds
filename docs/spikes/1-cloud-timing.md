@@ -4,10 +4,12 @@
 per pixel through a 3D density field in a usable time, or do clouds have to be
 built from layers of translucent shapes?
 
-**Answer: ray marching.** Per-pixel marching gives the better image for the
-same time, scales linearly with pixel count, and avoids an 8-bit compositing
-artifact that splats run into. Splats are still useful as a 1-second preview
-for composition.
+**Recommendation: ray marching** (to be confirmed by eye; see the images
+below). At matching quality both take about 22 s at 320×200, so speed
+doesn't decide it. Artifacts do: splats show hue fringes from pscat's 8-bit
+alpha compositing, visible disc edges and spill below the horizon, and the
+marcher has none of these. Splats remain useful as a half-second preview for
+composition.
 
 Measured with pscat 0.6.2 on an Apple-silicon Mac (macOS 15), single
 thread, `usertime` cross-checked against `/usr/bin/time`. Seed 7. Both
@@ -31,7 +33,8 @@ renderers are deterministic: two runs give byte-identical PNGs.
   `colorimage` with a procedure data source.
 - `spikes/splat.ps`: a jittered grid walked from far to near. Cells grow with
   distance (`Cell` = size at distance 100). Each filled cell becomes two
-  `setalpha` discs, a wide faint one and a tighter core.
+  `setalpha` discs, a wide faint one and a tighter core. Cells whose
+  splat would land off-screen are culled before density is evaluated.
 
 ## Noise cost
 
@@ -51,9 +54,15 @@ renderers are deterministic: two runs give byte-identical PNGs.
 | ray march | 80×50 px | 4,000 rays | 1.4 s |
 | ray march | 160×100 px | 16,000 rays | 5.3 s |
 | ray march | 320×200 px | 64,000 rays | 21.7 s |
-| splat | cell 4 | 72,612 cells → 2,410 splats | 1.0 s |
-| splat | cell 2 | 578,880 cells → 18,958 splats | 7.7 s |
-| splat | cell 1 | 4,629,312 cells → 149,447 splats | 62.2 s |
+| splat | cell 4 | 72,612 cells → 2,505 splats | 0.45 s |
+| splat | cell 2 | 578,880 cells → 19,317 splats | 3.0 s |
+| splat | cell 1 | 4,629,312 cells → 150,907 splats | 22.0 s |
+
+The first splat timings (1.0 s, 7.7 s and 62.2 s) evaluated density
+before the on-screen test. About two-thirds of the cells sit near the
+camera, above the top of the frame, so moving the test first cut the time by
+roughly 3×. Even with culling, splats pay for the whole visible volume, not
+just the screen.
 
 The ray marcher costs about 0.34 ms per pixel, and that holds from 80×50 to
 320×200. A 1200×750 piece would take about 5 minutes, and a 300-dpi print of
@@ -61,14 +70,15 @@ an 8×5-inch page (2400×1500) about 20 minutes. Both are workable for a
 gallery render, and resolution can be traded for shadow probes or steps.
 
 Splat cost grows with the cube of 1/cell size, since cells fill the volume
-and not the screen. Each halving costs about 8×.
+and not the screen. Each halving costs about 7–8×, so going finer than cell 1
+gets expensive fast, while the marcher scales with pixels.
 
 ## What they look like
 
-| ray march 320×200 (21.7 s) | splat, cell 1 (62.2 s) |
+| ray march 320×200 (21.7 s) | splat, cell 1 (22.0 s) |
 |---|---|
 | ![](1-cloud-timing/raymarch-320x200.png) | ![](1-cloud-timing/splat-cell1.png) |
-| **ray march 80×50 (1.4 s)** | **splat, cell 4 (1.0 s)** |
+| **ray march 80×50 (1.4 s)** | **splat, cell 4 (0.45 s)** |
 | ![](1-cloud-timing/raymarch-80x50.png) | ![](1-cloud-timing/splat-cell4.png) |
 
 - **Ray march.** It already reads as a cumulus sky: lit tops, grey bellies,
@@ -79,22 +89,23 @@ and not the screen. Each halving costs about 8×.
   ignores `/Interpolate` (`docs/pscat-issues.md` #4).
 - **Splat, cell 4.** Same composition, but the disc edges show ("bubbly"),
   and distant splats spill below the horizon onto the ground.
-- **Splat, cell 1.** Close to the ray march, but 3× slower, with **purple
-  fringes** along cloud edges:
+- **Splat, cell 1.** Close to the ray march, in the same time, but with
+  **purple fringes** along cloud edges:
 
   ![](1-cloud-timing/splat-cell1-fringe.png)
 
-  This is pscat compositing every `setalpha` layer into an 8-bit buffer with
-  quantised alpha. Faint layers stop changing a channel once it gets close
-  to its target, and each channel stalls at a different point, so the hue
-  drifts. A bare test confirms it: 1000 white layers at alpha 0.002 over
+  This is pscat losing precision when it composites many faint `setalpha`
+  layers. Faint layers stop changing a channel once it gets close to its
+  target, and each channel stalls at a different point, so the hue drifts.
+  The exact quantisation isn't confirmed. A bare test confirms it: 1000 white layers at alpha 0.002 over
   black should reach 221 and stop at 128 (`docs/pscat-issues.md` #5). A ray
   marcher composites in its own floating-point variables and writes each
   pixel once, so it can't hit this.
 
 ## Decision and next steps for #1
 
-1. **Clouds: ray march.** Use splats only as a quick composition preview.
+1. **Clouds: ray march** (recommended, pending a look at the images). Use
+   splats only as a quick composition preview.
 2. Improvements to the marcher:
    - steps sized by distance, to fix the grain near the horizon;
    - smooth upsampling of low-resolution renders (bilinear in PostScript,

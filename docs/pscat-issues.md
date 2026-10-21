@@ -129,10 +129,12 @@ says it should, and stops early. White over black, 10×10-point squares:
 showpage
 ```
 
-The 128 fits the alpha being stored as a multiple of 1/255 (0.002 becomes
-1/255) and each blend being rounded back to 8 bits. Once
-`(target − current) × alpha < 0.5` a layer changes nothing. Because the
-cut-off depends on each channel's distance to its target, colours also
+The precision is lost somewhere in compositing; the exact mechanism isn't
+confirmed. The 0.002 row fits alpha being stored as a multiple of 1/255
+with each blend rounded to 8 bits, so that a layer changes nothing once
+`(target − current) × alpha < 0.5`. The 0.01 row doesn't fit that: 3/255
+predicts a stall near 213, and pscat gives 192. Because the cut-off depends
+on each channel's distance to its target, colours also
 **drift in hue**: in the splat cloud render, red kept moving toward the cloud
 colour while green stalled, leaving purple fringes on cloud edges
 (`docs/spikes/1-cloud-timing.md`).
