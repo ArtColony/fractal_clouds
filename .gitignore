@@ -1,0 +1,4 @@
+# Render output. Pick the images worth keeping into gallery/previews/ by hand.
+renders/
+
+.DS_Store
