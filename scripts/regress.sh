@@ -16,7 +16,8 @@
 #
 # Every render goes through scripts/render.sh. Renders, logs and diff images
 # (reference | new | changed pixels in red) go to renders/regress/. Exits 1
-# if any case changed, has no reference, failed or didn't lint clean.
+# if any case changed, has no reference, failed or didn't lint clean. Run
+# one at a time: every run reuses renders/regress/.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
@@ -93,10 +94,19 @@ cleanup() {
   rm -rf "$tmp"
 }
 trap cleanup EXIT
+# on ^C or a kill, stop the renders (this script's process tree only)
+# before the worktree goes
+killtree() {
+  local c
+  for c in $(pgrep -P "$1"); do killtree "$c"; done
+  kill "$1" 2>/dev/null || true
+}
+trap 'trap - INT TERM; for c in $(pgrep -P $$); do killtree "$c"; done; exit 130' INT TERM
 
 # render one case from the checkout at $1 into directory $2, via that
 # checkout's scripts/render.sh; the piece is copied to <name>.ps so that two
-# cases of one piece get their own PNG
+# cases of one piece get their own PNG, and render.sh's exit status goes to
+# <name>.rc
 render_case() {
   local from="$1" dir="$2" name piece defs d
   IFS='|' read -r name piece defs <<< "$3"
@@ -105,7 +115,9 @@ render_case() {
   local args=()
   IFS=';' read -ra ds <<< "$cheap;$defs"
   for d in "${ds[@]}"; do [ -n "$d" ] && args+=(-D "$d"); done
-  OUT="$dir" "$from/scripts/render.sh" "${args[@]}" "$dir/src/$name.ps" >/dev/null 2>&1 || true
+  local rc=0
+  OUT="$dir" "$from/scripts/render.sh" "${args[@]}" "$dir/src/$name.ps" >/dev/null 2>&1 || rc=$?
+  echo "$rc" > "$dir/$name.rc"
 }
 
 jobs="${JOBS:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 4)}"
@@ -148,7 +160,7 @@ if [ "$mode" = update ]; then
   mkdir -p "$refs"
   status=0
   for n in "${names[@]}"; do
-    if [ -s "$out/new/$n.png" ] && grep -q 'pscat: lint: clean' "$out/new/$n.log"; then
+    if [ "$(cat "$out/new/$n.rc" 2>/dev/null)" = 0 ] && grep -q 'pscat: lint: clean' "$out/new/$n.log"; then
       cp "$out/new/$n.png" "$refs/$n.png"
       echo "regress: updated $refs/$n.png"
     else
@@ -176,15 +188,24 @@ from PIL import Image, ImageChops
 
 refdir, out, label, check_stale, names = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4] == "1", sys.argv[5:]
 os.makedirs(f"{out}/diff", exist_ok=True)
+def rendered(d, n):
+    # render.sh exited 0 and pscat wrote the PNG
+    rc = open(f"{d}/{n}.rc").read().strip() if os.path.exists(f"{d}/{n}.rc") else ""
+    log = open(f"{d}/{n}.log").read() if os.path.exists(f"{d}/{n}.log") else ""
+    return rc == "0" and "pscat: wrote" in log and os.path.exists(f"{d}/{n}.png"), log
+
+ref_rendered = refdir == f"{out}/old"   # --ref: the reference side was rendered now too
 rows, bad = [], 0
 for n in names:
-    new_png, ref_png, log = f"{out}/new/{n}.png", f"{refdir}/{n}.png", f"{out}/new/{n}.log"
-    logtext = open(log).read() if os.path.exists(log) else ""
-    if not os.path.exists(new_png) or "pscat: wrote" not in logtext:
+    new_png, ref_png = f"{out}/new/{n}.png", f"{refdir}/{n}.png"
+    ok, logtext = rendered(f"{out}/new", n)
+    if not ok:
         rows.append((n, "render failed", f"see renders/regress/new/{n}.log")); bad += 1; continue
     note = "" if "pscat: lint: clean" in logtext else "; not lint clean"
-    if not os.path.exists(ref_png):
+    if not os.path.exists(ref_png) and not (ref_rendered and os.path.exists(f"{refdir}/{n}.log")):
         rows.append((n, "no reference", "new case" + note)); bad += 1; continue
+    if ref_rendered and not rendered(refdir, n)[0]:
+        rows.append((n, "ref failed", f"see renders/regress/old/{n}.log" + note)); bad += 1; continue
     a, b = Image.open(ref_png).convert("RGB"), Image.open(new_png).convert("RGB")
     if a.size != b.size:
         rows.append((n, "changed", f"size {a.size} -> {b.size}" + note)); bad += 1; continue
@@ -192,7 +213,8 @@ for n in names:
     box = d.getbbox()
     if box is None:
         rows.append((n, "lint" if note else "same", note[2:])); bad += bool(note); continue
-    mask = d.convert("L").point(lambda v: 255 if v else 0)
+    r, g, b2 = d.point(lambda v: 255 if v else 0).split()
+    mask = ImageChops.lighter(ImageChops.lighter(r, g), b2)
     changed = mask.histogram()[255]
     biggest = max(hi for lo, hi in d.getextrema())
     # reference | new | the new render dimmed, changed pixels in red
