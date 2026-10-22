@@ -1,10 +1,15 @@
 # SDLC notes for ArtColony projects
 
-A proposal, not yet in force. The goal: agents can work issue to merged PR
-without waiting on the owner, while anything that changes what the repo
-trusts, or what it publishes, still needs the owner. It's adapted from
-pscat's `SDLC.md` (its "agent-full" merge policy, CODEOWNERS exceptions and
-release lifecycle) for a repo whose product is images, not a binary.
+> **Status: working draft, not adopted.** ArtColony's SDLC is still being
+> decided. These notes are a proposal and nobody is bound by them. They are
+> merged so they live on `main` and later PRs can revise them. Read what's
+> here as "what we did and what we'd suggest", not as policy.
+
+The goal: agents can work issue to merged PR without waiting on the owner,
+while anything that changes what the repo trusts, or what it publishes, still
+needs the owner. It's adapted from pscat's `SDLC.md` (its "agent-full" merge
+policy, CODEOWNERS exceptions and release lifecycle) for a repo whose product
+is images, not a binary.
 
 ## What's different about an art repo
 
@@ -22,12 +27,22 @@ release lifecycle) for a repo whose product is images, not a binary.
 1. **Issue first.** Each piece or library change has an issue.
    Research spikes get their own issue or a clearly labelled branch on the
    piece's issue.
-2. **Branch per issue**: `feat/<n>-<slug>`, `fix/<n>-<slug>`,
-   `spike/<n>-<slug>`, `chore/<slug>`, `docs/<slug>`.
+2. **Branch per issue**: `<kind>/<issue#>-<slug>`, e.g. `feat/11-landscape-lib`,
+   `fix/<n>-<slug>`, `spike/<n>-<slug>`, `docs/8-pscat-features`; `chore/<slug>`
+   when there is no issue. A PR that builds on an unmerged one is
+   **stacked**: base it on the earlier branch and say so in the description.
+   After the earlier PR merges, retarget the later one to `main`. Prefer a
+   plain merge over a squash for a stack, so the later branch's history
+   still lines up.
 3. **Plan before building.** Write the approach in the issue or PR, and get a
    second opinion (advisor, or a fresh session) before writing the bulk of it.
 4. **Render-look-refine.** Commit at coherent checkpoints. Every checkpoint
-   that changes a picture is rendered and looked at.
+   that changes a picture is rendered and looked at. Before a long render,
+   check its exact settings on small crops at full detail
+   (`-D "Crop=[x0 y0 x1 y1]"`), because a small whole-frame preview
+   misjudges fine detail. A long render is split across cores with
+   `scripts/render_bands.sh` (pscat is single-threaded; the script arrives
+   with the stacked forest PR).
 5. **Quality gate before the PR:**
    - `scripts/render.sh` clean (`ok`, not `lint` or `error`) for every piece
      the PR touches;
@@ -35,14 +50,24 @@ release lifecycle) for a repo whose product is images, not a binary.
      (seeded randomness only, no time or environment dependence);
      The #1 spike checked this by hand and both renderers passed. It should be
      a `render.sh` flag;
+   - **no unintended change to existing pieces:** when a PR touches a shared
+     library, the existing pieces render pixel-identical to `main` at a
+     cheap setting (`-D ErN=256 -D ErDrops=20000 -D Res=0.5`), unless the
+     change is meant to alter them. This is done by hand today; a script
+     is planned;
    - timings recorded in the PR; flag any piece that got more than 2x slower;
    - pscat problems found along the way logged in `docs/pscat-issues.md`.
 6. **PR** with `Closes #N`, a summary, the timings and **preview images
    attached** (committed to `gallery/previews/` or uploaded to the PR), so a
    reviewer can see what changed without rendering.
 7. **Independent review** by a reviewer with no implementation context
-   (`/code-review`, or a fresh session) of the diff *and* the previews. It must
-   come back clean.
+   (`/code-review`, a fresh session, or Codex read-only:
+   `codex exec -s read-only ...`) of the diff *and* the previews. It must
+   come back clean. Commit the fixes as a separate commit after the
+   reviewed one, so the PR shows what the review found. (Codex also
+   critiques renders: `scripts/codex_critique.sh`, and
+   `scripts/codex_pairwise.sh` for a blind A/B. These help, but they don't
+   replace the owner's eyes.)
 8. **Agent merges** once CI (when there is CI) is green and review is clean,
    unless the PR touches an owner path (below).
 9. **After merge:** delete the branch, confirm the issue closed, and check
@@ -69,7 +94,23 @@ plus:
   at the images. The spike's PR merges as evidence, not as the decision.
 - Pscat problems found along the way go in `docs/pscat-issues.md` with a
   minimal repro, checked against Ghostscript where possible. Claims about
-  *why* pscat misbehaves are marked unconfirmed unless they are.
+  *why* pscat misbehaves are marked unconfirmed unless they are. They are
+  filed upstream only when the owner asks; until then an issue in this repo
+  (e.g. #8) tracks the pending filing.
+
+## Planning and handoff
+
+- **A roadmap epic** (fractal_clouds#36) lists the work as a checklist of
+  issues, grouped by theme and noting which depend on which.
+- **A handoff note** (`docs/handoff.md`, arriving with the stacked PRs) lets a new session pick up the epic:
+  what's on `main`, what to read first, the order of work, and the rules that
+  cost time when forgotten. Replace it at each handoff rather than
+  accumulating them.
+- **Subagents in worktrees** suit independent work: reviews, docs, figures,
+  presets, packaging, timing, small crop experiments. Renders are heavy (one
+  core per pscat, about 30 minutes for a full piece across all cores), so
+  limit how many agents render at once to what the CPU allows. Changes to
+  shared libraries go one at a time in the lead session.
 
 ## Two kinds of "done"
 
@@ -77,7 +118,8 @@ The agent can merge without the owner because merging is not the same as
 the piece being finished:
 
 - **Merged** means technically sound: renders clean, deterministic, reviewed.
-  Pieces merge with `% Status: draft` in their header.
+  Pieces merge with `% Status: draft` in their header and stay draft until
+  the owner marks them final.
 - **Finished** means artistically accepted. Only the owner flips a piece to
   `% Status: final`, in a one-line PR the owner merges, or by asking the
   agent to make it. Releases only include `final` pieces.
@@ -153,4 +195,5 @@ or final sign-off), `spike`, `upstream` (should become a PSCatLabs/pscat issue).
 ## Not adopted yet
 
 Claim/heartbeat scripts for several agents working in parallel (pscat's
-`work-issue`) can wait until more than one agent works a repo at a time.
+`work-issue`) can wait. Parallel agents have worked so far by being given
+separate issues or worktrees by the lead session, with no claim protocol.
