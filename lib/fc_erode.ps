@@ -134,8 +134,8 @@
         0 0
     } {
         /Elix Elx cvi def /Eliz Elz cvi def
-        Elx Elix sub fc-bspline-w /Ewx3 exch def /Ewx2 exch def /Ewx1 exch def /Ewx0 exch def
-        Elz Eliz sub fc-bspline-w /Ewz3 exch def /Ewz2 exch def /Ewz1 exch def /Ewz0 exch def
+        Elx Elix sub fc-catmull-w /Ewx3 exch def /Ewx2 exch def /Ewx1 exch def /Ewx0 exch def
+        Elz Eliz sub fc-catmull-w /Ewz3 exch def /Ewz2 exch def /Ewz1 exch def /Ewz0 exch def
         /Elj Eliz 1 sub ErN mul Elix add 1 sub def
         0
         [ Ewz0 Ewz1 Ewz2 Ewz3 ] {
@@ -155,7 +155,7 @@
 % t -> w0 w1 w2 w3, Catmull-Rom weights for fraction t: the curve passes
 % through the texel values (a B-spline smooths over ~2 texels and rounds
 % every ridge off) and its slope is continuous, so normals don't facet
-/fc-bspline-w {
+/fc-catmull-w {
     /Ebt exch def /Ebt2 Ebt Ebt mul def /Ebt3 Ebt2 Ebt mul def
     Ebt3 neg Ebt2 2 mul add Ebt sub 0.5 mul
     Ebt3 3 mul Ebt2 5 mul sub 2 add 0.5 mul

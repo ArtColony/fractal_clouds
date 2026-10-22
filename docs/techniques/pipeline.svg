@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
+  "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<svg xmlns:xlink="http://www.w3.org/1999/xlink" width="592.9386pt" height="215.64pt" viewBox="0 0 592.9386 215.64" xmlns="http://www.w3.org/2000/svg" version="1.1">
+ <metadata>
+  <rdf:RDF xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+   <cc:Work>
+    <dc:type rdf:resource="http://purl.org/dc/dcmitype/StillImage"/>
+    <dc:date>2026-10-22T10:15:19.765093</dc:date>
+    <dc:format>image/svg+xml</dc:format>
+    <dc:creator>
+     <cc:Agent>
+      <dc:title>Matplotlib v3.11.0, https://matplotlib.org/</dc:title>
+     </cc:Agent>
+    </dc:creator>
+   </cc:Work>
+  </rdf:RDF>
+ </metadata>
+ <defs>
+  <style type="text/css">*{stroke-linejoin: round; stroke-linecap: butt}</style>
+ </defs>
+ <g id="figure_1">
+  <g id="patch_1">
+   <path d="M 0 215.64 
+L 592.9386 215.64 
+L 592.9386 0 
+L 0 0 
+z
+" style="fill: #ffffff"/>
+  </g>
+  <g id="axes_1">
+   <g id="patch_2">
+    <path d="M 20.55384 104.245579 
+L 78.05016 104.245579 
+Q 84.21048 104.245579 84.21048 98.118 
+L 84.21048 51.139895 
+Q 84.21048 45.012316 78.05016 45.012316 
+L 20.55384 45.012316 
+Q 14.39352 45.012316 14.39352 51.139895 
+L 14.39352 98.118 
+Q 14.39352 104.245579 20.55384 104.245579 
+z
+" clip-path="url(#pdff5e7b570)" style="fill: #ffffff; stroke: #2f6fb0; stroke-width: 1.6; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_3">
+    <path d="M 100.12464 104.245579 
+L 173.02176 104.245579 
+Q 179.18208 104.245579 179.18208 98.118 
+L 179.18208 51.139895 
+Q 179.18208 45.012316 173.02176 45.012316 
+L 100.12464 45.012316 
+Q 93.96432 45.012316 93.96432 51.139895 
+L 93.96432 98.118 
+Q 93.96432 104.245579 100.12464 104.245579 
+z
+" clip-path="url(#pdff5e7b570)" style="fill: #ffffff; stroke: #2f6fb0; stroke-width: 1.6; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_4">
+    <path d="M 195.09624 73.607684 
+L 262.85976 73.607684 
+Q 269.02008 73.607684 269.02008 67.480105 
+L 269.02008 30.714632 
+Q 269.02008 24.587053 262.85976 24.587053 
+L 195.09624 24.587053 
+Q 188.93592 24.587053 188.93592 30.714632 
+L 188.93592 67.480105 
+Q 188.93592 73.607684 195.09624 73.607684 
+z
+" clip-path="url(#pdff5e7b570)" style="fill: #ffffff; stroke: #3f8a4f; stroke-width: 1.6; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_5">
+    <path d="M 195.09624 134.883474 
+L 262.85976 134.883474 
+Q 269.02008 134.883474 269.02008 128.755895 
+L 269.02008 91.990421 
+Q 269.02008 85.862842 262.85976 85.862842 
+L 195.09624 85.862842 
+Q 188.93592 85.862842 188.93592 91.990421 
+L 188.93592 128.755895 
+Q 188.93592 134.883474 195.09624 134.883474 
+z
+" clip-path="url(#pdff5e7b570)" style="fill: #ffffff; stroke: #3f8a4f; stroke-width: 1.6; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_6">
+    <path d="M 287.50104 73.607684 
+L 339.86376 73.607684 
+Q 346.02408 73.607684 346.02408 67.480105 
+L 346.02408 30.714632 
+Q 346.02408 24.587053 339.86376 24.587053 
+L 287.50104 24.587053 
+Q 281.34072 24.587053 281.34072 30.714632 
+L 281.34072 67.480105 
+Q 281.34072 73.607684 287.50104 73.607684 
+z
+" clip-path="url(#pdff5e7b570)" style="fill: #ffffff; stroke: #8a5aa8; stroke-width: 1.6; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_7">
+    <path d="M 364.50504 104.245579 
+L 427.13496 104.245579 
+Q 433.29528 104.245579 433.29528 98.118 
+L 433.29528 51.139895 
+Q 433.29528 45.012316 427.13496 45.012316 
+L 364.50504 45.012316 
+Q 358.34472 45.012316 358.34472 51.139895 
+L 358.34472 98.118 
+Q 358.34472 104.245579 364.50504 104.245579 
+z
+" clip-path="url(#pdff5e7b570)" style="fill: #ffffff; stroke: #c0622a; stroke-width: 1.6; stroke-linejoin: miter"/>
+   </g>
+   <g id="patch_8">
+    <path d="M 451.77624 104.245579 
+L 514.40616 104.245579 
+Q 520.56648 104.245579 520.56648 98.118 
+L 520.56648 51.139895 
+Q 520.56648 45.012316 514.40616 45.012316 
+L 451.77624 45.012316 
+Q 445.61592 45.012316 445.61592 51.139895 
+L 445.61592 98.118 
+Q 445.61592 104.245579 451.77624 104.245579 
+z
+" clip-path="url(#pdff5e7b570)" style="fill: #ffffff; stroke: #6b717a; stroke-width: 1.6; stroke-linejoin: miter"/>
+   </g>
+   <g id="text_1">
+    <text style="font-weight: 700; font-size: 9px; font-family: 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Computer Modern Typewriter', 'Andale Mono', 'Nimbus Mono L', 'Courier New', 'Courier', 'Fixed', 'Terminal', monospace; text-anchor: middle; fill: #2f6fb0" x="49.302" y="61.55291" transform="rotate(-0 49.302 61.55291)">fc-ray</text>
+   </g>
+   <g id="text_2">
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #22262b" transform="translate(27.997 75.275615)">pixel (u, v)</text>
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #22262b" transform="translate(29.195125 84.877803)">→ unit ray</text>
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #22262b" transform="translate(29.571375 94.479365)">Mx My Mz</text>
+   </g>
+   <g id="text_3">
+    <text style="font-weight: 700; font-size: 9px; font-family: 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Computer Modern Typewriter', 'Andale Mono', 'Nimbus Mono L', 'Courier New', 'Courier', 'Fixed', 'Terminal', monospace; text-anchor: middle; fill: #2f6fb0" x="136.5732" y="62.031035" transform="rotate(-0 136.5732 62.031035)">landscape-hit</text>
+   </g>
+   <g id="text_4">
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #22262b" transform="translate(109.3182 75.275928)">march terrain</text>
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #22262b" transform="translate(118.6982 84.87749)">(+ trees)</text>
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #22262b" transform="translate(117.8507 94.479053)">→ t or −1</text>
+   </g>
+   <g id="text_5">
+    <text style="font-weight: 700; font-size: 9px; font-family: 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Computer Modern Typewriter', 'Andale Mono', 'Nimbus Mono L', 'Courier New', 'Courier', 'Fixed', 'Terminal', monospace; text-anchor: middle; fill: #3f8a4f" x="228.978" y="41.127646" transform="rotate(-0 228.978 41.127646)">surface</text>
+   </g>
+   <g id="text_6">
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #22262b" transform="translate(197.068 54.544817)">fc-terrain-shade</text>
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #22262b" transform="translate(202.36675 64.147005)">fc-tree-shade</text>
+   </g>
+   <g id="text_7">
+    <text style="font-weight: 700; font-size: 9px; font-family: 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Computer Modern Typewriter', 'Andale Mono', 'Nimbus Mono L', 'Courier New', 'Courier', 'Fixed', 'Terminal', monospace; text-anchor: middle; fill: #3f8a4f" x="228.978" y="102.403436" transform="rotate(-0 228.978 102.403436)">sky</text>
+   </g>
+   <g id="text_8">
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #22262b" transform="translate(217.302375 115.820607)">fc-sky</text>
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #22262b" transform="translate(194.8555 125.422794)">(or horizon haze)</text>
+   </g>
+   <g id="text_9">
+    <text style="font-weight: 700; font-size: 9px; font-family: 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Computer Modern Typewriter', 'Andale Mono', 'Nimbus Mono L', 'Courier New', 'Courier', 'Fixed', 'Terminal', monospace; text-anchor: middle; fill: #8a5aa8" x="313.6824" y="41.127646" transform="rotate(-0 313.6824 41.127646)">fc-haze</text>
+   </g>
+   <g id="text_10">
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #22262b" transform="translate(302.451775 54.544817)">aerial</text>
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #22262b" transform="translate(290.245525 64.147005)">perspective</text>
+   </g>
+   <g id="text_11">
+    <text style="font-weight: 700; font-size: 9px; font-family: 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Computer Modern Typewriter', 'Andale Mono', 'Nimbus Mono L', 'Courier New', 'Courier', 'Fixed', 'Terminal', monospace; text-anchor: middle; fill: #c0622a" x="395.82" y="61.55291" transform="rotate(-0 395.82 61.55291)">fc-clouds</text>
+   </g>
+   <g id="text_12">
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #22262b" transform="translate(364.039375 75.275303)">march the layer</text>
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #22262b" transform="translate(368.593125 84.87749)">up to t; light ·</text>
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #22262b" transform="translate(367.746875 94.479678)">transmittance</text>
+   </g>
+   <g id="text_13">
+    <text style="font-weight: 700; font-size: 9px; font-family: 'DejaVu Sans Mono', 'Bitstream Vera Sans Mono', 'Computer Modern Typewriter', 'Andale Mono', 'Nimbus Mono L', 'Courier New', 'Courier', 'Fixed', 'Terminal', monospace; text-anchor: middle; fill: #6b717a" x="483.0912" y="61.55291" transform="rotate(-0 483.0912 61.55291)">fc-tone</text>
+   </g>
+   <g id="text_14">
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #22262b" transform="translate(450.959325 75.275303)">exposure curve,</text>
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #22262b" transform="translate(460.224325 84.876865)">2.2 gamma</text>
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; fill: #22262b" transform="translate(469.2612 94.479053)">→ 8-bit</text>
+   </g>
+   <g id="patch_9">
+    <path d="M 86.210779 74.628947 
+Q 90.371922 74.628947 93.191425 74.628947 
+" style="fill: none; stroke: #6b717a; stroke-width: 1.2; stroke-linecap: round"/>
+    <path d="M 89.191425 72.628947 
+L 93.191425 74.628947 
+L 89.191425 76.628947 
+" style="fill: none; stroke: #6b717a; stroke-width: 1.2; stroke-linecap: round"/>
+   </g>
+   <g id="patch_10">
+    <path d="M 177.869603 65.409903 
+Q 182.777309 59.307875 186.844177 54.251308 
+" style="fill: none; stroke: #6b717a; stroke-width: 1.2; stroke-linecap: round"/>
+    <path d="M 182.778798 56.114826 
+L 186.844177 54.251308 
+L 185.895764 58.621722 
+" style="fill: none; stroke: #6b717a; stroke-width: 1.2; stroke-linecap: round"/>
+   </g>
+   <g id="patch_11">
+    <path d="M 177.419912 84.122568 
+Q 182.776571 96.333002 187.594242 107.314821 
+" style="fill: none; stroke: #6b717a; stroke-width: 1.2; stroke-linecap: round"/>
+    <path d="M 187.818803 102.848327 
+L 187.594242 107.314821 
+L 184.155783 104.455276 
+" style="fill: none; stroke: #6b717a; stroke-width: 1.2; stroke-linecap: round"/>
+   </g>
+   <g id="text_15">
+    <text style="font-size: 7.5px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #6b717a" x="181.23552" y="43.480421" transform="rotate(-0 181.23552 43.480421)">hit</text>
+   </g>
+   <g id="text_16">
+    <text style="font-size: 7.5px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: middle; fill: #6b717a" x="178.15536" y="117.011368" transform="rotate(-0 178.15536 117.011368)">miss</text>
+   </g>
+   <g id="patch_12">
+    <path d="M 271.020379 49.097368 
+Q 275.181522 49.097368 278.001025 49.097368 
+" style="fill: none; stroke: #6b717a; stroke-width: 1.2; stroke-linecap: round"/>
+    <path d="M 274.001025 47.097368 
+L 278.001025 49.097368 
+L 274.001025 51.097368 
+" style="fill: none; stroke: #6b717a; stroke-width: 1.2; stroke-linecap: round"/>
+   </g>
+   <g id="patch_13">
+    <path d="M 347.278403 53.210097 
+Q 352.186109 59.312125 356.252977 64.368692 
+" style="fill: none; stroke: #6b717a; stroke-width: 1.2; stroke-linecap: round"/>
+    <path d="M 355.304564 59.998278 
+L 356.252977 64.368692 
+L 352.187598 62.505174 
+" style="fill: none; stroke: #6b717a; stroke-width: 1.2; stroke-linecap: round"/>
+   </g>
+   <g id="patch_14">
+    <path d="M 270.94189 109.823849 
+Q 313.681735 97.607558 355.1316 85.759982 
+" style="fill: none; stroke: #6b717a; stroke-width: 1.2; stroke-linecap: round"/>
+    <path d="M 350.735974 84.936285 
+L 355.1316 85.759982 
+L 351.835267 88.782264 
+" style="fill: none; stroke: #6b717a; stroke-width: 1.2; stroke-linecap: round"/>
+   </g>
+   <g id="patch_15">
+    <path d="M 435.295579 74.628947 
+Q 439.456722 74.628947 442.276225 74.628947 
+" style="fill: none; stroke: #6b717a; stroke-width: 1.2; stroke-linecap: round"/>
+    <path d="M 438.276225 72.628947 
+L 442.276225 74.628947 
+L 438.276225 76.628947 
+" style="fill: none; stroke: #6b717a; stroke-width: 1.2; stroke-linecap: round"/>
+   </g>
+   <g id="text_17">
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start; fill: #6b717a" x="15.9336" y="153.776842" transform="rotate(-0 15.9336 153.776842)">colour = clouds' light + transmittance × (hazed surface or sky).  Every step works in linear light; fc-landscape-grade runs just before fc-tone.</text>
+   </g>
+   <g id="text_18">
+    <text style="font-size: 8px; font-family: 'DejaVu Sans', 'Bitstream Vera Sans', 'Computer Modern Sans Serif', 'Lucida Grande', 'Verdana', 'Geneva', 'Lucid', 'Arial', 'Helvetica', 'Avant Garde', sans-serif; text-anchor: start; fill: #6b717a" x="15.9336" y="179.308421" transform="rotate(-0 15.9336 179.308421)">fc_render.ps calls fc-pixel once per pixel (five times on depth edges) and streams the rows into colorimage.</text>
+   </g>
+  </g>
+ </g>
+ <defs>
+  <clipPath id="pdff5e7b570">
+   <rect x="10.8" y="10.8" width="513.36" height="194.04"/>
+  </clipPath>
+ </defs>
+</svg>

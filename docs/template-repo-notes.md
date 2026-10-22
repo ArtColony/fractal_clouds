@@ -147,6 +147,15 @@ should keep its temporaries under its own prefix.
   differences across a step flip from pixel to pixel; take normals from a
   smooth envelope and put the detail in the shading.
 
+- **Pull the scene into a library once two pieces share it.** fractal_clouds
+  did this after its second piece: one `fc_landscape.ps` that loads the
+  rest in order, does setup, and gives a general `fc-pixel` with named
+  hooks (hit, surface, sky, grade). A new piece is then settings and a
+  few hooks. Prove the refactor with a pixel diff of cheap renders before
+  and after, not by eye.
+- **Write the settings reference with only the values actually rendered**,
+  not guessed safe ranges.
+
 ### Conventions worth writing down
 - **Prefix repo libraries** (`lib/fc_noise3.ps` here; something like
   `lib/<project>_*.ps`). The render-script guard catches a clash with
@@ -186,6 +195,12 @@ should keep its temporaries under its own prefix.
   works headless.
 - **The full pscat-style SDLC** (`sdlcify`, claim/heartbeat scripts, release
   pipeline). Gallery repos don't ship releases.
+
+- **Stacked PRs merge into their base, not `main`.** GitHub retargets a
+  stacked PR to `main` only when the branch below it is deleted on merge. In
+  fractal_clouds, #12 and #37 merged into their parent branches and needed a
+  catch-up PR. Turn on "Automatically delete head branches" in a new repo, or
+  retarget each stacked PR to `main` by hand before merging it.
 
 ## Open questions
 - Skills as copies vs. the marketplace plugin (see above).

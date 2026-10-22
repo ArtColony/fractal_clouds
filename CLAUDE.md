@@ -9,6 +9,7 @@ PostScript generative art rendered with pscat. See `README.md` for setup and lay
 - Seed every piece (`N srand`) so renders reproduce.
 - A piece sets its options *before* its `(lib/...) run` lines: libraries define defaults with `fc-default`, which keeps whatever is already defined, so a setting made after loading is silently ignored (this switched antialiasing off for a 33-minute render).
 - pscat has no Ghostscript-only operators (`=only` and friends): print numbers with `N string cvs print`. When pscat output looks wrong, compare with `gs` before calling it a pscat bug.
+- New landscape pieces start from `lib/fc_landscape.ps` (settings, then hooks; see `docs/settings.md`). When a change touches it or a library under it, check that the existing pieces still render pixel-identical at a cheap setting (`-D ErN=256 -D ErDrops=20000 -D Res=0.5`) unless the change is meant to alter them.
 - Ray marching (`lib/fc_render.ps`: one ray per pixel, `fc-pixel` per piece) is the default renderer. `spikes/splat.ps` is kept for quick previews and comparison; see `docs/spikes/1-cloud-timing.md`.
 - PostScript has no locals: each `lib/` file keeps its temporaries under its own prefix, and `scripts/check_names.sh` must pass (it lists names that two libraries both `def`).
 - Repo libraries get a project prefix (`lib/fc_*.ps`). Spikes go in `spikes/`, with the write-up and its images in `docs/spikes/<issue>-<slug>`.

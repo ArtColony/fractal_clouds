@@ -1,0 +1,47 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 560 160
+% Figure for docs/techniques.html: the layers of fc-height-proc (TerrFn 3,
+% lib/fc_terrain.ps) over a 1200-unit square, seed 5. Render from the repo root:
+%   pscat --page 560x160 --dpi 144 --png docs/techniques/terrain_layers.png docs/techniques/terrain_layers.ps
+(lib/fc_sky.ps) run (lib/fc_noise2.ps) run (lib/fc_noise3.ps) run
+(lib/fc_clouds.ps) run (lib/fc_terrain.ps) run (lib/fc_render.ps) run
+5 fc-noise2-init
+/N 256 def /Sz 128 def /Row N string def /Span 1200 def
+% the same steps as fc-height-proc, stopping at each layer
+/layers {                                        % x z -> mask ridges
+    TerrScale mul exch TerrScale mul exch /Qz exch def /Qx exch def
+    /Qwx Qx 0.5 mul 11.3 add Qz 0.5 mul 2.1 add fc-noise2 0.5 sub WarpAmp 2 mul mul Qx add def
+    /Qwz Qx 0.5 mul 4.7 add Qz 0.5 mul 17.9 add fc-noise2 0.5 sub WarpAmp 2 mul mul Qz add def
+    Qwx MassifScale mul 31.1 add Qwz MassifScale mul 8.3 add fc-noise2 0.65 mul
+    Qwx MassifScale mul 2 mul 5.9 add Qwz MassifScale mul 2 mul 23.7 add fc-noise2 0.35 mul add
+    MassifLo sub MassifHi MassifLo sub div 0 fc-max 1 fc-min
+    dup dup mul exch 2 mul 3 exch sub mul
+    Qwx Qwz 5 fc-ridged 1.15 exp
+} bind def
+/shade {                                         % x z -> 0..1 hillshade + height
+    /Sz2 exch def /Sx2 exch def
+    Sx2 Sz2 7 fc-height-proc /Hc exch def
+    Sx2 3 add Sz2 7 fc-height-proc Hc sub  Sx2 Sz2 3 add 7 fc-height-proc Hc sub add neg 0.08 mul 0.45 add
+    Hc TerrBase sub TerrTop TerrBase sub div 0.6 mul add
+} bind def
+/panel {                                         % x0 {x z -> 0..1} label -> -
+    /Lab exch def /Fn exch def /X0 exch def
+    gsave X0 24 translate Sz Sz scale
+    /J 0 def
+    N N 8 [N 0 0 N neg 0 N] {
+        /Pz Span 2 div J 0.5 add N div Span mul sub def
+        0 1 N 1 sub { /I exch def
+            I 0.5 add N div Span mul Span 2 div sub Pz Fn 255 mul cvi 0 fc-max 255 fc-min Row I 3 -1 roll put
+        } for
+        /J J 1 add def Row
+    } image
+    grestore
+    /Helvetica findfont 9 scalefont setfont 0.15 setgray
+    X0 Sz 2 div add 8 moveto Lab dup stringwidth pop 2 div neg 0 rmoveto show
+} bind def
+1 setgray clippath fill
+8   { layers pop } (massif mask) panel
+146 { layers exch pop } (warped ridges) panel
+284 { layers 0.92 mul 0.18 add mul 0.06 add } (mask x ridges) panel
+422 { shade } (fc-height-proc, hillshade) panel
+showpage

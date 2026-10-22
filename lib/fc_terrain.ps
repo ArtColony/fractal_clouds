@@ -5,7 +5,8 @@
 %
 %   x z oct fc-height h            terrain height
 %   fc-terrain-hit t | -1          march the current ray (Mx My Mz from
-%                                  CamY); distance to the terrain, or -1
+%                                  CamY), starting MarchT0 along it;
+%                                  distance to the terrain, or -1
 %   t fc-terrain-shade r g b       shade the hit at distance t (linear light,
 %                                  before haze); also leaves Ky, its height
 %
@@ -22,8 +23,8 @@
 /TerrBase -6 fc-default              % valley floor
 /TerrOct 8 fc-default                % most octaves, for near terrain
 /MassifScale 0.22 fc-default         % massif wavelength, in ridge wavelengths
-/WarpAmp 0.45 fc-default
-/MassifLo 0.30 fc-default /MassifHi 0.56 fc-default  % massif mask ramp             % domain warp, in ridge wavelengths
+/WarpAmp 0.45 fc-default             % domain warp, in ridge wavelengths
+/MassifLo 0.30 fc-default /MassifHi 0.56 fc-default  % massif mask ramp
 /DetailAmp 0.16 fc-default
 /TerrOX 0 fc-default /TerrOZ 0 fc-default % where the camera stands in the procedural terrain
 /SnowLine 23 fc-default
@@ -108,9 +109,10 @@
 } bind def
 
 /TerrTop TerrH 1.25 mul TerrBase add def
+/MarchT0 0.5 fc-default             % where marches start along the ray (a reflection starts at the water)
 
 /fc-terrain-hit {                                % -> t | -1
-    /Gt 0.5 def /Gprev 0 def /Ghit -1 def
+    /Gt MarchT0 def /Gprev MarchT0 0.5 gt { MarchT0 } { 0 } ifelse def /Ghit -1 def
     {
         Gt TMax gt { exit } if
         /Gy My Gt mul CamY add def

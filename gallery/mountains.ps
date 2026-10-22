@@ -17,38 +17,6 @@
 /Threshold where { pop } { /Threshold 0.57 def } ifelse
 /CamLift where { pop } { /CamLift 0.72 def } ifelse  % camera height, as a fraction of the tallest peaks
 
-(lib/fc_sky.ps) run
-(lib/fc_noise2.ps) run (lib/fc_noise3.ps) run
-(lib/fc_clouds.ps) run
-(lib/fc_terrain.ps) run
-(lib/fc_render.ps) run
-(lib/fc_erode.ps) run
-
-Seed fc-noise2-init
-Seed 101 add fc-noise3-init
-Seed 202 add srand                          % march jitter
-
-/Erode where { pop } { /Erode true def } ifelse
-Erode { fc-erode-bake } if
-
-% a high viewpoint over the range, but always clear of the ground below it
-/CamY TerrTop CamLift mul  0 0 TerrOct fc-height 6 add  fc-max def
-
-/fc-pixel {                                 % u v -> r g b
-    fc-ray /Mz exch def /My exch def /Mx exch def
-    Mx Mz fc-haze-colour
-    fc-terrain-hit dup 0 gt {
-        /Tl exch def /FcKey Tl def
-        Tl fc-terrain-shade Tl fc-haze
-    } {
-        pop /Tl TMax def
-        My 0 lt { HazeCol aload pop } { Mx My Mz fc-sky } ifelse
-    } ifelse
-    /Bb exch def /Bg exch def /Br exch def
-    Tl fc-clouds
-    Cr Br Tr mul add  Cg Bg Tr mul add  Cb Bb Tr mul add
-    fc-tone
-} bind def
-
-320 200 fc-render
+(lib/fc_landscape.ps) run
+320 200 fc-landscape
 showpage

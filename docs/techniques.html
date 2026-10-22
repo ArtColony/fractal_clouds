@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fractal Landscapes in PostScript</title>
+<meta name="description" content="How fractal_clouds renders mountains, clouds and forests one ray per pixel in PostScript: the algorithms, the constants, what went wrong, and references.">
+<style>
+:root {
+  --bg: #fbfaf7;
+  --surface: #ffffff;
+  --ink: #1f2328;
+  --muted: #5d6570;
+  --rule: #e2e0da;
+  --accent: #2f6fb0;
+  --accent-ink: #24588f;
+  --code-bg: #f1efe9;
+  --note-bg: #eef4fa;
+  --note-rule: #b8cfe6;
+  --warn-bg: #fbf1e8;
+  --warn-rule: #e7c2a2;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #15171a;
+    --surface: #1d2024;
+    --ink: #e4e6e9;
+    --muted: #a0a7b0;
+    --rule: #33373d;
+    --accent: #7fb1e6;
+    --accent-ink: #9cc4ee;
+    --code-bg: #24282d;
+    --note-bg: #1c2733;
+    --note-rule: #34506b;
+    --warn-bg: #2d241c;
+    --warn-rule: #6b4e34;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #15171a;
+  --surface: #1d2024;
+  --ink: #e4e6e9;
+  --muted: #a0a7b0;
+  --rule: #33373d;
+  --accent: #7fb1e6;
+  --accent-ink: #9cc4ee;
+  --code-bg: #24282d;
+  --note-bg: #1c2733;
+  --note-rule: #34506b;
+  --warn-bg: #2d241c;
+  --warn-rule: #6b4e34;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 17px/1.62 Charter, "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  overflow-wrap: break-word;
+}
+main { max-width: 46rem; margin: 0 auto; padding: 2.5rem 16px 4rem; }
+h1, h2, h3, .sans, figcaption, table, nav, .meta {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+h1 { font-size: 2.1rem; line-height: 1.15; margin: 0 0 .4rem; letter-spacing: -.01em; }
+h2 { font-size: 1.45rem; margin: 3rem 0 .6rem; padding-top: .6rem; border-top: 1px solid var(--rule); }
+h3 { font-size: 1.1rem; margin: 2rem 0 .4rem; }
+p, ul, ol { margin: .7rem 0; }
+li { margin: .25rem 0; }
+a { color: var(--accent-ink); text-underline-offset: 2px; }
+.meta { color: var(--muted); font-size: .92rem; margin-bottom: 1.6rem; }
+code, pre, kbd { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .86em; }
+code { background: var(--code-bg); padding: .08em .3em; border-radius: 4px; }
+pre {
+  background: var(--code-bg); padding: .9rem 1rem; border-radius: 8px;
+  overflow-x: auto; line-height: 1.45; font-size: .82rem;
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+figure { margin: 1.6rem 0; }
+figure img { display: block; max-width: 100%; height: auto; margin: 0 auto; border-radius: 6px; }
+figure.chart img { background: #fff; padding: 6px; border: 1px solid var(--rule); }
+figure.wide { margin-left: 0; margin-right: 0; }
+figcaption { color: var(--muted); font-size: .86rem; line-height: 1.45; margin-top: .5rem; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid2 figure { margin: 0; }
+@media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
+.tablewrap { overflow-x: auto; margin: 1rem 0; }
+table { border-collapse: collapse; font-size: .88rem; width: 100%; }
+th, td { text-align: left; vertical-align: top; padding: .4rem .55rem; border-bottom: 1px solid var(--rule); }
+th { color: var(--muted); font-weight: 600; }
+td code { white-space: nowrap; }
+.note, .warn { padding: .7rem 1rem; border-radius: 8px; margin: 1.2rem 0; font-size: .95rem; }
+.note { background: var(--note-bg); border-left: 4px solid var(--note-rule); }
+.warn { background: var(--warn-bg); border-left: 4px solid var(--warn-rule); }
+.note p, .warn p { margin: .3rem 0; }
+nav.toc { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: .8rem 1.1rem; font-size: .92rem; }
+nav.toc ol { columns: 2; column-gap: 2rem; margin: .3rem 0; padding-left: 1.2rem; }
+@media (max-width: 560px) { nav.toc ol { columns: 1; } }
+.formula { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .86rem; background: var(--code-bg); padding: .5rem .8rem; border-radius: 6px; overflow-x: auto; white-space: pre; }
+ol.refs li { margin: .45rem 0; font-size: .95rem; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Fractal Landscapes in PostScript</h1>
+<p class="meta">How <a href="https://github.com/ArtColony/fractal_clouds">fractal_clouds</a> paints mountains, clouds and spruce forests one ray at a time, in a page-description language from 1984. Written for issue #11, October 2026, against pscat 0.6.2.</p>
+
+<figure class="wide">
+  <img src="../gallery/previews/alpine_forest-1280x800.png" alt="A spruce forest on a valley floor beneath a snowy, fractured massif, with cumulus clouds above." loading="lazy">
+  <figcaption><em>Alpine forest</em> (<code>gallery/alpine_forest.ps</code>), 1280×800. Every pixel is one PostScript procedure call: march a ray through the terrain and the trees, shade what it hits, haze it, march the same ray through a cloud layer, tone-map. 25.5 minutes on four cores.</figcaption>
+</figure>
+
+<nav class="toc" aria-label="Contents">
+<strong class="sans">Contents</strong>
+<ol>
+  <li><a href="#overview">The idea</a></li>
+  <li><a href="#camera">Camera and rays</a></li>
+  <li><a href="#noise">Noise</a></li>
+  <li><a href="#terrain-shape">The shape of the mountains</a></li>
+  <li><a href="#lod">Detail follows distance</a></li>
+  <li><a href="#march">Marching the heightfield</a></li>
+  <li><a href="#erosion">Hydraulic erosion</a></li>
+  <li><a href="#terrain-shade">Shading the ground</a></li>
+  <li><a href="#sky">Sky, haze and tone</a></li>
+  <li><a href="#clouds">Clouds</a></li>
+  <li><a href="#forest">The forest</a></li>
+  <li><a href="#render">Writing the image</a></li>
+  <li><a href="#landscape">Making your own landscape</a></li>
+  <li><a href="#method">How the work was done</a></li>
+  <li><a href="#perf">Speed</a></li>
+  <li><a href="#limits">Known limits</a></li>
+  <li><a href="#refs">References</a></li>
+</ol>
+</nav>
+
+<!-- ===================================================================== -->
+<h2 id="overview">1. The idea</h2>
+
+<p>PostScript is a programming language for printers: a stack machine with dictionaries, loops, real arithmetic and an <code>image</code> operator. It has no 3D graphics, no shaders and no local variables, and it runs on one core. But <code>colorimage</code> can take a <em>procedure</em> as its data source and call it for every row of pixels. That makes it a ray tracer's frame buffer: compute each pixel's colour however you like, hand the row back, and the interpreter writes it to the page.</p>
+
+<p>Everything here is computed that way, by <a href="https://github.com/PSCatLabs/pscat">pscat</a>, an open-source PostScript interpreter, at its released version. There are no polygons. Mountains, clouds and trees are all <em>functions</em>: give one a point and it says how high the ground is there, how dense the cloud, how tall the crown. A ray from the camera through each pixel is <em>marched</em>: stepped along until it hits something, with each step's length chosen so it can't jump over a surface.</p>
+
+<figure class="chart">
+  <img src="techniques/pipeline.svg" alt="Diagram: fc-ray, then landscape-hit, then either surface shading or sky, then haze, then clouds, then tone curve.">
+  <figcaption>What happens for one pixel (<code>fc-landscape-pixel</code> in <code>lib/fc_landscape.ps</code>). The cloud march runs last because it needs to know how far the ray travelled before hitting the ground: clouds behind a mountain must not show.</figcaption>
+</figure>
+
+<p>The code lives in a handful of libraries, each a plain PostScript file:</p>
+<div class="tablewrap"><table>
+<tr><th>File</th><th>What it holds</th></tr>
+<tr><td><code>lib/fc_noise2.ps</code>, <code>lib/fc_noise3.ps</code></td><td>2D and 3D noise: value noise, gradient noise, ridged and "eroded" fractal sums</td></tr>
+<tr><td><code>lib/fc_sky.ps</code></td><td>camera, sun, sky colour, aerial perspective, the tone curve</td></tr>
+<tr><td><code>lib/fc_clouds.ps</code></td><td>a ray-marched cumulus layer</td></tr>
+<tr><td><code>lib/fc_terrain.ps</code></td><td>the mountains: height function, ray march, materials, light and shadow</td></tr>
+<tr><td><code>lib/fc_erode.ps</code></td><td>water droplets that carve the terrain, baked into a map before rendering</td></tr>
+<tr><td><code>lib/fc_trees.ps</code></td><td>where trees grow, the crowns, the forest march and its shading</td></tr>
+<tr><td><code>lib/fc_render.ps</code></td><td>the per-pixel loop, antialiasing, cropping</td></tr>
+<tr><td><code>lib/fc_landscape.ps</code></td><td>loads all of the above in order and supplies a general <code>fc-pixel</code> with hooks</td></tr>
+</table></div>
+
+<p>All lighting is done in <strong>linear light</strong>: palette colours are written in ordinary sRGB, raised to the power 2.2 on load (<code>fc-colour</code>), added and multiplied as physical quantities, and only turned back into display values at the very end. Distances are in world units of roughly ten metres; the tallest peaks are 52 units above a valley floor at −6.</p>
+
+<!-- ===================================================================== -->
+<h2 id="camera">2. Camera and rays</h2>
+
+<p>The camera is a pinhole at <code>(0, CamY, 0)</code> looking along +z, with y up. A pixel's position across the frame is <code>u</code> from −1 to 1, and <code>v</code> on the same scale up the frame. <code>fc-ray</code> turns <code>(u·tan(HFov/2), v·tan(HFov/2), 1)</code> into a direction, tilts it up by <code>Pitch</code>, turns it right by <code>Yaw</code> and normalises it, leaving the three components on the stack. The pixel procedure stores them in three global names, <code>Mx My Mz</code>, which every later stage reads. PostScript has no locals, so this is how the pieces talk to one another.</p>
+
+<p>One number from the camera matters everywhere: <code>PixAng</code>, the angle one pixel covers, <code>2·tan(HFov/2) / image width</code>. Multiplied by a distance <code>t</code>, it gives the size of a pixel's footprint out there. That footprint decides how much detail is worth computing (section 5).</p>
+
+<p>The world doesn't move with the camera: <code>TerrOX</code> and <code>TerrOZ</code> slide the terrain under it instead. <em>Alpine forest</em> uses the same mountains as <em>Mountains</em>, shifted by (180, 400) so the camera stands at the edge of a valley floor.</p>
+
+<!-- ===================================================================== -->
+<h2 id="noise">3. Noise</h2>
+
+<p>Natural shapes look random but not white-noise random: they're smooth at every scale, with large features carrying smaller ones. The standard building block is <em>lattice noise</em> (Perlin, 1985): put random numbers on the points of a grid and interpolate smoothly between them. Two kinds are used here.</p>
+
+<ul>
+  <li><strong>Value noise</strong> stores a random <em>value</em> at each lattice point and blends the four (or eight, in 3D) corner values with the smoothstep curve <code>3s² − 2s³</code>. <code>fc-noise2</code> and <code>fc-noise3</code> are value noise. It's cheap, but its features are blobs sitting on the grid.</li>
+  <li><strong>Gradient noise</strong> (Perlin's original "noise") stores a random <em>slope</em> at each lattice point and is zero at every lattice point. <code>fc-gnoise2</code> is gradient noise. Its zero crossings form a connected network of lines, which turns out to matter a great deal.</li>
+</ul>
+
+<p>Both are built for speed in an interpreter. The 2D lattice is 64×64 stored as 65×65, with the last row and column copied from the first, so a cell's four corners are fixed offsets from one array index and nothing wraps in the inner loop. The 3D lattice works the same way at 33³. Measured on pscat: one <code>fc-noise3</code> call costs 1.8 µs; four octaves of 3D fBm, 8.5 µs.</p>
+
+<h3>Fractal sums</h3>
+<p><strong>fBm</strong> (fractional Brownian motion) adds octaves of noise, each at twice the frequency and half the amplitude of the last, so detail appears at every scale. In the 2D terrain sums (<code>fc-ridged</code>, <code>fc-eroded</code>) every octave is also rotated by about 37° and offset (<code>x' = 1.6x − 1.2y + 3.1</code>, <code>y' = 1.2x + 1.6y + 7.7</code>: twice the frequency and a rotation). Without that, the lattice axes of all the octaves line up and the eye finds the grid. (The 3D cloud fBm, <code>fc-fbm3</code>, only scales each octave by 2.03 and offsets it.)</p>
+
+<p>A <strong>ridged multifractal</strong> (Musgrave, in <em>Texturing &amp; Modeling</em>) turns noise into mountain ridges. Each octave is folded, <code>r = (1 − 1.6·|n|)²</code>, so every zero crossing of the noise becomes a sharp crest. Each octave is then weighted by the previous octave's value (<code>w = min(2r, 1)</code>), so fine detail piles up on the ridges and the valleys between them stay smooth, as real erosion leaves them. That's <code>fc-ridged</code>.</p>
+
+<figure class="chart">
+  <img src="techniques/ridged.svg" alt="Three plots: gradient noise and its folded ridge; five ridged octaves stacked; the massif mask curve.">
+  <figcaption>Left: one octave of gradient noise and its fold. Centre: five octaves of <code>fc-ridged</code> stacked, the coarse ones carrying the fine. Right: the massif mask (section 4). Computed by <code>docs/techniques/make_figures.py</code> from the same formulas (with its own random tables).</figcaption>
+</figure>
+
+<div class="warn">
+<p><strong>What went wrong:</strong> the first ridged noise was built on value noise. Its zero crossings aren't a network; they're closed contours around blobs, so every ridge became a ring, and the range looked like a field of craters. Switching the ridges to gradient noise fixed it at once.</p>
+</div>
+
+<figure>
+  <img src="techniques/noise_maps.png" alt="Four noise maps: blurry value noise; cloudy value-noise fBm; ridged noise on value noise showing rings; ridged noise on gradient noise showing connected ridges." loading="lazy">
+  <figcaption>The same window in four noises, rendered by pscat from <code>docs/techniques/noise_maps.ps</code>. The third is <code>fc-ridged</code>'s recipe on value noise: rings. The fourth is <code>fc-ridged</code> itself: connected ridge lines.</figcaption>
+</figure>
+
+<h3>Eroded fBm</h3>
+<p><code>fc-eroded</code> is fBm whose octaves are damped where the ground is already steep: each octave is divided by <code>1 + |g|²</code>, where <code>g</code> is the slope accumulated from the octaves before it. Steep slopes stay smooth, as if runoff had cleaned them, and detail gathers on flats and crests. Computing the slope needs the noise's derivative, which value noise gives analytically: <code>fc-noise2d</code> returns the value and both partial derivatives in one call. Both ideas are Inigo Quilez's (his articles on <a href="https://iquilezles.org/articles/morenoise/">value noise derivatives</a> and <a href="https://iquilezles.org/articles/fbm/">fBm</a>).</p>
+
+<!-- ===================================================================== -->
+<h2 id="terrain-shape">4. The shape of the mountains</h2>
+
+<p>One fractal everywhere gives an even, monotonous texture: mountains of the same height in all directions. Real ranges have structure at the largest scale too, with massifs and broad valleys. So <code>fc-height-proc</code> (in <code>lib/fc_terrain.ps</code>) builds the height as a hierarchy, in units of the main ridge wavelength (<code>TerrScale</code> 0.011, so about 90 world units):</p>
+
+<ol>
+  <li><strong>Domain warp.</strong> Before anything is evaluated, the point is pushed around by two smooth value noises at half the ridge frequency, by up to ±0.45 wavelength (<code>WarpAmp</code>). Ridges then wander instead of running straight (Quilez, <a href="https://iquilezles.org/articles/warp/">domain warping</a>).</li>
+  <li><strong>Massif mask.</strong> Two very low octaves of value noise (wavelength 1/<code>MassifScale</code> = 4.5 ridge wavelengths), pushed through a smoothstep between <code>MassifLo</code> 0.30 and <code>MassifHi</code> 0.56. The result, <code>Hm</code>, is near 0 in broad valleys and near 1 over the ranges.</li>
+  <li><strong>Ridges.</strong> <code>fc-ridged</code>, capped at five octaves so peaks don't sprout needles, raised to the power 1.15 to sharpen the crests.</li>
+  <li><strong>Gullies and texture.</strong> <code>fc-eroded</code> at 2.6× the ridge frequency on the remaining octaves, scaled by <code>DetailAmp</code> 0.16.</li>
+</ol>
+
+<div class="formula">height = TerrBase + TerrH · ( detail·(0.4 + 0.6·Hm) + Hm·(0.92·ridges + 0.18) + 0.06 )</div>
+
+<p>Valleys keep 40% of the small detail, so they aren't glassy, but almost none of the ridges.</p>
+
+<figure>
+  <img src="techniques/terrain_layers.png" alt="Four maps: the massif mask; warped ridges; their product; the final terrain hillshade." loading="lazy">
+  <figcaption>The layers over a 1200-unit square at seed 5 (<code>docs/techniques/terrain_layers.ps</code>): the mask, the ridges, their product, and the finished <code>fc-height-proc</code> as a hillshade. The smooth patches on the right are valley floors.</figcaption>
+</figure>
+
+<figure>
+  <img src="techniques/heightmap.png" alt="Top-down hillshade of the terrain with a red dot for the camera and two red lines for its field of view." loading="lazy" style="width:min(100%, 360px)">
+  <figcaption><code>spikes/heightmap.ps</code>: the terrain from above, with the camera of <em>Mountains</em> (red) and its field of view. A map like this found out why an early render showed no mountains at all: the camera was looking across lowland.</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2 id="lod">5. Detail follows distance</h2>
+
+<p>A mountain 800 units away still has eight octaves of noise in its formula, but most of them are smaller than a pixel there. Computing them wastes time, and worse, sampling detail finer than a pixel at one point per pixel is <em>aliasing</em>: it shows up as sparkle and grain near the horizon. So every fractal here stops at the octave whose features are about two pixels across at that distance.</p>
+
+<div class="formula">terrain octaves = clamp( log2( 1 / (2 · t · PixAng · TerrScale) ), 2, TerrOct )      (fc-terrain-oct)
+cloud octaves   = clamp( floor( log(1 / (2 · t · PixAng · NoiseScale)) / log 2.03 ) + 1, 1, DensOct )</div>
+
+<p>The terrain's count is a real number: the last, fractional octave is faded in by its fraction, so detail doesn't pop as the distance changes. Surface normals are measured the same way, by differencing over two pixel footprints (<code>Ke = max(2·t·PixAng, 0.08)</code>), not a fixed tiny step. And a bigger image automatically gets more detail at every distance, because <code>PixAng</code> shrinks.</p>
+
+<figure class="chart">
+  <img src="techniques/octaves.svg" alt="Plot of octave count against distance for terrain and clouds at 320 and 1280 pixels wide.">
+  <figcaption>Octaves evaluated against distance, for a 320-pixel and a 1280-pixel frame at the default 64° field of view.</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2 id="march">6. Marching the heightfield</h2>
+
+<p>A heightfield can't be intersected with a ray in closed form, so the ray is stepped forward and the ground height checked at each point (Quilez, <a href="https://iquilezles.org/articles/terrainmarching/">terrain raymarching</a>). The art is in the step length. Too long and the ray tunnels through a ridge; too short and the render takes all night.</p>
+
+<p>The basic march, <code>fc-terrain-hit</code>, steps by a fraction of the <em>clearance</em>, the height of the ray above the ground directly below it: <code>step = max(0.42·d, 0.2 + 0.004·t)</code>. If the ground can't be steeper than a certain slope, a fraction of the clearance can't overshoot. The floor keeps distant rays from crawling. When a sample lands below ground, the last two samples bracket the surface, and five bisections home in on it.</p>
+
+<figure class="chart">
+  <img src="techniques/march.svg" alt="A terrain profile with a descending ray stepping toward it; steps shrink as the clearance shrinks, then a zoomed view of the bisection.">
+  <figcaption>Steps shrink as the ray nears the ground, then bisection pins down the crossing. Terrain and ray here are illustrative; the step rule is <code>fc-terrain-hit</code>'s.</figcaption>
+</figure>
+
+<h3>A smarter bound: the slope map</h3>
+<p>The fixed factor 0.42 assumes the worst slope everywhere. Counting calls showed what that cost: in the forest view, 86 of the 92 <code>fc-height</code> calls per pixel were in the march, mostly rays skimming low over gentle valley floors. So <code>fc-forest-hit</code> uses a <em>Lipschitz bound</em> instead, the same reasoning as Hart's sphere tracing (1996). If the ground rises at most <code>L</code> per unit of horizontal distance, and the ray's horizontal speed is <code>hor</code> and its fall is <code>−My</code>, ray and ground can close at most <code>L·hor + max(0, −My)</code> per unit of travel. So it is safe to step</p>
+<div class="formula">step = 0.9 · clearance / ( L·hor + max(0, −My) )</div>
+<p>with <code>L</code> read from a slope map baked alongside the forest (the steepest slope within a texel of each texel, times 1.25, plus 0.6 for the octaves the map doesn't hold). On gentle ground that's a much longer step. It cut the above-tree steps by 30–50%.</p>
+
+<!-- ===================================================================== -->
+<h2 id="erosion">7. Hydraulic erosion</h2>
+
+<p>Noise makes convincing ridges but not drainage: real mountains are carved by water into branching gullies with fans of sediment where they flatten out. No closed-form noise does that, so it's simulated before rendering, with the particle method described by Hans Beyer (2015) and popularised by Sebastian Lague's <a href="https://github.com/SebLague/Hydraulic-Erosion">Hydraulic-Erosion</a>.</p>
+
+<p><code>fc-erode-bake</code> samples the terrain (five octaves) on a grid, <code>ErN</code>² texels covering an <code>ErSize</code> 1150-unit square centred <code>ErDist</code> 430 units ahead of the camera. Then it drops <code>ErDrops</code> water droplets at random. Each droplet, for up to 48 steps:</p>
+<ul>
+  <li>moves one texel downhill, keeping a little of its old direction (inertia 0.06);</li>
+  <li>can carry sediment in proportion to its speed, water and the drop it just made (capacity 0.6);</li>
+  <li>below capacity, digs (rate 0.35), but never deeper than the drop it just made, so it can't dig holes;</li>
+  <li>above capacity, or going uphill, deposits (rate 0.04), filling the pit it climbed out of first;</li>
+  <li>speeds up going down (gravity 4), and evaporates 1.5% per step.</li>
+</ul>
+
+<figure>
+  <img src="techniques/erosion.png" alt="Three panels: a hillshade with droplet paths; a map of height change, brown for cut and green for fill; the eroded hillshade." loading="lazy">
+  <figcaption>The same algorithm and constants in Python (<code>make_figures.py</code>), on a small 160² ridged map. The change map shows channels cut into slopes and pits filled.</figcaption>
+</figure>
+
+<div class="warn">
+<p><strong>What went wrong:</strong> replacing the terrain with the eroded map lost all its crispness. A bilinear lookup showed every texel as a flat facet; a smoother B-spline rounded every ridge off. The fix was to keep only the <em>change</em> erosion made (<code>ErDelta</code>, the default) and add it to the full procedural terrain, which keeps its eight octaves of detail and gains drainage on top. The change is read with a Catmull–Rom cubic over 4×4 texels (it passes through the texel values and has a continuous slope, so normals don't facet), and its weight fades to zero over the map's outer 6% so there's no seam.</p>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="terrain-shade">8. Shading the ground</h2>
+
+<p><code>fc-terrain-shade</code> takes the hit distance and returns a colour. Quilez's article on <a href="https://iquilezles.org/articles/outdoorslighting/">outdoor lighting</a> is the model: three lights do most of the work outdoors, the sun, the sky dome and light bounced off the ground.</p>
+
+<div class="formula">colour = albedo · ( SunCol · 1.5 · sun  +  SkyAmb · SkyLight · sky  +  Bounce · 0.35 · bounce )</div>
+<ul>
+  <li><strong>sun</strong> is <code>max(N·L, 0)</code> times the cast shadow;</li>
+  <li><strong>sky</strong> is <code>(0.6 + 0.4·Ny)</code> times sky visibility: faces turned up see more sky;</li>
+  <li><strong>bounce</strong> is <code>0.5·(1 − Ny)</code> times sky visibility: faces turned down see the lit ground.</li>
+</ul>
+
+<p><strong>Sky visibility and concavity</strong> come from four extra height samples on a ring 7 units out. How far the ground rises around the point is a crude horizon test, and how far the point sits below the ring's mean says whether it's in a hollow or on a crest.</p>
+
+<p><strong>Materials</strong> are mixed by rules, not painted:</p>
+<ul>
+  <li>rock in two tones with faint strata, <code>sin(90·h + 140·noise)</code>, so the bands follow height but wander;</li>
+  <li>scree on gentler slopes below cliffs;</li>
+  <li>broad patches of darker and lighter rock, and fine mottling: the mottling is what makes near ground read as rock rather than plastic;</li>
+  <li>snow above a snowline that is shifted up by 0 to 16 units by a broad noise, only on ground flat enough to hold it, more in hollows and sheltered spots and on faces turned away from the sun, then thresholded into connected fields.</li>
+</ul>
+
+<p><strong>Fractured rock.</strong> Steep, snow-free ground gets its shading normal tilted by a three-octave value-noise gradient (<code>BumpAmp</code> 0.55), so faces break into planes in the light. The geometry doesn't change; only the light does. This was the change that first won a blind comparison in both orders.</p>
+
+<h3>Shadows</h3>
+<p><code>fc-terrain-shadow</code> marches from the point toward the sun over a coarse, four-octave terrain and keeps the closest approach as a soft penumbra, <code>min(10 · clearance / distance)</code>: a ray that only just clears a ridge is partly shadowed (Quilez, <a href="https://iquilezles.org/articles/rmshadows/">soft shadows</a>). Then one cloud density sample, where the sun ray crosses the middle of the cloud layer, dims the light under clouds.</p>
+
+<div class="warn">
+<p><strong>What went wrong:</strong> the coarse shadow terrain stands higher than the detailed surface in places, by about the height of the octaves it leaves out, so every point started "inside" the mountain and came out black. The march now starts from a lifted point (<code>ShadBias</code> = TerrH · 0.5<sup>4</sup> · 0.8 ≈ 2.6 units).</p>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="sky">9. Sky, haze and tone</h2>
+
+<p><code>fc-sky</code> blends a <code>Zenith</code> colour into a <code>Horizon</code> colour by <code>(1 − dy)⁴</code>, then adds the sun as three lobes of <code>μ = cos(angle to the sun)</code>: a wide glow (<code>0.10·μ⁸</code>), a halo (<code>0.30·μ⁶⁴</code>) and the disc (<code>40·μ⁴⁰⁹⁶</code>).</p>
+
+<p><strong>Aerial perspective</strong> is what makes distance read: far mountains fade toward the colour of the sky behind them. The air here thins with height, density <code>e^(−y/HazeH)</code> with <code>HazeH</code> 45, so a ray looking down into a valley crosses more haze than one grazing the peaks. For exponential air, the total along a straight ray has a closed form (Quilez, <a href="https://iquilezles.org/articles/fog/">better fog</a>), so <code>fc-haze</code> computes it exactly instead of marching:</p>
+<div class="formula">depth = e^(−CamY/H) · t · (1 − e^(−My·t/H)) / (My·t/H)
+haze  = 1 − e^(−depth / HazeDist)        colour = mix(surface, HazeCol, haze)</div>
+<p><code>HazeCol</code> is the sky's own colour just above the horizon in the ray's direction, so haze toward the sun is warmer.</p>
+
+<figure class="chart">
+  <img src="techniques/haze.svg" alt="Plot of haze transmittance against distance for four ray slopes.">
+  <figcaption>How much of the surface's own colour survives, against distance, for rays looking slightly down, level and up (camera at height 8, <code>HazeDist</code> 520).</figcaption>
+</figure>
+
+<p><strong>Tone.</strong> Light values add up past 1 where the sun hits snow. <code>fc-tone</code> compresses them smoothly with an exposure curve, <code>1 − e^(−Exposure·c)</code> (<code>Exposure</code> 1.6), then gamma-encodes with a plain 2.2 power, close to but not exactly the sRGB curve.</p>
+
+<div class="warn">
+<p><strong>What went wrong:</strong> the first renders wrote linear values straight to 8 bits. Shadows crushed to black and lit faces looked metallic. Converting the palette to linear, lighting in linear and encoding once at the end fixed both.</p>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="clouds">10. Clouds</h2>
+
+<p>Clouds are a density field between <code>CloudLo</code> and <code>CloudHi</code>, marched front to back. The model borrows from the cloud system in Schneider and Vos's <a href="https://advances.realtimerendering.com/s2015/">Horizon Zero Dawn talk</a> (SIGGRAPH 2015), cut down to what an interpreter can afford.</p>
+
+<p><strong>Density</strong> (<code>fc-density</code>) is 3D value-noise fBm, squashed vertically by 1.6, minus a <code>Threshold</code>, so only the high parts become cloud. A height profile, <code>min(6h, 1)·min(1.6(1 − h), 1)</code>, rounds the bases and tops by raising the threshold near them. A 2D coverage map (<code>CoverAmp</code>, <code>CoverScale</code>) moves the threshold over large areas, so clouds gather into groups with clear sky between.</p>
+
+<p><strong>The march</strong> (<code>fc-clouds</code>) finds where the ray enters and leaves the layer, stops early at the ground hit, and steps <code>(t1 − t0)/CloudSteps + 0.012·t</code>: steps grow with distance, which removed horizon grain. The first step is jittered by a random fraction so step boundaries don't show as bands. Each sample's opacity is Beer–Lambert, <code>1 − e^(−Sigma·density·step)</code>. Light is accumulated front to back, weighted by the transmittance so far, and the march stops once less than 1% gets through.</p>
+
+<p><strong>Lighting</strong> (<code>fc-cloud-light</code>) at each sample:</p>
+<ul>
+  <li><strong>Sun:</strong> two density probes toward the sun (at 3.2 and 6.4 units, three octaves) give the optical depth to the sun and its transmittance <code>e^(−depth)</code>.</li>
+  <li><strong>Edges</strong> (<code>0.4 + 0.6·(1 − e^(−2.5·Sigma·density))</code>): thin edges scatter less light toward the eye than the body, the "powder" effect, which outlines cumulus.</li>
+  <li><strong>Phase:</strong> forward scattering, the bright silver lining toward the sun, from a Henyey–Greenstein phase function with g = 0.45, scaled by 0.25 and lifted by 0.55 so the side away from the sun doesn't go dark.</li>
+  <li><strong>Multiple scattering:</strong> <code>0.45·e^(−0.25·depth)</code>, a stand-in for light bounced many times inside the cloud. It keeps thick interiors from going flat grey.</li>
+  <li><strong>Ambient sky:</strong> blended from <code>AmbBot</code> to <code>AmbTop</code> by height in the layer.</li>
+</ul>
+<p>Each sample is hazed by its own distance.</p>
+
+<figure class="chart">
+  <img src="techniques/phase.svg" alt="Plots of the cloud phase function against scattering angle, cartesian and polar.">
+  <figcaption><code>fc-phase</code>: Henyey–Greenstein (1941) with g = 0.45, as used. Strongly forward, but never below 0.55.</figcaption>
+</figure>
+
+<h3>Why marching rather than splatting</h3>
+<p>The first spike (<code>docs/spikes/1-cloud-timing.md</code>) compared ray marching with "splatting": drawing clouds as thousands of translucent discs, back to front, with pscat's <code>setalpha</code>. At equal quality both took about 22 s at 320×200. But splats showed purple and cyan fringes, and a test with exactly the same discs blended in floating point showed none. pscat's alpha compositing loses precision over many faint layers (logged as pscat issue 5). A ray marcher composites in its own variables and writes each pixel once, so it can't hit that.</p>
+
+<div class="grid2">
+  <figure><img src="spikes/1-cloud-timing/raymarch-320x200.png" alt="Ray-marched clouds" loading="lazy"><figcaption>Ray marched, 21.7 s</figcaption></figure>
+  <figure><img src="spikes/1-cloud-timing/splat-cell1-fringe.png" alt="Splatted clouds with purple fringes" loading="lazy"><figcaption>Splatted: fringes from 8-bit compositing</figcaption></figure>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="forest">11. The forest</h2>
+
+<p>Trees were the hardest part, because they're small, numerous and full of holes. A spruce crown is many metres of shadowed branches that a pixel might average, or one branch tip that catches the sun. <code>lib/fc_trees.ps</code> treats the forest as one more heightfield standing on the ground. It answers three questions: <em>where</em> trees grow, <em>what shape</em> each crown has, and how to march and shade them cheaply.</p>
+
+<h3>Where trees grow</h3>
+<p><code>fc-forest-bake</code> evaluates a density between 0 and 1, and a height scale, on a 384² map covering 700 units centred 300 ahead of the camera. The rules (<code>fc-forest-dens</code>) follow how real treelines behave (Körner, <em>Alpine Treelines</em>):</p>
+<ul>
+  <li><strong>A treeline</strong> at height <code>FsLine</code> 20, wandering ±5 units with noise. It climbs on ribs and drops in gullies: the ground's curvature, measured on the map over three texels, shifts it by up to <code>FsCurve</code> 3. Avalanches and streams keep trees out of gullies.</li>
+  <li><strong>Not on steep rock:</strong> density fades out as the slope steepens from about 37° to 46°.</li>
+  <li><strong>Clearings and groves:</strong> one noise cuts clearings and thins stands; a finer one, with features about 8 units across, makes groves within them.</li>
+  <li><strong>Meadows</strong> on the flattest, lowest valley floor.</li>
+  <li><strong>Stunted trees:</strong> a sparse scatter above the line. Trees near the line are shorter.</li>
+</ul>
+
+<h3>Which trees, and where exactly</h3>
+<p>The ground is divided into cells <code>FsCell</code> 1.3 units wide, with one candidate tree per cell. A hash of the cell's coordinates gives the tree its random numbers. It's kept if one of them is under the density, and the others jitter its centre by up to ±0.45 cell and choose its height. A quarter of the trees are young or suppressed at about half height; the rest are <code>FsHMin</code> 1.6 to <code>FsHMax</code> 3.2 units (16–32 m). Each crown's radius is about 0.28 × its height.</p>
+
+<p>The radius is capped at 0.55 cell, and that cap is what makes the search cheap. A point in cell <code>i</code> lies before the edge at <code>i + 1</code>. A tree two cells over has its centre past <code>i + 2.05</code>, and its crown reaches back no further than <code>i + 1.5</code>. So only the 3×3 cells around a point can hold a crown that covers it: nine hash lookups, no matter how big the forest.</p>
+
+<figure class="chart">
+  <img src="techniques/cells.svg" alt="Grid of cells with jittered crown circles; a query point and the 3 by 3 block of cells around it highlighted." loading="lazy" style="width:min(100%, 420px)">
+  <figcaption>Jittered cells. Only crowns from the highlighted 3×3 block can reach the query point.</figcaption>
+</figure>
+
+<h3>The crown</h3>
+<p>A crown is a heightfield too: above each point near the trunk, how high is the tree? <code>fc-tree-prof</code> builds a spruce from <code>FsTiers</code> 9 whorls of branches. Whorl <code>k</code> hangs from the trunk at <code>k/9</code> of the tree's height, reaches out to the cone envelope <code>y = 1 − u</code>, and droops toward its tip by <code>FsDroop·(u/reach)^2.5</code>, most at the tips, like real spruce branches. Seen from above, the surface at distance <code>u</code> from the trunk belongs to the topmost whorl that reaches that far. Where that whorl's drooping tip ends, the next whorl down takes over, and since its branch hasn't drooped as far there, the surface steps slightly <em>up</em> (see the figure). Each whorl's reach is also shortened by up to 15% depending on direction around the trunk, and by up to 20% from whorl to whorl, so the outline is ragged, not a perfect cone.</p>
+
+<div class="grid2">
+  <figure class="chart"><img src="techniques/crown.svg" alt="Crown profile: dashed cone envelope, green whorl curves, and the black stepped surface." loading="lazy"><figcaption>The profile at true proportions, ragged reach off. Black: the surface. Green: each whorl's branch. Note the small upward step where each whorl's drooping tip ends and the whorl below takes over.</figcaption></figure>
+  <figure><img src="techniques/tree_side.png" alt="Five grey spruce silhouettes from the side." loading="lazy"><figcaption><code>spikes/tree_side.ps</code>: five crowns from the library, orthographic side view, darker toward the viewer. This spike was used to fix proportions that only looked like slivers in the forest.</figcaption></figure>
+</div>
+
+<h3>Level of detail</h3>
+<p>Whorls are wasted, and alias, once a crown is a few pixels wide. Two weights fade them out. Branch detail (raggedness and whorl steps) fades as the crown's radius falls from 12 to 4 pixels, leaving the smooth envelope. Below about 2 pixels, <code>fc-forest-w</code> fades the separate crowns into a <em>canopy slab</em>: a smooth layer at the forest's mean height, coloured by the ground shader as a mottled texture no finer than three pixels.</p>
+
+<figure class="chart">
+  <img src="techniques/lod.svg" alt="Plot: crown weight and whorl detail weight against distance for 320 and 1280 pixel frames." loading="lazy">
+  <figcaption>The two fades against distance, for <em>Alpine forest</em>'s 50° field of view.</figcaption>
+</figure>
+
+<h3>Marching the forest</h3>
+<p><code>fc-forest-hit</code> replaces the terrain march. Above the tallest possible tree it takes the slope-bounded steps of section 6. Inside the tree band it steps by the larger of two safe distances: 15% of the height above the crowns below, or the horizontal distance to the nearest crown (<code>FcHc</code>, which the 3×3 search provides). That's the step that lets a ray slip between trunks. On overshooting, six bisections find the surface, and a final check records whether a crown or the ground was hit (<code>FsMat</code>).</p>
+
+<h3>Shading the crowns</h3>
+<ul>
+  <li><strong>Normals from the envelope.</strong> The stepped whorl surface is useless for normals (see below), so the normal comes from the smooth cone, tilted by noise laid out around the trunk and up the whorls, like foliage clumps along the branches.</li>
+  <li><strong>Whorl light and gaps.</strong> Each whorl's top catches light and its underside doesn't. Noise opens dark gaps between branch clumps into the crown's interior. Both fade with the level of detail.</li>
+  <li><strong>Two-tone needles.</strong> Needles are warm olive (<code>FsAlb</code>) where the sun reaches them and blue-green (<code>FsShade</code>) where only the sky does, which is how spruce reads in photographs. Each tree gets its own tint and brightness.</li>
+  <li><strong>Light through the canopy.</strong> The sun term is wrapped diffuse, <code>(N·L + 0.25)/1.25</code>, since needles scatter light around the crown. It's multiplied by the terrain shadow and by <code>fc-tree-sunvis</code>: six probes toward the sun, up to 2.9 units out, each one inside another crown cutting the light to 30%. Sky light falls off low in the crown and in dense stands.</li>
+</ul>
+
+<div class="warn">
+<p><strong>What went wrong (several times):</strong></p>
+<ul>
+  <li><em>Grey speckle in the crowns.</em> A false-colour render of the materials showed the cause: it was the ground seen through gaps, lit as bare rock. The fix was a dark needle-litter floor under trees (the ground shader's material hook darkens it, adds the crowns' shadows and hides most of the sky).</li>
+  <li><em>Crowns poking through the cell search.</em> A raggedness factor let crowns grow past their radius, which broke the 3×3 argument above. It's now capped.</li>
+  <li><em>Inverted facets.</em> An early tier formula made the surface rise outward. Rendering normals as colours found it.</li>
+  <li><em>Noise from normals.</em> Normals by finite differences across the whorl steps flipped from pixel to pixel. The lesson: <strong>don't difference a discontinuous surface</strong>. Take normals from a smooth envelope and put the detail in the shading.</li>
+</ul>
+</div>
+
+<h3>The forest from round to round</h3>
+<div class="grid2">
+  <figure><img src="forest/iter01-320.png" alt="Forest iteration 1" loading="lazy"><figcaption>Round 1: cones with tiers</figcaption></figure>
+  <figure><img src="forest/iter04-320.png" alt="Forest iteration 4" loading="lazy"><figcaption>Round 4: drooping whorls, groves, two-tone needles</figcaption></figure>
+  <figure><img src="forest/iter01-crop.png" alt="Close crop of iteration 1 crowns" loading="lazy"><figcaption>Round 1, full-detail crop</figcaption></figure>
+  <figure><img src="forest/iter03-crop.png" alt="Close crop of iteration 3 crowns" loading="lazy"><figcaption>Round 3, full-detail crop</figcaption></figure>
+</div>
+
+<!-- ===================================================================== -->
+<h2 id="render">12. Writing the image</h2>
+
+<p><code>fc-render</code> (<code>lib/fc_render.ps</code>) sizes the image from the page and the requested DPI. <code>matrix defaultmatrix</code> reveals device pixels per point, so <code>--dpi 144</code> doubles the detail without changing the program. It then calls <code>colorimage</code> with a procedure that computes and returns one row of RGB bytes per call. Rows are produced top first, so a seeded random sequence gives the same picture every time.</p>
+
+<p><strong>Antialiasing where it matters.</strong> Most of a landscape is smooth; the jaggies are at depth edges, a ridge against the sky or a crown against the ground behind it. Each pixel records its hit distance (<code>FcKey</code>, −1 for sky). If that differs by more than 8% from the pixel to its left or the one above, or one is sky and the other isn't, the pixel gets four extra samples in a rotated-grid pattern and the five are averaged. In the 1280×800 <em>Mountains</em>, 7,430 pixels needed it.</p>
+
+<figure class="chart">
+  <img src="techniques/aa.svg" alt="Left: one pixel with a centre sample and four rotated-grid samples. Right: a grid of hit distances with edge pixels shaded." loading="lazy">
+  <figcaption>The rotated-grid samples (offsets ±0.125 and ±0.375 pixel), and which pixels get them.</figcaption>
+</figure>
+
+<p><strong>Crops and bands.</strong> A 1280×800 render takes half an hour or more, and a 320-pixel preview misjudges fine detail. Two tools help:</p>
+<ul>
+  <li><code>/Crop [x0 y0 x1 y1]</code> (fractions of the frame from the top left) renders just that rectangle, at the full frame's detail, in minutes.</li>
+  <li><code>scripts/render_bands.sh</code> runs one pscat per horizontal band, each with a crop, on separate cores, then stitches them. pscat is single-threaded, so four bands give about 4×.</li>
+</ul>
+<p>Every band repeats the setup (bakes included), so the seeded scene is identical; only the cloud-march jitter differs, and it is statistically the same.</p>
+
+<!-- ===================================================================== -->
+<h2 id="landscape">13. Making your own landscape</h2>
+
+<p><code>lib/fc_landscape.ps</code> wraps everything above into a scene a new piece can use with settings and a few lines of PostScript. A piece sets its options, loads that one file, and asks for the page:</p>
+
+<pre><code>%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+/Seed where { pop } { /Seed 12 def } ifelse
+/TreesOn where { pop } { /TreesOn true def } ifelse
+/SunDir where { pop } { /SunDir [ 0.6 0.25 0.5 ] def } ifelse
+/SnowLine where { pop } { /SnowLine 30 def } ifelse
+(lib/fc_landscape.ps) run
+
+% optional: warm the whole picture a little (linear light, before the tone curve)
+/fc-landscape-grade { 3 -1 roll 1.08 mul 3 1 roll } def
+
+320 200 fc-landscape
+showpage</code></pre>
+
+<p>Each option uses the <code>/Name where { pop } { ... } ifelse</code> form so that <code>scripts/render.sh -D Name=value</code> can override it from the command line.</p>
+
+<div class="note">
+<p><strong>Settings go before the libraries.</strong> Every library sets its defaults with <code>fc-default</code>, which keeps a value that's already defined. A setting made <em>after</em> <code>(lib/fc_landscape.ps) run</code> in the <code>/Name where</code> form is skipped, because the name already exists, and even a plain <code>def</code> misses every value a library worked out when it loaded. That once switched antialiasing off for a 33-minute render. Hooks are different: they are procedures, redefined after loading.</p>
+</div>
+
+<p><strong>Options the scene itself owns:</strong></p>
+<div class="tablewrap"><table>
+<tr><th>Option</th><th>Default</th><th>What it does</th></tr>
+<tr><td><code>Seed</code></td><td>5</td><td>one number seeds everything: noise, erosion, trees, march jitter</td></tr>
+<tr><td><code>TreesOn</code></td><td>false</td><td>load the forest; also turns off the terrain's painted-on forest colour</td></tr>
+<tr><td><code>Erode</code></td><td>true</td><td>bake droplet erosion over the view</td></tr>
+<tr><td><code>CamLift</code></td><td>0</td><td>if above 0, camera height as a fraction of the tallest peaks (but at least <code>CamAbove</code> over the ground)</td></tr>
+<tr><td><code>CamAbove</code></td><td>6</td><td>otherwise, camera height above the ground beneath it</td></tr>
+<tr><td><code>CamHeight</code></td><td>null</td><td>a number puts the camera at exactly that height</td></tr>
+</table></div>
+<p>Every other library's options (camera, sun, sky colours, haze, cloud layer, terrain shape, snow, erosion, forest) are listed in <a href="settings.md">settings.md</a>.</p>
+
+<p><strong>Setup order matters.</strong> <code>fc-landscape-setup</code> seeds the 2D noise with <code>Seed</code>, the 3D noise with <code>Seed + 101</code> and the trees with <code>Seed + 303</code>. It then seeds the random stream with <code>Seed + 202</code>, bakes erosion (whose droplets draw from that stream, so reordering changes every pixel) and then the forest, and finally places the camera.</p>
+
+<p><strong>Hooks.</strong> <code>fc-pixel</code> calls four procedures by name, so a piece can replace any of them after loading:</p>
+<div class="tablewrap"><table>
+<tr><th>Hook</th><th>Stack</th><th>Default</th></tr>
+<tr><td><code>fc-landscape-hit</code></td><td>– → t | −1</td><td>the forest march if trees are on, else the terrain march</td></tr>
+<tr><td><code>fc-landscape-surface</code></td><td>t → r g b</td><td>crown or ground shading (linear light, before haze)</td></tr>
+<tr><td><code>fc-landscape-sky</code></td><td>dx dy dz → r g b</td><td>the sky above the horizon, the horizon haze colour below it</td></tr>
+<tr><td><code>fc-landscape-grade</code></td><td>r g b → r g b</td><td>nothing; the last change before the tone curve</td></tr>
+</table></div>
+<p>While a hook runs, <code>Mx My Mz</code> is the pixel's ray. After the surface or sky, <code>LnT</code> is the hit distance and <code>LnR LnG LnB</code> the colour before clouds. A new kind of surface, a lake for instance, is a hit hook that also tests a plane and a surface hook that shades it; <code>gallery/evening_lake.ps</code> does this. A piece can also write its own <code>fc-pixel</code> from the same parts.</p>
+
+<!-- ===================================================================== -->
+<h2 id="method">14. How the work was done</h2>
+
+<ul>
+  <li><strong>Render, then look.</strong> Every change was rendered and the PNG inspected; numbers alone missed most problems.</li>
+  <li><strong>Diagnostic spikes beat staring at the final render.</strong> Small single-purpose renders in <code>spikes/</code> settled questions quickly: a top-down height map (where is the camera looking?), ground banded by height and slope (where can trees grow?), materials in false colour (is that speckle ground or crown?), normals as colour (why is it noisy?), one crown from the side (are the proportions right?), call counters (where does the time go?).</li>
+  <li><strong>Blind pairwise review.</strong> Renders were judged by a second model (OpenAI's Codex), shown two images without labels and asked which is more realistic and which more pleasing, <em>in both orders</em>. Its absolute 1–10 scores stopped moving early (3/10 for the mountains, 4/10 for the trees, however much the images improved). A preference that holds in both orders was the useful signal; one that flips with the order means "can't tell", and the human eye decides.</li>
+  <li><strong>Test the cheapest explanation first.</strong> A critique's "where" is a symptom; its suggested fix is a hypothesis. Rendering with one layer switched off is usually the quickest test.</li>
+  <li><strong>Crops before long renders.</strong> Exact final settings were checked on small full-detail crops before committing to half an hour of CPU.</li>
+  <li><strong>Compare with Ghostscript</strong> before blaming the interpreter. pscat problems found along the way are logged in <code>docs/pscat-issues.md</code>.</li>
+</ul>
+
+<div class="grid2">
+  <figure><img src="../gallery/previews/mountains-draft-01.png" alt="Mountains draft 1: smooth melted-looking ridges" loading="lazy"><figcaption>Mountains, draft 1: "melted wax"</figcaption></figure>
+  <figure><img src="../gallery/previews/mountains-draft-02.png" alt="Mountains draft 2: shadowed, hazed ridges under clouds" loading="lazy"><figcaption>Draft 2: shadows, linear light, terrain hierarchy, integrated haze</figcaption></figure>
+</div>
+<figure class="wide">
+  <img src="../gallery/previews/mountains-1280x800.png" alt="Final mountains render: layered ridges with snow, erosion and fractured rock under cumulus." loading="lazy">
+  <figcaption><em>Mountains</em> (<code>gallery/mountains.ps</code>), 1280×800: erosion, fractured rock and edge antialiasing added. 34 minutes on one core.</figcaption>
+</figure>
+
+<!-- ===================================================================== -->
+<h2 id="perf">15. Speed</h2>
+<p>All on an Apple-silicon Mac with pscat 0.6.2, one thread per process:</p>
+<div class="tablewrap"><table>
+<tr><th>Render</th><th>Time</th></tr>
+<tr><td>clouds only, 320×200 (the spike)</td><td>21.7 s, about 0.34 ms per pixel</td></tr>
+<tr><td><em>Mountains</em>, 320×200, 512² erosion map</td><td>140 s (bake 21 s)</td></tr>
+<tr><td><em>Mountains</em>, 1280×800, 1024² map, antialiased</td><td>34.2 min</td></tr>
+<tr><td><em>Alpine forest</em>, 320×200</td><td>5.5 min</td></tr>
+<tr><td>foreground forest crop (close crowns)</td><td>5.1 ms per pixel</td></tr>
+<tr><td>mid-distance forested slope crop</td><td>6.6 ms per pixel</td></tr>
+<tr><td><em>Alpine forest</em>, 1280×800, four bands</td><td>25.5 min wall, 81.6 min CPU</td></tr>
+</table></div>
+<p>The near-forest march dominates: crowns are marched in short steps through a three-unit band.</p>
+
+<!-- ===================================================================== -->
+<h2 id="limits">16. Known limits</h2>
+<ul>
+  <li><strong>Snow is a colour, not geometry:</strong> it doesn't fill channels, and the forest map doesn't know where it lies.</li>
+  <li><strong>Rock still reads as folded rather than fractured</strong> at a distance: the strongest remaining critique of the mountains.</li>
+  <li><strong>No trunks.</strong> They're hidden in dense spruce but would show at a forest edge seen close.</li>
+  <li><strong>Maps cover only part of the world.</strong> Erosion covers about the first 1150 units of the view and the forest map 700; beyond them the terrain is purely procedural and the forest a painted texture.</li>
+  <li><strong>Faint grain inside clouds</strong> from the jittered march steps.</li>
+  <li><strong>Cost:</strong> close crowns take about 5 ms per pixel. A print-size render is an overnight job unless split across cores.</li>
+</ul>
+
+<!-- ===================================================================== -->
+<h2 id="refs">17. References</h2>
+<ol class="refs">
+  <li>Ken Perlin. "An image synthesizer." <em>SIGGRAPH '85, Computer Graphics</em> 19(3), 1985. <a href="https://doi.org/10.1145/325165.325247">doi:10.1145/325165.325247</a>. Lattice noise and solid texture.</li>
+  <li>Ken Perlin. "Improving noise." <em>ACM Transactions on Graphics</em> 21(3), 2002. <a href="https://doi.org/10.1145/566654.566636">doi:10.1145/566654.566636</a>. Gradient noise and the smoother interpolant.</li>
+  <li>David S. Ebert, F. Kenton Musgrave, Darwyn Peachey, Ken Perlin, Steven Worley. <a href="https://shop.elsevier.com/books/texturing-and-modeling/ebert/978-1-55860-848-1"><em>Texturing &amp; Modeling: A Procedural Approach</em></a>, 3rd ed. Morgan Kaufmann, 2003. Musgrave's chapters on fractal terrain introduce the ridged multifractal.</li>
+  <li>Inigo Quilez. Articles: <a href="https://iquilezles.org/articles/fbm/">fBm</a>; <a href="https://iquilezles.org/articles/morenoise/">value noise derivatives</a> (and the derivative-damped "eroded" fBm); <a href="https://iquilezles.org/articles/warp/">domain warping</a>; <a href="https://iquilezles.org/articles/terrainmarching/">terrain raymarching</a>; <a href="https://iquilezles.org/articles/rmshadows/">soft shadows</a>; <a href="https://iquilezles.org/articles/fog/">better fog</a> (height fog in closed form); <a href="https://iquilezles.org/articles/outdoorslighting/">outdoors lighting</a>.</li>
+  <li>John C. Hart. "Sphere tracing: a geometric method for the antialiased ray tracing of implicit surfaces." <em>The Visual Computer</em> 12, 1996. <a href="https://doi.org/10.1007/s003710050084">doi:10.1007/s003710050084</a>. Safe step lengths from a Lipschitz bound.</li>
+  <li>Hans Theobald Beyer. "Implementation of a method for hydraulic erosion." Bachelor's thesis, Technische Universität München, 2015. The droplet model in <code>fc_erode.ps</code>.</li>
+  <li>Sebastian Lague. <a href="https://github.com/SebLague/Hydraulic-Erosion">Hydraulic-Erosion</a> (code and video, "Coding Adventure: Hydraulic Erosion"), 2019.</li>
+  <li>Edwin Catmull, Raphael Rom. "A class of local interpolating splines." In <em>Computer Aided Geometric Design</em>, Academic Press, 1974. <a href="https://doi.org/10.1016/B978-0-12-079050-0.50020-5">doi:10.1016/B978-0-12-079050-0.50020-5</a>.</li>
+  <li>L. G. Henyey, J. L. Greenstein. "Diffuse radiation in the Galaxy." <em>The Astrophysical Journal</em> 93, 1941. <a href="https://doi.org/10.1086/144246">doi:10.1086/144246</a>. The phase function used for cloud scattering.</li>
+  <li>Andrew Schneider, Nathan Vos. "The Real-time Volumetric Cloudscapes of Horizon: Zero Dawn." SIGGRAPH 2015, <a href="https://advances.realtimerendering.com/s2015/">Advances in Real-Time Rendering in Games</a>. Height profiles, coverage, the powder effect.</li>
+  <li>Sébastien Hillaire. <a href="https://media.contentapi.ea.com/content/dam/eacom/frostbite/files/s2016_pbs_frostbite_sky_clouds.pdf">"Physically Based Sky, Atmosphere and Cloud Rendering in Frostbite."</a> SIGGRAPH 2016, Physically Based Shading course. Background on participating media and multiple scattering.</li>
+  <li>Christian Körner. <em>Alpine Treelines: Functional Ecology of the Global High Elevation Tree Limits.</em> Springer, 2012. <a href="https://doi.org/10.1007/978-3-0348-0396-0">doi:10.1007/978-3-0348-0396-0</a>.</li>
+  <li>Adobe Systems. <em>PostScript Language Reference</em>, 3rd ed. Addison-Wesley, 1999. <code>colorimage</code> with procedure data sources, <code>bind</code>, dictionaries.</li>
+  <li>PSCat Labs. <a href="https://github.com/PSCatLabs/pscat">pscat</a>, the PostScript interpreter that renders everything here (version 0.6.2).</li>
+</ol>
+
+<p class="meta" style="margin-top:2.5rem">Figures: <code>docs/techniques/make_figures.py</code> (charts, from the library's formulas and constants), <code>docs/techniques/*.ps</code> (noise and terrain maps, rendered by pscat), and the spikes named in captions. The project is CC0.</p>
+
+</main>
+</body>
+</html>
