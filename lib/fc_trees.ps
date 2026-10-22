@@ -356,11 +356,19 @@
 } bind def
 
 /fc-tree-shade {                                 % t -> r g b
+    dup fc-tree-shade-1 { 4 -1 roll pop } { fc-terrain-shade } ifelse
+} bind def
+
+% t -> r g b true, or false if no crown is there after all (the march's
+% hit and this re-evaluation can disagree at a crown's very edge; the
+% crown record would then belong to some earlier tree)
+/fc-tree-shade-1 {
     /Fwt exch def
     /Fwx Mx Fwt mul def /Fwy My Fwt mul CamY add def /Fwz Mz Fwt mul def
     /FsO Fwt fc-terrain-oct def /FcPx Fwt PixAng mul def
     Fwx Fwz fc-forest-map /Fwhs exch def /Fwd exch def
     Fwx Fwz Fwd Fwhs fc-crowns /Fw0 exch def
+    Fw0 0 lt { false } {
     % the crown that was hit, and the hit relative to its trunk
     /FcH FcBH def /FcR FcBR def /FcK FcBK def
     /Fwdx FcBx def /Fwdz FcBz def
@@ -411,6 +419,7 @@
             SkyAmb Fwi get Fws mul SkyLight mul Bounce Fwi get Fwb mul 0.35 mul add mul
         add
     } for
+    true } ifelse
 } bind def
 
 % fc-terrain-shade's material hook: reads Kx Kz Kh Ny Kt Ksnow Alb

@@ -33,6 +33,7 @@ display faces).
 | `gallery/previews/` | Chosen renders, committed by hand |
 | `lib/*.ps` | Reusable procedures; load with `(lib/name.ps) run` from the repo root |
 | `scripts/render.sh` | Render, lint and time pieces into `renders/` (git-ignored) |
+| `scripts/render_bands.sh` | One large frame as parallel horizontal bands, stitched |
 | `docs/pscat-issues.md` | pscat bugs and skill-doc problems, waiting to be filed upstream |
 | `.claude/skills/` | The `pscat`, `psart` and `psviz` agent skills, copied from the pscat release |
 | `.mcp.json` | Registers `pscat-mcp` for Claude Code |
@@ -43,6 +44,10 @@ display faces).
 scripts/render.sh                    # every piece in gallery/
 scripts/render.sh gallery/foo.ps     # one piece
 DPI=144 scripts/render.sh            # higher resolution
+DPI=288 scripts/render.sh -D "Crop=[0.1 0.8 0.3 0.95]" gallery/foo.ps
+                                     # just that part of the large frame, at its detail
+DPI=288 scripts/render_bands.sh gallery/foo.ps 0.55 0.66 0.81
+                                     # the large frame, four bands at once
 ```
 
 Each piece sets its canvas with `%%BoundingBox: 0 0 W H`. Timings are

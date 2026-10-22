@@ -132,6 +132,20 @@ should keep its temporaries under its own prefix.
   every renderer print the settings it actually used (fc-render prints its
   antialiased-pixel count, which is how this was caught), and do a tiny
   render before any long one.
+- **A crop window and a band splitter in the renderer from day one.**
+  Judging detail in a 320 px frame misleads, and full large frames cost
+  an hour. `fc-render`'s `/Crop` renders any rectangle at the full frame's
+  detail in minutes; `scripts/render_bands.sh` runs one frame as parallel
+  bands (pscat is single-threaded, so four cores give about 4x).
+- **Diagnostic spikes beat staring at the beauty render.** The trees work
+  was steered by small single-purpose renders: ground banded by height
+  (where can trees grow?), materials in false colour (is that speckle ground
+  or crown?), normals as colour (why noise?), one crown from the side
+  (proportions), call counters (where does the time go?). Keep a habit and a
+  place (`spikes/`) for them.
+- **Don't difference a discontinuous surface for normals.** Finite
+  differences across a step flip from pixel to pixel; take normals from a
+  smooth envelope and put the detail in the shading.
 
 ### Conventions worth writing down
 - **Prefix repo libraries** (`lib/fc_noise3.ps` here; something like

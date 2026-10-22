@@ -5,6 +5,8 @@
 % fractal_clouds#1: a conifer forest on the valley floor and lower slopes
 % under the ridged-fBm massif of gallery/mountains.ps, seen from the
 % valley's edge; one ray per pixel. Preview: DPI=36 scripts/render.sh.
+% Large: DPI=288 scripts/render.sh -D ErN=1024 -D ErDrops=240000 (1280x800,
+% about an hour; scripts/render_bands.sh splits it across cores).
 % Closer look at part of a large frame: -D "Crop=[0.3 0.6 0.5 0.8]".
 
 /Seed where { pop } { /Seed 5 def } ifelse

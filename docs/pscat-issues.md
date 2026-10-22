@@ -153,3 +153,30 @@ Side by side (pscat | float | 8-bit model):
 and quantise once at the end, or at least keep alpha unquantised and dither
 the per-blend rounding. Volume splatting, soft glows and airbrush effects
 all stack hundreds of faint layers.
+
+---
+
+## 6. `cvs` writes reals at full precision, so strings sized for Ghostscript overflow
+
+- **Kind:** pscat divergence from Ghostscript (the PLRM leaves the digit count to the implementation)
+- **Status:** open
+- **Where:** `cvs` (and so `=`/`==`, which print the same text) on reals
+- **Found:** 2026-10-21, fractal_clouds#1 (debug printing in the trees work)
+
+pscat converts a real with all its significant digits; Ghostscript 10.07.1
+gives six. So `0.123456789012345 12 string cvs` works in gs and is a
+`rangecheck` in pscat, and code that sizes its buffer the usual way breaks:
+
+```postscript
+0.123456789012345 20 string cvs ==   % gs: (0.123457)  pscat: (0.123456789012345)
+0.123456789012345 12 string cvs ==   % gs: (0.123457)  pscat: rangecheck in cvs
+```
+
+Long reals are the common case once a program computes anything (here a
+blend weight like `0.38612390214204787`), so printing a value for
+debugging with a small string fails where it wouldn't in gs. Integer
+arithmetic matches gs: both print `2147483647 2 mul` as `4294967294`.
+
+**Suggested fix:** match Ghostscript's six significant digits in `cvs` and
+`=` (keeping full precision in `==`, or behind a pscat-only operator), or
+at least list the difference in the pscat skill's pitfalls.
