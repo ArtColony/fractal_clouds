@@ -10,14 +10,27 @@
 %                             v the same scale (so v spans +-aspect)
 %   dx dy dz fc-sky r g b     sky radiance seen along a ray (no clipping)
 %   dx dz fc-haze-colour -    sets HazeCol: the horizon colour toward (dx,dz)
-%   r g b t y fc-haze r g b   aerial perspective for a point at distance t
-%                             and height y (haze thins with altitude)
-%   r g b fc-tone r g b       exposure tone curve, 1 - exp(-c * Exposure)
+%   r g b t fc-haze r g b     aerial perspective for the point at distance t
+%                             along the current ray (Mx My Mz from CamY):
+%                             haze density falls off with height, and the
+%                             optical depth is integrated along the ray
+%   r g b fc-tone r g b       exposure tone curve, 1 - exp(-c * Exposure),
+%                             then sRGB gamma
 
 /fc-default { 1 index where { pop pop pop } { def } ifelse } bind def
 
+% /Name [r g b] fc-colour -- like fc-default for a colour given in sRGB; the
+% value stored (the piece's, if it defined one first, else this default) is
+% converted to linear light, which is what all the lighting maths uses.
+% fc-tone turns linear light back into sRGB at the end.
+/fc-colour {
+    1 index where { pop pop dup load } if
+    [ exch { 2.2 exp } forall ] def
+} bind def
+
 % --- camera ---------------------------------------------------------------
 /Pitch 9 fc-default                  % degrees above the horizon
+/Yaw 0 fc-default                    % degrees, positive turns right
 /HFov 64 fc-default                  % horizontal field of view, degrees
 /CamY 0 fc-default
 /TMax 900 fc-default                 % how far rays look
@@ -25,6 +38,7 @@
 /fc-camera-update {
     /TanH HFov 2 div dup sin exch cos div def
     /CosP Pitch cos def /SinP Pitch sin def
+    /CosY Yaw cos def /SinY Yaw sin def
 } bind def
 fc-camera-update
 
@@ -33,13 +47,16 @@ fc-camera-update
     2 copy SinP mul exch CosP mul add            % x y z y'
     3 1 roll CosP mul exch SinP mul sub          % x y' z'
     /Rz exch def /Ry exch def /Rx exch def
+    % yaw about y: positive turns the view to the right
+    Rx CosY mul Rz SinY mul add  Rz CosY mul Rx SinY mul sub
+    /Rz exch def /Rx exch def
     /Rn Rx Rx mul Ry Ry mul add Rz Rz mul add sqrt def
     Rx Rn div Ry Rn div Rz Rn div
 } bind def
 
 % --- sun ------------------------------------------------------------------
 /SunDir [ -0.55 0.42 0.72 ] fc-default
-/SunCol [ 1.00 0.93 0.80 ] fc-default
+/SunCol [ 1.00 0.93 0.80 ] fc-colour
 
 /fc-sun-update {                                 % normalise SunDir
     SunDir aload pop /Rz exch def /Ry exch def /Rx exch def
@@ -49,8 +66,8 @@ fc-camera-update
 fc-sun-update
 
 % --- sky ------------------------------------------------------------------
-/Zenith [ 0.20 0.38 0.74 ] fc-default
-/Horizon [ 0.70 0.78 0.88 ] fc-default
+/Zenith [ 0.20 0.38 0.74 ] fc-colour
+/Horizon [ 0.70 0.78 0.88 ] fc-colour
 /Exposure 1.6 fc-default
 
 /fc-sky {                                        % dx dy dz -> r g b
@@ -71,7 +88,7 @@ fc-sun-update
     } for
 } bind def
 
-/HazeCol [ 0.70 0.78 0.88 ] def
+/HazeCol Horizon def
 /fc-haze-colour {                                % dx dz -> -
     /Hz exch def /Hx exch def
     /Hn Hx Hx mul Hz Hz mul add sqrt 0.000001 add def
@@ -82,9 +99,17 @@ fc-sun-update
 /HazeDist 520 fc-default             % e-folding distance at height 0
 /HazeH 45 fc-default                 % haze scale height
 
-/fc-haze {                                       % r g b t y -> r g b
-    HazeH div neg 2.71828 exch exp               % density factor at y
-    exch HazeDist div mul neg 2.71828 exch exp   % transmittance
+/fc-haze {                                       % r g b t -> r g b
+    % optical depth of exponential-height haze along the current ray, from
+    % the camera (CamY) out to distance t in direction My
+    /Ht exch def
+    2.71828 CamY HazeH div neg exp               % density at the camera
+    My Ht mul HazeH div dup abs 0.0001 lt {
+        pop Ht mul
+    } {
+        dup neg 2.71828 exch exp 1 exch sub exch div Ht mul mul
+    } ifelse
+    HazeDist div neg 2.71828 exch exp            % transmittance
     1 exch sub /Hf exch def
     /Hb exch def /Hg exch def /Hr exch def
     Hr HazeCol 0 get Hr sub Hf mul add
@@ -92,6 +117,6 @@ fc-sun-update
     Hb HazeCol 2 get Hb sub Hf mul add
 } bind def
 
-/fc-tone {                                       % r g b -> r g b
-    3 { Exposure mul neg 2.71828 exch exp 1 exch sub 3 1 roll } repeat
+/fc-tone {                                       % linear r g b -> sRGB r g b
+    3 { Exposure mul neg 2.71828 exch exp 1 exch sub 0.4545 exp 3 1 roll } repeat
 } bind def

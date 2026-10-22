@@ -5,11 +5,13 @@
 % fractal_clouds#1: ridged-fBm mountains under a ray-marched cumulus layer,
 % one ray per pixel. Preview with -D Res=0.25; full detail with DPI=144.
 
-/Seed where { pop } { /Seed 11 def } ifelse
+/Seed where { pop } { /Seed 5 def } ifelse
 /Pitch where { pop } { /Pitch -2 def } ifelse
-/SunDir where { pop } { /SunDir [ -0.70 0.45 -0.40 ] def } ifelse   % low, from behind-left
-/CloudLo where { pop } { /CloudLo 80 def /CloudHi 108 def } ifelse
-/Threshold where { pop } { /Threshold 0.52 def } ifelse
+/Yaw where { pop } { /Yaw 10 def } ifelse          % layered ridges toward the peaks
+/SunDir where { pop } { /SunDir [ -0.62 0.40 0.62 ] def } ifelse    % low, front-left of the view
+/CloudLo where { pop } { /CloudLo 60 def /CloudHi 88 def } ifelse
+/CoverAmp where { pop } { /CoverAmp 0.32 def } ifelse      % clouds in groups
+/Threshold where { pop } { /Threshold 0.57 def } ifelse
 /CamLift where { pop } { /CamLift 0.72 def } ifelse  % camera height, as a fraction of the tallest peaks
 
 (lib/fc_sky.ps) run
@@ -30,7 +32,7 @@ Seed 202 add srand                          % march jitter
     Mx Mz fc-haze-colour
     fc-terrain-hit dup 0 gt {
         /Tl exch def
-        Tl fc-terrain-shade Tl Ky fc-haze
+        Tl fc-terrain-shade Tl fc-haze
     } {
         pop /Tl TMax def
         My 0 lt { HazeCol aload pop } { Mx My Mz fc-sky } ifelse

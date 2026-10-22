@@ -1,7 +1,7 @@
 %!PS-Adobe-3.0
 % fc_clouds.ps -- a ray-marched cumulus layer (fractal_clouds#1).
 %
-% Needs fc_noise3.ps and fc_sky.ps. Same density and lighting model as the
+% Needs fc_noise3.ps and fc_sky.ps (and fc_noise2.ps if CoverAmp > 0). Same density and lighting model as the
 % spike (spikes/cloud_scene.ps), with two changes for distant clouds: steps
 % grow with distance, and noise octaves finer than about two pixels are
 % dropped (they only turned into grain near the horizon).
@@ -17,13 +17,15 @@
 /CloudLo 14 fc-default /CloudHi 40 fc-default
 /NoiseScale 0.045 fc-default
 /Threshold 0.47 fc-default           % higher = less cover
+/CoverScale 0.0045 fc-default        % 1 / wavelength of the coverage map
+/CoverAmp 0 fc-default               % its strength (needs fc_noise2.ps)
 /Sigma 0.09 fc-default               % extinction per unit density
 /DensOct 5 fc-default                % most octaves, for near clouds
 /ShadOct 3 fc-default                % octaves for shadow probes
 /ShadStep 3.2 fc-default
 /CloudSteps 96 fc-default            % at most this many samples per ray
-/AmbTop [ 0.62 0.72 0.88 ] fc-default
-/AmbBot [ 0.34 0.38 0.48 ] fc-default
+/AmbTop [ 0.62 0.72 0.88 ] fc-colour
+/AmbBot [ 0.34 0.38 0.48 ] fc-colour
 /PixAng 0.0035 fc-default
 
 /fc-density {                                    % x y z oct -> d
@@ -36,6 +38,10 @@
         /Dprof exch def
         Dx NoiseScale mul Dy NoiseScale mul 1.6 mul Dz NoiseScale mul Doct fc-fbm3
         Threshold sub 1 Dprof sub 0.35 mul sub
+        % low-frequency coverage, so clouds gather into groups with gaps
+        CoverAmp 0 gt {
+            Dx CoverScale mul 41.3 add Dz CoverScale mul 7.9 add fc-noise2 0.5 sub CoverAmp mul add
+        } if
         dup 0 lt { pop 0 } { 14 mul } ifelse
     } ifelse
 } bind def
@@ -58,7 +64,11 @@
     ShadStep mul Sigma mul /Lod exch def
     2.71828 Lod neg exp
     1 2.71828 Ld Sigma mul 2.5 mul neg exp sub 0.6 mul 0.4 add mul
-    Lph mul 1.6 mul /Lsun exch def
+    Lph mul 1.6 mul
+    % light scattered many times inside the cloud: keeps thick interiors
+    % from going flat grey
+    2.71828 Lod 0.25 mul neg exp 0.45 mul add
+    /Lsun exch def
     Ly CloudLo sub CloudHi CloudLo sub div /Lh exch def
     0 1 2 {
         /Li exch def
@@ -104,7 +114,7 @@
             Px Py Pz Ct fc-cloud-oct fc-density dup 0 gt {
                 /Cd exch def
                 /Ca 1 2.71828 Sigma Cd mul Cdt mul neg exp sub def
-                Px Py Pz Cd Cph fc-cloud-light Ct Py fc-haze
+                Px Py Pz Cd Cph fc-cloud-light Ct fc-haze
                 Tr Ca mul /Cw exch def
                 Cw mul Cb add /Cb exch def
                 Cw mul Cg add /Cg exch def

@@ -1,36 +1,72 @@
 %!PS-Adobe-3.0
-% fc_terrain.ps -- ray-marched ridged-fBm mountains (fractal_clouds#1).
+% fc_terrain.ps -- ray-marched fractal mountains (fractal_clouds#1).
 %
-% Needs fc_noise2.ps and fc_sky.ps.
+% Needs fc_noise2.ps and fc_sky.ps (and fc_clouds.ps for cloud shadows).
 %
 %   x z oct fc-height h            terrain height
 %   fc-terrain-hit t | -1          march the current ray (Mx My Mz from
 %                                  CamY); distance to the terrain, or -1
-%   t fc-terrain-shade r g b       shade the hit at distance t (before haze)
+%   t fc-terrain-shade r g b       shade the hit at distance t (linear light,
+%                                  before haze); also leaves Ky, its height
 %
-% Detail follows distance like the clouds: octaves whose wavelength is
-% under about two pixels are left out, both when searching for the hit and
-% when shading it, and the normal's finite difference is one pixel wide.
+% The shape is built as a hierarchy (TerrFn 3, the default): a
+% low-frequency massif mask decides where the big mountains and the broad
+% valleys are; warped ridged noise makes the ridges; a little erosion fBm,
+% damped on steep ground, adds gullies. Detail follows distance: octaves
+% under about two pixels are left out, and the normal is measured over two
+% pixels. Colours are given in sRGB and used in linear light.
 % Reads PixAng (radians per image pixel; fc_render.ps sets it).
 
-/TerrScale 0.011 fc-default          % 1 / wavelength of the biggest ridges
-/TerrH 64 fc-default                 % height of the tallest peaks
+/TerrScale 0.011 fc-default          % 1 / wavelength of the main ridges
+/TerrH 52 fc-default                 % height of the tallest peaks
 /TerrBase -6 fc-default              % valley floor
 /TerrOct 8 fc-default                % most octaves, for near terrain
-/SnowLine 34 fc-default
-/TreeLine 14 fc-default
-/Rock [ 0.30 0.28 0.26 ] fc-default
-/Rock2 [ 0.42 0.38 0.33 ] fc-default
-/Snow [ 0.90 0.92 0.96 ] fc-default
-/Forest [ 0.10 0.14 0.09 ] fc-default
-/SkyAmb [ 0.42 0.50 0.64 ] fc-default
-/Bounce [ 0.16 0.14 0.11 ] fc-default        % light off the ground below
+/MassifScale 0.22 fc-default         % massif wavelength, in ridge wavelengths
+/WarpAmp 0.45 fc-default
+/MassifLo 0.30 fc-default /MassifHi 0.56 fc-default  % massif mask ramp             % domain warp, in ridge wavelengths
+/DetailAmp 0.16 fc-default
+/SnowLine 23 fc-default
+/TreeLine 7 fc-default
+/Rock [ 0.46 0.43 0.40 ] fc-colour
+/Rock2 [ 0.56 0.51 0.45 ] fc-colour
+/Snow [ 0.94 0.95 0.97 ] fc-colour
+/Forest [ 0.20 0.26 0.18 ] fc-colour
+/Scree [ 0.55 0.52 0.48 ] fc-colour
+/SkyAmb [ 0.58 0.66 0.80 ] fc-colour
+/Bounce [ 0.40 0.36 0.30 ] fc-colour         % light off the ground below
 /PixAng 0.0035 fc-default
+
+% TerrFn: 0 ridged only, 1 erosion fBm only, 3 the massif hierarchy
+/TerrFn 3 fc-default
 
 /fc-height {                                     % x z oct -> h
     /Ho exch def
-    TerrScale mul exch TerrScale mul exch Ho fc-ridged
-    dup 1.35 exp exch 0.15 mul add               % steeper peaks, gentler foothills
+    TerrScale mul exch TerrScale mul exch /Hz2 exch def /Hx2 exch def
+    TerrFn 0 eq {
+        Hx2 Hz2 Ho fc-ridged
+        dup 1.35 exp exch 0.15 mul add
+    } {
+    TerrFn 1 eq {
+        Hx2 Hz2 Ho fc-eroded 0.25 sub 0.55 div
+        dup 0 lt { pop 0 } if 1.5 exp 1.1 mul
+    } {
+        % warp the domain with two smooth noises, so ridges wander
+        /Hwx Hx2 0.5 mul 11.3 add Hz2 0.5 mul 2.1 add fc-noise2 0.5 sub WarpAmp 2 mul mul Hx2 add def
+        /Hwz Hx2 0.5 mul 4.7 add Hz2 0.5 mul 17.9 add fc-noise2 0.5 sub WarpAmp 2 mul mul Hz2 add def
+        % massif: two smooth octaves, pushed toward 0 (valleys) or 1 (ranges)
+        Hwx MassifScale mul 31.1 add Hwz MassifScale mul 8.3 add fc-noise2 0.65 mul
+        Hwx MassifScale mul 2 mul 5.9 add Hwz MassifScale mul 2 mul 23.7 add fc-noise2 0.35 mul add
+        MassifLo sub MassifHi MassifLo sub div dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if
+        dup dup mul exch 2 mul 3 exch sub mul /Hm exch def
+        % ridges, capped at 5 octaves so peaks don't sprout needles
+        Hwx Hwz Ho 5 2 copy gt { exch } if pop fc-ridged 1.15 exp /Hrd exch def
+        % gullies and texture: erosion fBm on the remaining octaves
+        Ho 2 gt {
+            Hwx 2.6 mul 1.9 add Hwz 2.6 mul 6.1 add Ho 1.5 sub fc-eroded 0.5 sub DetailAmp mul
+        } { 0 } ifelse
+        Hm 0.6 mul 0.4 add mul
+        Hm Hrd 0.92 mul 0.18 add mul 0.06 add add
+    } ifelse } ifelse
     TerrH mul TerrBase add
 } bind def
 
@@ -43,20 +79,18 @@
     } ifelse
 } bind def
 
-/TerrTop TerrH 1.2 mul TerrBase add def
+/TerrTop TerrH 1.25 mul TerrBase add def
 
 /fc-terrain-hit {                                % -> t | -1
     /Gt 0.5 def /Gprev 0 def /Ghit -1 def
     {
         Gt TMax gt { exit } if
         /Gy My Gt mul CamY add def
-        % above the highest possible peak and climbing: no hit
         Gy TerrTop gt My 0 gt and { exit } if
         /Go Gt fc-terrain-oct def
         Mx Gt mul Mz Gt mul Go fc-height
         Gy exch sub /Gd exch def
         Gd 0 lt {
-            % bracketed between Gprev and Gt: bisect
             /Ga Gprev def /Gb Gt def
             5 {
                 /Gm Ga Gb add 2 div def
@@ -72,39 +106,107 @@
     Ghit
 } bind def
 
-% shading: albedo from height and slope, sun + sky light, no cast shadows yet
+% a b x -> 0..1 smooth ramp from a to b
+/fc-smooth {
+    /Sx3 exch def /Sb3 exch def /Sa3 exch def
+    Sx3 Sa3 sub Sb3 Sa3 sub div dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if
+    dup dup mul exch 2 mul 3 exch sub mul
+} bind def
+
 /fc-terrain-shade {                              % t -> r g b
     /Kt exch def
     /Kx Mx Kt mul def /Ky My Kt mul CamY add def /Kz Mz Kt mul def
     /Ko Kt fc-terrain-oct def
-    /Ke Kt PixAng mul 0.05 2 copy lt { exch } if pop def
+    /Ke Kt PixAng mul 2 mul 0.08 fc-max def
     /Kh Kx Kz Ko fc-height def
-    Kx Ke add Kz Ko fc-height Kh sub neg          % -dh/dx * e
+    Kx Ke add Kz Ko fc-height Kh sub neg
     Ke
-    Kx Kz Ke add Ko fc-height Kh sub neg          % -dh/dz * e
+    Kx Kz Ke add Ko fc-height Kh sub neg
     /Nz exch def /Ny exch def /Nx exch def
     /Nn Nx Nx mul Ny Ny mul add Nz Nz mul add sqrt def
     /Nx Nx Nn div def /Ny Ny Nn div def /Nz Nz Nn div def
-    % albedo: forest low and flat, rock on slopes, snow high and flat
-    /Kv Kx 0.035 mul Kz 0.035 mul fc-noise2 def  % broad patchiness
-    Rock Rock2 Kv mix3v
-    Kh TreeLine Kv 6 mul add lt Ny 0.80 gt and { pop Forest } if
-    Kh SnowLine Kv 10 mul sub gt {
-        % snow sticks where it's flat enough; fade it in on steeper ground
-        Ny 0.42 sub 3 mul dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if
-        Kh SnowLine Kv 10 mul sub sub 0.08 mul dup 1 gt { pop 1 } if mul
-        Snow exch mix3v
-    } if
+    % concavity: how far the surface sits below a smoothed version of itself
+    /Kcav Kx Kz 3 fc-height Kh sub def
+    % sky visibility: how high the terrain rises around the point, sampled
+    % at four compass points 7 units out (a crude horizon test)
+    /Kocc 0 def
+    [ 7 0 -7 0 0 7 0 -7 ] /Kring exch def
+    0 2 6 { /Kj exch def
+        Kx Kring Kj get add Kz Kring Kj 1 add get add 4 fc-height Kh sub 7 div
+        dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if Kocc add /Kocc exch def
+    } for
+    /Kao 1 Kocc 0.25 mul 0.75 mul sub def
+    % broad and fine variation for materials
+    /Kv Kx 0.021 mul Kz 0.021 mul fc-noise2 def
+    /Kv2 Kx 0.19 mul 3.3 add Kz 0.19 mul 9.1 add fc-noise2 def
+    % rock with faint strata, scree on the gentler slopes below cliffs
+    Rock Rock2 Kv 0.6 mul Kh 90 mul Kv2 140 mul add sin 0.2 mul add 0.2 add mix3v   % sin takes degrees
+    Scree 0.62 0.8 Ny fc-smooth 0.7 mul mix3v
+    % darker and lighter rock in patches (lichen, wet rock, different beds)
+    Kx 0.07 mul 13.1 add Kz 0.07 mul 5.3 add fc-noise2 0.6 mul 0.7 add /Kpat exch def
+    [ exch { Kpat mul } forall ]
+    % forest: low, gentle ground, in broad patches
+    TreeLine Kv 10 mul add 4 add  TreeLine Kv 10 mul add 4 sub  Kh fc-smooth
+    0.78 0.9 Ny fc-smooth mul  0.35 0.55 Kv2 fc-smooth mul
+    /Kfor exch def Forest Kfor mix3v
+    % snow: above a snowline that wanders broadly, on flat enough ground,
+    % more in hollows and less on crests, thresholded into connected fields
+    SnowLine 8 sub Kv 16 mul add  SnowLine 8 add Kv 16 mul add  Kh fc-smooth
+    0.48 0.74 Ny fc-smooth mul
+    0.45 Kcav 0.16 mul add dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if mul
+    Kocc 0.25 mul 0.5 mul 0.8 add mul           % sheltered ground holds more
+    Kv2 0.25 mul 0.875 add mul
+    0.30 0.52 3 -1 roll fc-smooth
+    /Ksnow exch def Snow Ksnow mix3v
     /Alb exch def
+    % light: sun (with cast shadow), sky dome, warm bounce, occlusion
     /Kl Nx SunDir 0 get mul Ny SunDir 1 get mul add Nz SunDir 2 get mul add def
     Kl 0 lt { /Kl 0 def } if
-    /Ksky Ny 0.5 mul 0.5 add def
+    Kl 0 gt ShadowsOn and { /Kl Kl Kx Kh Kz fc-terrain-shadow mul def } if
+    /Ksky Ny 0.4 mul 0.6 add Kao mul def
+    /Kbn 1 Ny sub 0.5 mul Kao mul def
     0 1 2 { /Ki exch def
         Alb Ki get
-        SunCol Ki get Kl mul 1.25 mul  SkyAmb Ki get Ksky mul add
-        Bounce Ki get 1 Ksky sub mul add
+        SunCol Ki get Kl mul 1.5 mul
+        SkyAmb Ki get Ksky mul 0.55 mul add
+        Bounce Ki get Kbn mul 0.35 mul add
         mul
     } for
+} bind def
+
+% Soft shadow toward the sun: march with coarse terrain (ShadOctT octaves)
+% and keep the closest approach, k * clearance / distance, as the penumbra.
+% Clouds shade the ground too: one density sample where the sun ray
+% crosses the middle of the cloud layer.
+/ShadowsOn true fc-default
+/CloudShadowsOn true fc-default
+/ShadOctT 4 fc-default
+/Penumbra 10 fc-default
+% the coarse shadow terrain can stand above the detailed surface by about
+% the height of the octaves it leaves out; without this bias every point
+% would start "inside" the mountain and read as shadowed
+/ShadBias TerrH 0.5 ShadOctT exp mul 0.8 mul def
+/fc-terrain-shadow {                             % x y z -> lit 0..1
+    /Wz exch def /Wy exch def /Wx exch def
+    /Wy Wy 0.3 add def
+    /Wres 1 def /Wt 0.6 def
+    40 {
+        /Wpy Wy SunDir 1 get Wt mul add def
+        Wpy TerrTop gt { exit } if
+        Wx SunDir 0 get Wt mul add  Wz SunDir 2 get Wt mul add  ShadOctT fc-height
+        Wpy exch sub ShadBias add /Wd exch def
+        Wd 0 le { /Wres 0 def exit } if
+        Penumbra Wd mul Wt div dup Wres lt { /Wres exch def } { pop } ifelse
+        /Wt Wt Wd 0.5 mul Wt 0.03 mul 0.4 add 2 copy lt { exch } if pop add def
+    } repeat
+    Wres 0 gt CloudShadowsOn and {
+        CloudLo CloudHi add 2 div Wy sub SunDir 1 get div /Wc exch def
+        Wx SunDir 0 get Wc mul add  CloudLo CloudHi add 2 div  Wz SunDir 2 get Wc mul add
+        3 fc-density
+        Sigma mul CloudHi CloudLo sub mul 0.5 mul neg 2.71828 exch exp
+        Wres mul /Wres exch def
+    } if
+    Wres dup mul 3 Wres 2 mul sub mul
 } bind def
 
 % [a] [b] t -> [a + (b - a) t]
