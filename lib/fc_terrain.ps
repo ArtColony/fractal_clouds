@@ -25,6 +25,7 @@
 /WarpAmp 0.45 fc-default
 /MassifLo 0.30 fc-default /MassifHi 0.56 fc-default  % massif mask ramp             % domain warp, in ridge wavelengths
 /DetailAmp 0.16 fc-default
+/TerrOX 0 fc-default /TerrOZ 0 fc-default % where the camera stands in the procedural terrain
 /SnowLine 23 fc-default
 /TreeLine 7 fc-default
 /Rock [ 0.42 0.41 0.39 ] fc-colour
@@ -68,7 +69,7 @@
 
 /fc-height-proc {                                % x z oct -> h
     /Ho exch def
-    TerrScale mul exch TerrScale mul exch /Hz2 exch def /Hx2 exch def
+    TerrOZ add TerrScale mul exch TerrOX add TerrScale mul exch /Hz2 exch def /Hx2 exch def
     TerrFn 0 eq {
         Hx2 Hz2 Ho fc-ridged
         dup 1.35 exp exch 0.15 mul add
@@ -191,6 +192,10 @@
     0.24 0.58 3 -1 roll fc-smooth
     /Ksnow exch def Snow Ksnow mix3v
     /Alb exch def
+    % a material hook (fc_trees.ps uses it for forest floor and far canopy):
+    % it may change Alb and scale the sun, sky and bump terms
+    /KlMul 1 def /KskyMul 1 def /KbMul 1 def
+    /fc-terrain-material where { pop fc-terrain-material } if
     % fractured rock: tilt the shading normal by a three-octave noise gradient
     % on steep, snow-free ground, so faces break into planes in the light
     BumpAmp 0 gt Ny 0.88 lt and Ksnow 0.9 lt and {
@@ -200,7 +205,7 @@
             Kba mul Kbz add /Kbz exch def  Kba mul Kbx add /Kbx exch def  pop
             /Kbf Kbf 2.1 mul def /Kba Kba 0.55 mul def
         } repeat
-        0.62 0.88 Ny fc-smooth 1 exch sub 1 Ksnow sub mul BumpAmp mul /Kbk exch def
+        0.62 0.88 Ny fc-smooth 1 exch sub 1 Ksnow sub mul BumpAmp mul KbMul mul /Kbk exch def
         /Nx Nx Kbx Kbk mul sub def /Nz Nz Kbz Kbk mul sub def
         /Nn Nx Nx mul Ny Ny mul add Nz Nz mul add sqrt def
         /Nx Nx Nn div def /Ny Ny Nn div def /Nz Nz Nn div def
@@ -209,7 +214,8 @@
     /Kl Nx SunDir 0 get mul Ny SunDir 1 get mul add Nz SunDir 2 get mul add def
     Kl 0 lt { /Kl 0 def } if
     Kl 0 gt ShadowsOn and { /Kl Kl Kx Kh Kz fc-terrain-shadow mul def } if
-    /Ksky Ny 0.4 mul 0.6 add Kao mul def
+    /Kl Kl KlMul mul def
+    /Ksky Ny 0.4 mul 0.6 add Kao mul KskyMul mul def
     /Kbn 1 Ny sub 0.5 mul Kao mul def
     0 1 2 { /Ki exch def
         Alb Ki get

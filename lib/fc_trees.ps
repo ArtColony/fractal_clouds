@@ -1,0 +1,471 @@
+%!PS-Adobe-3.0
+% fc_trees.ps -- conifer forest on the ray-marched terrain (fractal_clouds#1).
+%
+% Needs fc_sky.ps, fc_noise2.ps, fc_terrain.ps, fc_render.ps (and
+% fc_clouds.ps when cloud shadows are on). Load it after fc_terrain.ps.
+%
+%   seed fc-trees-init -       the tree hash tables (calls srand)
+%   fc-forest-bake -           where trees grow: a density and tree-height
+%                              map over the view (after any fc-erode-bake)
+%   fc-forest-hit t | -1       march the current ray through terrain and
+%                              trees (replaces fc-terrain-hit); sets FsMat,
+%                              1 for a tree crown and 0 for the ground
+%   t fc-tree-shade r g b      shade a crown hit (linear light, before haze)
+%
+% Ground hits still go through fc-terrain-shade: this file defines its
+% material hook, which darkens the forest floor (with the trees' cast
+% shadows) and, far away, paints the canopy as a texture.
+%
+% Trees are spruce-like crowns standing on a jittered grid of FsCell
+% cells, one candidate per cell, kept where a hash is under the forest
+% density. A crown is a heightfield over the ground: an ogive whose radius
+% steps in branch tiers and is ragged around the trunk. A ray that comes
+% within a tree height of the ground is marched in short steps against
+% ground + crowns. Detail follows distance like everything else: once a
+% crown is under about two pixels across, the crowns melt into a smooth
+% canopy layer of the same mean height, shaded as texture.
+%
+% Distances are in world units (about ten metres).
+
+/TreesOn true fc-default
+/FsLine 20 fc-default                % treeline height
+/FsLineVar 5 fc-default              % how far it wanders up and down
+/FsCurve 3 fc-default                % how far ribs raise it and gullies lower it
+/FsCell 1.3 fc-default               % one candidate tree per cell
+/FsHMin 1.6 fc-default /FsHMax 3.2 fc-default  % tree heights
+/FsTiers 9 fc-default                % branch tiers per crown
+/FsN 384 fc-default                  % map resolution
+/FsSize 700 fc-default               % map width, world units
+/FsDist 300 fc-default               % its centre's distance ahead
+/FsAlb [ 0.27 0.31 0.15 ] fc-colour          % needles in the sun: olive
+/FsAlb2 [ 0.22 0.29 0.21 ] fc-colour         % a bluer spruce
+/FsShade [ 0.15 0.22 0.21 ] fc-colour        % needles by sky light: blue-green
+/FsFloor [ 0.17 0.15 0.11 ] fc-colour        % needle litter and moss
+/FsGrass [ 0.36 0.41 0.20 ] fc-colour        % alpine meadow
+/FsGrass2 [ 0.50 0.47 0.29 ] fc-colour       % drier grass
+
+% --- hash: a permutation of 0..255, and random tables indexed by it -------
+/fc-trees-init {                                 % seed -> -
+    srand
+    /FsP 512 array def
+    0 1 255 { FsP exch dup put } for
+    255 -1 1 { /Fsi exch def
+        rand Fsi 1 add mod /Fsk exch def
+        FsP Fsi get FsP Fsk get FsP exch Fsi exch put FsP exch Fsk exch put
+    } for
+    0 1 255 { /Fsi exch def FsP Fsi 256 add FsP Fsi get put } for
+    /FsR [ 6 { [ 256 { rand 16#7fffffff div } repeat ] } repeat ] def
+} bind def
+
+/fc-tree-hash {                                  % i j -> 0..255
+    255 and exch 255 and FsP exch get add FsP exch get
+} bind def
+
+% --- where trees grow ----------------------------------------------------
+% x z h ny curv -> density 0..1 and tree-height scale. curv is the
+% ground's curvature, -1 (a rib) to 1 (a hollow): trees climb higher on
+% ribs, and avalanches and streams keep them out of gullies.
+/fc-forest-dens {
+    /Fdc exch def /Fdn exch def /Fdh exch def /Fdz exch def /Fdx exch def
+    FsLine Fdx 0.013 mul 5.1 add Fdz 0.013 mul 9.7 add fc-noise2 0.5 sub 2 mul FsLineVar mul add
+    Fdc FsCurve mul sub
+    /Fdl exch def
+    Fdl 2.5 add Fdl 2.5 sub Fdh fc-smooth             % below the treeline
+    0.70 0.80 Fdn fc-smooth mul                          % not on steep rock
+    % clearings and thinner stands, and groves within the stands
+    0.30 0.44 Fdx 0.035 mul 1.7 add Fdz 0.035 mul 3.3 add fc-noise2 fc-smooth mul
+    0.3 0.6 Fdx 0.12 mul 9.1 add Fdz 0.12 mul 4.4 add fc-noise2 fc-smooth 0.35 mul 0.65 add mul
+    % meadows on the flattest, lowest valley floor
+    1  0.985 0.997 Fdn fc-smooth  2 -1 Fdh fc-smooth mul 0.8 mul  sub mul
+    % a few stunted trees above the line
+    Fdl 7 add Fdl 2 add Fdh fc-smooth 0.12 mul  0.72 0.82 Fdn fc-smooth mul
+    2 copy lt { exch } if pop
+    0.95 mul
+    Fdl 5 add Fdl 6 sub Fdh fc-smooth 0.55 mul 0.45 add
+} bind def
+
+% fade from crowns (1) to canopy texture (0) as crowns shrink below ~2 px
+/fc-forest-w {                                   % t -> w
+    PixAng mul 0.0000001 fc-max 0.3 exch div    % mean crown radius, in px
+    1 sub dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if
+} bind def
+
+/fc-forest-bake {
+    /FsT0 usertime def
+    /FsX0 Yaw sin FsDist mul FsSize 2 div sub def
+    /FsZ0 Yaw cos FsDist mul FsSize 2 div sub def
+    /FsTex FsSize FsN 1 sub div def
+    /FsHt FsN FsN mul array def
+    0 1 FsN 1 sub { /Fbj exch def
+        0 1 FsN 1 sub { /Fbi exch def
+            FsHt Fbj FsN mul Fbi add
+            FsX0 Fbi FsTex mul add FsZ0 Fbj FsTex mul add 6 fc-height put
+        } for
+    } for
+    /FsDm FsN FsN mul array def /FsHs FsN FsN mul array def
+    /FsSl FsN FsN mul array def
+    0 1 FsN 1 sub { /Fbj exch def
+        0 1 FsN 1 sub { /Fbi exch def
+            /Fbk Fbj FsN mul Fbi add def
+            % slope from the neighbouring texels
+            FsHt Fbi FsN 1 sub lt { Fbk 1 add } { Fbk } ifelse get
+            FsHt Fbi 0 gt { Fbk 1 sub } { Fbk } ifelse get sub
+            Fbi 0 gt Fbi FsN 1 sub lt and { 2 } { 1 } ifelse FsTex mul div /Fbgx exch def
+            FsHt Fbj FsN 1 sub lt { Fbk FsN add } { Fbk } ifelse get
+            FsHt Fbj 0 gt { Fbk FsN sub } { Fbk } ifelse get sub
+            Fbj 0 gt Fbj FsN 1 sub lt and { 2 } { 1 } ifelse FsTex mul div /Fbgz exch def
+            FsSl Fbk Fbgx dup mul Fbgz dup mul add sqrt put
+            FsX0 Fbi FsTex mul add FsZ0 Fbj FsTex mul add FsHt Fbk get
+            1 Fbgx dup mul Fbgz dup mul add 1 add sqrt div
+            % curvature over three texels each way (~5 units)
+            Fbi 3 ge Fbj 3 ge and Fbi FsN 4 sub le and Fbj FsN 4 sub le and {
+                FsHt Fbk 3 sub get FsHt Fbk 3 add get add
+                FsHt Fbk FsN 3 mul sub get add FsHt Fbk FsN 3 mul add get add
+                FsHt Fbk get 4 mul sub  FsTex 3 mul dup mul div 12 mul
+                -1 fc-max 1 fc-min
+            } { 0 } ifelse
+            fc-forest-dens
+            FsHs Fbk 3 -1 roll put FsDm Fbk 3 -1 roll put
+        } for
+    } for
+    /FsHt null def
+    % the steepest slope within a texel of each texel, plus an allowance
+    % for the octaves the map leaves out: fc-forest-hit's step bound
+    /FsLip FsN FsN mul array def
+    0 1 FsN 1 sub { /Fbj exch def
+        0 1 FsN 1 sub { /Fbi exch def
+            0
+            Fbj 1 sub 0 fc-max 1 Fbj 1 add FsN 1 sub fc-min { /Fbr exch def
+                Fbi 1 sub 0 fc-max 1 Fbi 1 add FsN 1 sub fc-min {
+                    FsSl exch Fbr FsN mul add get fc-max
+                } for
+            } for
+            1.25 mul 0.6 add FsLip Fbj FsN mul Fbi add 3 -1 roll put
+        } for
+    } for
+    /FsSl null def
+    /FsBaked true def
+    (fc-forest: ) print FsN 9 string cvs print (^2 map, ms ) print usertime FsT0 sub =
+} bind def
+/FsBaked false def
+
+% x z -> density height-scale (bilinear; 0 1 off the map). Sets FmIn,
+% whether the point was on the map.
+/fc-forest-map {
+    /FmIn false def
+    FsBaked not { pop pop 0 1 } {
+    FsZ0 sub FsTex div /Fmz exch def FsX0 sub FsTex div /Fmx exch def
+    Fmx 0 lt Fmz 0 lt or Fmx FsN 1.001 sub ge or Fmz FsN 1.001 sub ge or { 0 1 } {
+        /FmIn true def
+        /Fmi Fmx cvi def /Fmj Fmz cvi def
+        /Fmu Fmx Fmi sub def /Fmv Fmz Fmj sub def
+        /Fmk Fmj FsN mul Fmi add def
+        [ FsDm FsHs ] {
+            /Fma exch def
+            Fma Fmk get 1 Fmu sub mul Fma Fmk 1 add get Fmu mul add 1 Fmv sub mul
+            Fma Fmk FsN add get 1 Fmu sub mul Fma Fmk FsN add 1 add get Fmu mul add Fmv mul add
+        } forall
+    } ifelse } ifelse
+} bind def
+
+% x z -> the steepest the ground gets near there (2.3 off the map, which
+% is what fc-terrain-hit's fixed 0.42 step assumes)
+/fc-forest-lip {
+    FsBaked not { pop pop 2.3 } {
+    FsZ0 sub FsTex div 0.5 add cvi exch FsX0 sub FsTex div 0.5 add cvi
+    dup 0 lt 1 index FsN 1 sub gt or 2 index 0 lt or 2 index FsN 1 sub gt or { pop pop 2.3 } {
+        exch FsN mul add FsLip exch get
+    } ifelse } ifelse
+} bind def
+
+% --- one crown -------------------------------------------------------------
+% dx dz -> y above the ground, or -1 outside the crown; for the tree in
+% FcH (height), FcR (radius), FcK (its hash).
+% The crown is FsTiers whorls of branches, each hanging from the trunk at
+% height k/FsTiers (as a fraction of the tree) and drooping, most at the
+% tips (as (u/reach)^2.5), by FsDroop to a
+% tip on the envelope y = (1 - u)^FsEnv. Seen from above, the surface at
+% radius u is the highest whorl that reaches that far: it falls outward
+% along the whorl's droop, and steps down where a whorl ends. How far each
+% whorl reaches varies with direction, so the outline is ragged.
+% Whorls and raggedness fade into the smooth envelope as the crown gets
+% small on screen (FcPx: world units per pixel where it stands), before
+% they can alias into pixel noise.
+/FsDroop 0.30 fc-default
+/FsEnv 1.0 fc-default                % envelope: 1 a straight cone, more a finer spire
+/FcPx 0.01 def
+/fc-tree-prof {
+    /Fpz exch def /Fpx exch def
+    Fpx dup mul Fpz dup mul add sqrt FcR div /Fpu exch def
+    Fpu 1 ge { -1 } {
+        FcR FcPx div 4 sub 8 div dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if /Fpl exch def
+        Fpl 0 gt {
+            1 Fpu sub FsEnv exp FsDroop add FsTiers mul floor /Fpk exch def
+            Fpu 0.02 lt { 0 } { Fpz Fpx atan } ifelse 0.0167 mul FcK 0.37 mul add
+            Fpk 1.7 mul FcK 0.13 mul add fc-noise2 1 sub 0.15 mul Fpl mul 1 add
+            % and whole whorls are longer or shorter than their neighbours
+            Fpk 2.9 mul FcK 0.7 mul add FcK 0.21 mul 3.3 add fc-noise2 1 sub 0.2 mul Fpl mul 1 add mul
+            Fpu exch div /Fpu exch def
+        } if
+        % the smooth envelope
+        Fpu 1 ge { -1 } { 1 Fpu sub FsEnv exp } ifelse /Fps exch def
+        Fpl 0 gt Fps 0 ge and {
+            1 Fpu sub FsEnv exp FsDroop add FsTiers mul floor FsTiers fc-min /Fpk exch def
+            Fpk 1 lt { Fps Fpl 1 sub mul } {     % past the lowest whorl: fade out
+                /Fpy Fpk FsTiers div def
+                Fpy  Fpu  1 Fpy FsDroop sub 0 fc-max 1 FsEnv div exp sub div  2.5 exp FsDroop mul  sub
+                Fps sub Fpl mul Fps add
+            } ifelse
+        } { Fps } ifelse
+        dup 0.001 lt { pop -1 } { 0.94 mul 0.06 add FcH mul } ifelse
+    } ifelse
+} bind def
+
+% candidate tree of cell (i, j) against the point FcX FcZ; keeps the
+% highest crown in FcBy and its tree in FcB*
+/fc-tree-cell {                                  % i j -> -
+    /Fcj exch def /Fci exch def
+    Fci Fcj fc-tree-hash /FcK exch def
+    FsR 0 get FcK get FcD lt {
+        % dominant trees, and a quarter of them young or suppressed
+        FsR 3 get FcK get dup 0.25 lt { 4 mul 0.2 mul 0.42 add FsHMin mul } {
+            0.25 sub 1.333 mul 0.7 exp FsHMax FsHMin sub mul FsHMin add } ifelse
+        FcHs mul /FcH exch def
+        /FcR FcH 0.28 mul FsR 4 get FcK get 0.3 mul 0.85 add mul FsCell 0.55 mul fc-min def
+        FcX Fci 0.5 add FsR 1 get FcK get 0.5 sub 0.9 mul add FsCell mul sub
+        FcZ Fcj 0.5 add FsR 2 get FcK get 0.5 sub 0.9 mul add FsCell mul sub
+        2 copy dup mul exch dup mul add sqrt FcR sub dup FcHc lt { /FcHc exch def } { pop } ifelse
+        1 index dup mul 1 index dup mul add FcR dup mul lt {
+            2 copy fc-tree-prof dup FcBy gt {
+                /FcBy exch def /FcBz exch def /FcBx exch def
+                /FcBH FcH def /FcBR FcR def /FcBK FcK def
+            } { pop pop pop } ifelse
+        } { pop pop } ifelse
+    } if
+} bind def
+
+% x z density height-scale -> highest crown above the ground there (or -1).
+% A crown's centre is jittered by up to 0.45 cell and its radius is at most
+% 0.55 cell, so only the 3x3 cells around the point can reach it, and
+% every other crown is at least half a cell away. Leaves FcHc, how far the
+% point is (horizontally) from the nearest crown: 0 or less inside one.
+/fc-crowns {
+    /FcHs exch def /FcD exch def /FcZ exch def /FcX exch def
+    /FcBy -1 def /FcHc FsCell 0.5 mul def
+    FcX FsCell div floor cvi /Fci0 exch def
+    FcZ FsCell div floor cvi /Fcj0 exch def
+    Fcj0 1 sub 1 Fcj0 1 add { /Fcjj exch def
+        Fci0 1 sub 1 Fci0 1 add { Fcjj fc-tree-cell } for
+    } for
+    FcBy
+} bind def
+
+% x z t density height-scale -> canopy height above the ground: crowns
+% near, their mean height far, blended by fc-forest-w
+/fc-canopy {
+    /FnHs exch def /FnD exch def /FnT exch def /FnZ exch def /FnX exch def
+    /FcHc 0 def /FcPx FnT PixAng mul def
+    FnD 0.001 lt { 0 } {
+        FnT fc-forest-w /FnW exch def
+        FnD FsHMin FsHMax add 0.5 mul mul FnHs mul 0.55 mul 1 FnW sub mul
+        FnW 0 gt {
+            FnX FnZ FnD FnHs fc-crowns dup 0 lt { pop 0 } if FnW mul add
+        } if
+    } ifelse
+} bind def
+
+% --- marching ----------------------------------------------------------------
+/FsTop TerrTop FsHMax add def
+
+% t -> ray height minus ground and canopy there (negative = inside)
+/fc-forest-f {
+    /Fft exch def
+    /Ffx Mx Fft mul def /Ffz Mz Fft mul def
+    My Fft mul CamY add  Ffx Ffz FsO fc-height sub
+    TreesOn { Ffx Ffz Fft Ffx Ffz fc-forest-map fc-canopy sub } if
+} bind def
+
+/fc-forest-hit {                                 % -> t | -1
+    /FsT 0.5 def /FsTp 0 def /FsHit -1 def /FsMat 0 def
+    /FsHor Mx dup mul Mz dup mul add sqrt 0.001 fc-max def
+    {
+        FsT TMax gt { exit } if
+        /FsY My FsT mul CamY add def
+        FsY FsTop gt My 0 gt and { exit } if
+        /FsO FsT fc-terrain-oct def
+        /FsX Mx FsT mul def /FsZ Mz FsT mul def
+        /FsGap FsY FsX FsZ FsO fc-height sub def
+        TreesOn { FsX FsZ fc-forest-map } { 0 1 } ifelse /FsHsc exch def /FsD exch def
+        /FsBand FsD 0.001 gt { FsHMax FsHsc mul } { 0 } ifelse def
+        /FsMin FsT PixAng mul 0.6 mul 0.02 add def
+        FsGap FsBand gt {
+            % above the trees: the terrain's own step
+            % (clearance over the slope at which ray and ground can close)
+            /FsS FsGap FsBand sub  FsX FsZ fc-forest-lip FsHor mul My neg 0 fc-max add  div 0.9 mul
+                 FsT 0.004 mul 0.2 add fc-max def
+        } {
+            /FsC FsGap FsX FsZ FsT FsD FsHsc fc-canopy sub def
+            % between crowns, the horizontal clearance is a safe step too
+            /FsS FsC 0 lt { -1 } {
+                FsC 0.15 mul  FcHc FsHor div fc-max
+                FsGap 0.5 mul FsMin fc-max fc-min  FsMin fc-max
+            } ifelse def
+        } ifelse
+        FsS 0 lt {
+            % bracketed: bisect between the last two samples
+            /Fsa FsTp def /Fsb FsT def
+            6 {
+                /Fsm Fsa Fsb add 2 div def
+                Fsm fc-forest-f 0 lt { /Fsb Fsm def } { /Fsa Fsm def } ifelse
+            } repeat
+            /FsHit Fsa Fsb add 2 div def
+            exit
+        } if
+        /FsTp FsT def
+        /FsT FsT FsS add def
+    } loop
+    FsHit 0 gt TreesOn and {
+        % which surface was hit: a crown standing above the ground?
+        /FsX Mx FsHit mul def /FsZ Mz FsHit mul def
+        FsX FsZ fc-forest-map /FsHsc exch def /FsD exch def
+        FsHit fc-forest-w /FsW exch def
+        FsD 0.001 gt FsW 0 gt and {
+            FsX FsZ FsD FsHsc fc-crowns FsW mul 0.05 gt { /FsMat 1 def } if
+        } if
+    } if
+    FsHit
+} bind def
+
+% --- shading -----------------------------------------------------------------
+% x y z -> 0..1, light reaching the point past other crowns (short march
+% toward the sun; the terrain's own shadow is fc-terrain-shadow's job)
+/fc-tree-sunvis {
+    /Fvz exch def /Fvy exch def /Fvx exch def
+    /Fvv 1 def
+    [ 0.12 0.35 0.7 1.2 1.9 2.9 ] {
+        /Fvs exch def
+        /Fvpx Fvx SunDir 0 get Fvs mul add def
+        /Fvpy Fvy SunDir 1 get Fvs mul add def
+        /Fvpz Fvz SunDir 2 get Fvs mul add def
+        Fvpx Fvpz fc-forest-map /Fvhs exch def /Fvd exch def
+        Fvd 0.001 gt {
+            Fvpx Fvpz FsO fc-height Fvpx Fvpz Fvd Fvhs fc-crowns add Fvpy gt { /Fvv Fvv 0.3 mul def } if
+        } if
+    } forall
+    Fvv
+} bind def
+
+/fc-tree-shade {                                 % t -> r g b
+    dup fc-tree-shade-1 { 4 -1 roll pop } { fc-terrain-shade } ifelse
+} bind def
+
+% t -> r g b true, or false if no crown is there after all (the march's
+% hit and this re-evaluation can disagree at a crown's very edge; the
+% crown record would then belong to some earlier tree)
+/fc-tree-shade-1 {
+    /Fwt exch def
+    /Fwx Mx Fwt mul def /Fwy My Fwt mul CamY add def /Fwz Mz Fwt mul def
+    /FsO Fwt fc-terrain-oct def /FcPx Fwt PixAng mul def
+    Fwx Fwz fc-forest-map /Fwhs exch def /Fwd exch def
+    Fwx Fwz Fwd Fwhs fc-crowns /Fw0 exch def
+    Fw0 0 lt { false } {
+    % the crown that was hit, and the hit relative to its trunk
+    /FcH FcBH def /FcR FcBR def /FcK FcBK def
+    /Fwdx FcBx def /Fwdz FcBz def
+    % normal from the smooth envelope, not by differencing the stepped
+    % whorls (across a step that flips at random from pixel to pixel)
+    /Fwr Fwdx dup mul Fwdz dup mul add sqrt 0.0001 fc-max def
+    /Fwu Fwr FcR div 1 fc-min def
+    /Fwsl 1 Fwu sub 0.0001 fc-max FsEnv 1 sub exp FsEnv mul FcH mul FcR div def    % envelope slope
+    /Fwq Fw0 FcH div 0 fc-max def                        % 0 at the crown's foot, 1 at the tip
+    % foliage clumps along the branches: tilt the normal by noise laid out
+    % around the trunk and up the whorls
+    Fwr 0.02 lt { 0 } { Fwdz Fwdx atan } ifelse 0.05 mul FcK 0.29 mul add /Fwg exch def
+    /Fwh Fwq FsTiers mul 1.6 mul FcK 0.17 mul add def
+    Fwg Fwh fc-noise2 0.5 sub 1.4 mul /Fwn1 exch def
+    Fwg 11.3 add Fwh 7.1 add fc-noise2 0.5 sub 1.4 mul /Fwn2 exch def
+    Fwdx Fwr div Fwsl mul Fwn1 add  1 Fwn2 0.5 mul add  Fwdz Fwr div Fwsl mul Fwn1 0.6 mul sub
+    /Fnz exch def /Fny exch def /Fnx exch def
+    /Fnn Fnx Fnx mul Fny Fny mul add Fnz Fnz mul add sqrt def
+    /Fnx Fnx Fnn div def /Fny Fny Fnn div def /Fnz Fnz Fnn div def
+    % whorls: each one's branch tops catch the light, its underside and
+    % the next whorl's shadow below it don't
+    Fwq FsTiers mul FsR 5 get FcK get 0.3 mul add dup floor sub /Fwf exch def
+    % and between the branch clumps, gaps into the dark inside of the crown
+    0.36 0.56 Fwg 2.3 mul 5.7 add Fwh 1.3 mul 2.9 add fc-noise2 fc-smooth 0.75 mul 0.25 add
+    Fwf 0.6 mul 0.4 add mul
+    FcR FcPx div 4 sub 8 div 0 fc-max 1 fc-min /Fwlod exch def
+    Fwlod mul 1 Fwlod sub 0.7 mul add /Fwwh exch def
+    % needles: per-tree colour, and clumps of foliage
+    FsAlb FsAlb2 FsR 1 get FcK get mix3v
+    FsR 2 get FcK get 0.45 mul 0.78 add
+    Fwx 6.1 mul Fwz 4.3 mul add 1.3 add Fwy 7.7 mul fc-noise2 0.5 sub 0.6 mul 1 add mul
+    /Fwv exch def [ exch { Fwv mul } forall ] /Fwa exch def
+    % sun: wrapped diffuse (needles scatter some light round the crown),
+    % the terrain's shadow and the other crowns'
+    Fnx SunDir 0 get mul Fny SunDir 1 get mul add Fnz SunDir 2 get mul add 0.25 add 1.25 div
+    dup 0 lt { pop 0 } if /Fwl exch def
+    Fwl 0 gt ShadowsOn and { /Fwl Fwl Fwx Fwy Fwz fc-terrain-shadow mul def } if
+    Fwl 0 gt { /Fwl Fwl Fwx Fwy Fwz fc-tree-sunvis mul def } if
+    % sky: less inside and low in the crown, less in dense stands
+    /Fwo Fwq 0.8 exp 0.7 mul 0.3 add 1 Fwd 0.25 mul sub mul def
+    /Fws Fny 0.45 mul 0.55 add Fwo mul Fwwh mul def
+    /Fwl Fwl Fwwh mul def
+    /Fwb 1 Fny sub 0.5 mul Fwo mul def
+    % warm olive where the sun reaches, blue-green in the shade
+    0 1 2 { /Fwi exch def
+        Fwa Fwi get SunCol Fwi get Fwl mul 1.5 mul mul
+        Fwa Fwi get FsShade Fwi get mul FsAlb Fwi get div
+            SkyAmb Fwi get Fws mul SkyLight mul Bounce Fwi get Fwb mul 0.35 mul add mul
+        add
+    } for
+    true } ifelse
+} bind def
+
+% fc-terrain-shade's material hook: reads Kx Kz Kh Ny Kt Ksnow Alb
+/fc-terrain-material {
+    TreesOn {
+        % the baked density where the map is (so colour and crowns agree),
+        % worked out here beyond it (where the canopy is only a texture)
+        Kx Kz Kh Ny 0 fc-forest-dens pop
+        Kx Kz fc-forest-map pop FmIn { exch pop } { pop } ifelse
+        1 0.05 0.35 Ksnow fc-smooth sub mul /Ftd exch def
+        % grass on gentle ground below (and a little above) the treeline,
+        % where the forest leaves room
+        Fdl 5 add Fdl 1 sub Kh fc-smooth  0.74 0.9 Ny fc-smooth mul  1 Ksnow sub mul
+        1 Ftd 1.5 mul 1 fc-min sub mul /Ftg exch def
+        Ftg 0.001 gt {
+            FsGrass FsGrass2 Kx 0.05 mul 8.3 add Kz 0.05 mul 1.9 add fc-noise2 mix3v
+            Kx 0.6 mul 4.1 add Kz 0.6 mul 6.7 add fc-noise2 0.5 sub 0.4 mul 1 add
+            /Ftm exch def [ exch { Ftm mul } forall ]
+            Alb exch Ftg mix3v /Alb exch def
+            /KbMul KbMul 1 Ftg sub mul def
+        } if
+        Ftd 0.001 gt {
+            Kt fc-forest-w /Ftw exch def
+            % far: the canopy as texture, mottled at about the crown spacing
+            /Ftc Ftd 1 Ftw sub mul def
+            Ftc 0 gt {
+                % (no finer than about three pixels, or it aliases)
+                Kt PixAng mul 3 mul 1 exch div 1.1 fc-min /Ftf exch def
+                Kx Ftf mul 3.1 add Kz Ftf mul 7.3 add fc-noise2 0.5 sub 0.6 mul 1 add
+                Kx 0.09 mul 5.3 add Kz 0.09 mul 1.1 add fc-noise2 0.5 sub 0.5 mul 1 add mul /Ftm exch def
+                Alb [ FsAlb { Ftm mul 0.85 mul } forall ] Ftc mix3v /Alb exch def
+                /KlMul KlMul 1 Ftc 0.65 mul sub mul def
+                /KskyMul KskyMul 1 Ftc 0.4 mul sub mul def
+                /KbMul KbMul 1 Ftc sub mul def
+            } if
+            % near: needle litter in the crowns' shade
+            /Ftn Ftd Ftw mul def
+            Ftn 0 gt {
+                Alb FsFloor Ftn 2.5 mul 1 fc-min mix3v /Alb exch def
+                % the crowns all round hide most of the sky
+                Kx Kz fc-forest-map pop Ftw mul Ftn fc-max /Ftn exch def
+                /KskyMul KskyMul 1 Ftn 0.85 mul sub mul def
+                /KbMul KbMul 1 Ftn sub mul def
+                /FsO Kt fc-terrain-oct def
+                /KlMul KlMul Kx Kh 0.05 add Kz fc-tree-sunvis mul def
+            } if
+        } if
+    } if
+} bind def

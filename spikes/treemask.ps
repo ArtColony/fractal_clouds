@@ -1,0 +1,43 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+% Where could trees grow in the mountains view? (fractal_clouds#1 diagnostics)
+% Same camera and terrain as gallery/mountains.ps, no clouds or shadows.
+% Terrain hits are banded by height: red < 5, orange < 10, yellow < 15,
+% green < 20, cyan < 25, grey above; ground steeper than Ny 0.7 (~45 deg)
+% is drawn at half brightness. Prints a height histogram of visible hits.
+/Seed where { pop } { /Seed 5 def } ifelse
+/Pitch where { pop } { /Pitch 0 def } ifelse
+/Yaw where { pop } { /Yaw 10 def } ifelse
+/SunDir [ -0.62 0.40 0.62 ] def
+/CloudLo 60 def /CloudHi 88 def /CoverAmp 0.45 def /Threshold 0.57 def
+/ShadowsOn false def
+/CamLift where { pop } { /CamLift 0.72 def } ifelse
+(lib/fc_sky.ps) run
+(lib/fc_noise2.ps) run (lib/fc_noise3.ps) run
+(lib/fc_clouds.ps) run (lib/fc_terrain.ps) run (lib/fc_render.ps) run (lib/fc_erode.ps) run
+Seed fc-noise2-init Seed 101 add fc-noise3-init Seed 202 add srand
+/Erode where { pop } { /Erode true def } ifelse
+Erode { fc-erode-bake } if
+/CamAbove where { pop /CamY 0 0 TerrOct fc-height CamAbove add def } {
+    /CamY TerrTop CamLift mul  0 0 TerrOct fc-height 6 add  fc-max def } ifelse
+/TmHist 14 array def 0 1 13 { TmHist exch 0 put } for
+/TmNy 10 array def 0 1 9 { TmNy exch 0 put } for
+/TmCols [ [1 0 0] [1 0.5 0] [1 1 0] [0 0.8 0] [0 0.8 0.8] [0.6 0.6 0.6] ] def
+/fc-pixel {
+    fc-ray /Mz exch def /My exch def /Mx exch def
+    fc-terrain-hit dup 0 gt {
+        /Tl exch def Tl fc-terrain-shade pop pop pop
+        Kh TerrBase sub 5 div cvi 0 fc-max 13 fc-min /TmB exch def
+        TmHist TmB 2 copy get 1 add put
+        TmNy Ny 10 mul cvi 0 fc-max 9 fc-min 2 copy get 1 add put
+        TmCols Kh 5 div cvi 0 fc-max 5 fc-min get aload pop
+        Ny 0.7 lt { 3 { 0.5 mul 3 1 roll } repeat } if
+    } { pop 0.15 0.15 0.3 } ifelse
+} bind def
+(CamY ) print CamY =
+320 200 fc-render
+(height histogram, bins of 5 from TerrBase:) =
+0 1 13 { dup 5 mul TerrBase add 6 string cvs print (: ) print TmHist exch get = } for
+(Ny histogram, bins of 0.1:) =
+0 1 9 { dup 10 div 6 string cvs print (: ) print TmNy exch get = } for
+showpage

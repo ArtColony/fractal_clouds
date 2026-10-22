@@ -4,6 +4,7 @@ PostScript generative art rendered with pscat. See `README.md` for setup and lay
 
 - Use the released pscat at the version in `.pscat-version`, never a source checkout. The `pscat`, `psart` and `psviz` skills in `.claude/skills/` come from that same release tag.
 - Render with `scripts/render.sh`, not bare `pscat`, so every run is linted and timed. Look at the PNG after every render.
+- Before a long render, check its exact settings on small full-detail crops (`-D "Crop=[x0 y0 x1 y1]"`, fractions of the frame from the top left). Split a long one across cores with `scripts/render_bands.sh`.
 - Load repo procedures with `(lib/name.ps) run` from the repo root. Never give a `lib/` file the same name as one of pscat's built-in `lib/` files: it would replace the built-in (`render.sh` refuses).
 - Seed every piece (`N srand`) so renders reproduce.
 - A piece sets its options *before* its `(lib/...) run` lines: libraries define defaults with `fc-default`, which keeps whatever is already defined, so a setting made after loading is silently ignored (this switched antialiasing off for a 33-minute render).

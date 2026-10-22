@@ -15,6 +15,11 @@
 % u runs -1..1 across the image; v runs over the same scale (so +-ih/iw).
 % Pixels are produced top row first, left to right, so a seeded fc-rnd
 % gives the same picture every time.
+%
+% /Crop [x0 y0 x1 y1] (fractions of the frame, from the top left) renders
+% only that rectangle, in place and at the full frame's detail, and leaves
+% the rest of the page white: a way to look closely at a patch of a large
+% render without paying for all of it.
 
 /Res where { pop } { /Res 1 def } ifelse
 
@@ -26,20 +31,25 @@
     /IW FrPw FrDpp mul Res mul round cvi 1 fc-max def
     /IH FrPh FrDpp mul Res mul round cvi 1 fc-max def
     /PixAng TanH 2 mul IW div def
-    /FrRow IW 3 mul string def /FrJ 0 def
     /FrKeyUp IW array def /FrKeyRow IW array def
     0 1 IW 1 sub { FrKeyUp exch -2 put } for
     /FrDu 2 IW div def                            % one pixel in u
     /FrAA 0 def
     /FrAsp IH IW div def
     /FrT0 usertime def
+    /Crop where { pop Crop aload pop } { 0 0 1 1 } ifelse
+    IH mul round cvi IH fc-min /FrJ1 exch def  IW mul round cvi IW fc-min /FrI1 exch def
+    IH mul round cvi 0 fc-max /FrJ0 exch def   IW mul round cvi 0 fc-max /FrI0 exch def
+    /FrCW FrI1 FrI0 sub 1 fc-max def /FrCH FrJ1 FrJ0 sub 1 fc-max def
+    /FrRow FrCW 3 mul string def /FrJ FrJ0 def
     gsave
-    FrPw FrPh scale
-    IW IH 8 [IW 0 0 IH neg 0 IH]
+    FrPw FrI0 mul IW div  FrPh IH FrJ1 sub mul IH div translate
+    FrPw FrCW mul IW div  FrPh FrCH mul IH div scale
+    FrCW FrCH 8 [FrCW 0 0 FrCH neg 0 FrCH]
     {
         /FrV IH 1 sub FrJ sub 0.5 add IH div 2 mul 1 sub FrAsp mul def
         /FrKeyLeft -2 def
-        0 1 IW 1 sub {
+        FrI0 1 FrI1 1 sub {
             /FrI exch def
             /FrU FrI 0.5 add IW div 2 mul 1 sub def
             /FcKey -1 def
@@ -62,9 +72,9 @@
                 } if
             } if
             FrKeyRow FrI FcKey put /FrKeyLeft FcKey def
-            fc-byte FrRow FrI 3 mul 2 add 3 -1 roll put
-            fc-byte FrRow FrI 3 mul 1 add 3 -1 roll put
-            fc-byte FrRow FrI 3 mul 3 -1 roll put
+            fc-byte FrRow FrI FrI0 sub 3 mul 2 add 3 -1 roll put
+            fc-byte FrRow FrI FrI0 sub 3 mul 1 add 3 -1 roll put
+            fc-byte FrRow FrI FrI0 sub 3 mul 3 -1 roll put
         } for
         /FrJ FrJ 1 add def
         FrKeyRow FrKeyUp /FrKeyRow exch def /FrKeyUp exch def
@@ -72,12 +82,14 @@
     }
     false 3 colorimage
     grestore
-    (fc-render ) print IW 9 string cvs print (x) print IH 9 string cvs print
+    (fc-render ) print FrCW 9 string cvs print (x) print FrCH 9 string cvs print
+    ( of ) print IW 9 string cvs print (x) print IH 9 string cvs print
     ( px, antialiased ) print FrAA 9 string cvs print
     ( px, ms ) print usertime FrT0 sub =
 } bind def
 
 /fc-max { 2 copy lt { exch } if pop } bind def  % pscat has max; Ghostscript doesn't
+/fc-min { 2 copy gt { exch } if pop } bind def
 
 /AA where { pop } { /AA false def } ifelse
 % k1 k2 -> bool: an edge if one is sky and the other isn't, or the
