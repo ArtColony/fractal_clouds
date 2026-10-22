@@ -7,6 +7,7 @@
 % Large: DPI=288 scripts/render.sh -D ErN=1024 -D ErDrops=240000 (1280x800, ~40 min).
 
 /Seed where { pop } { /Seed 5 def } ifelse
+/AA where { pop } { /AA true def } ifelse          % antialias depth edges (before fc_render.ps loads)
 /Pitch where { pop } { /Pitch 0 def } ifelse
 /Yaw where { pop } { /Yaw 10 def } ifelse          % layered ridges toward the peaks
 /SunDir where { pop } { /SunDir [ -0.62 0.40 0.62 ] def } ifelse    % low, front-left of the view
@@ -28,7 +29,6 @@ Seed 101 add fc-noise3-init
 Seed 202 add srand                          % march jitter
 
 /Erode where { pop } { /Erode true def } ifelse
-/AA where { pop } { /AA true def } ifelse                  % antialias depth edges
 Erode { fc-erode-bake } if
 
 % a high viewpoint over the range, but always clear of the ground below it

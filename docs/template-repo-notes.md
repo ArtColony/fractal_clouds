@@ -126,6 +126,12 @@ should keep its temporaries under its own prefix.
 - **Defaults across libraries:** a "safe default" in one library silently
   wins over another library's `fc-default` if it loads first. A flag
   belongs to the library that owns it.
+- **Settings go before the libraries.** The same rule bit a piece: its
+  `/AA where {...}` came after `(lib/fc_render.ps) run`, so the library's
+  `false` won and a 33-minute render came out without antialiasing. Have
+  every renderer print the settings it actually used (fc-render prints its
+  antialiased-pixel count, which is how this was caught), and do a tiny
+  render before any long one.
 
 ### Conventions worth writing down
 - **Prefix repo libraries** (`lib/fc_noise3.ps` here; something like
