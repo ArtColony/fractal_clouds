@@ -9,7 +9,7 @@ Notes for the session that picks up the roadmap epic (#36). Written 2026-10-22, 
   - the shared scene `lib/fc_landscape.ps`, with settings first and then hooks;
   - the settings reference `docs/settings.md`;
   - the technique guide `docs/techniques.html`, with figures from `docs/techniques/make_figures.py`;
-  - the pscat log `docs/pscat-issues.md`, with entries 1–12;
+  - the pscat log `docs/pscat-issues.md`, with entries 1–13;
   - the SDLC notes `docs/sdlc-notes.md`, a working draft that isn't adopted.
 - **After merging:**
   - Close #1 by hand, because no PR closes it.
