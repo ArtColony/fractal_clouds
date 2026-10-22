@@ -1,0 +1,20 @@
+%!PS-Adobe-3.0
+% Times the terrain noise (fractal_clouds#1, mountains).
+(lib/fc_noise2.ps) run (lib/fc_noise3.ps) run
+3 fc-noise2-init 7 fc-noise3-init
+/bench { % name n proc -> prints us per call
+  /bp exch def /bn exch def /bname exch def
+  /t0 usertime def
+  0 1 bn 1 sub { /i exch def i 0.137 mul i 0.071 mul bp pop } for
+  bname print ( us/call: ) print usertime t0 sub 1000 mul bn div =
+} def
+(fc-noise2) 50000 { fc-noise2 } bench
+(fc-noise3 at fixed z) 50000 { 0.5 fc-noise3 } bench
+(fc-ridged 4) 20000 { 4 fc-ridged } bench
+(fc-ridged 6) 20000 { 6 fc-ridged } bench
+(fc-ridged 8) 20000 { 8 fc-ridged } bench
+/lo 1 def /hi 0 def /sum 0 def
+0 1 4999 { /i exch def i 0.37 mul i 0.11 mul 8 fc-ridged
+  dup lo lt { dup /lo exch def } if dup hi gt { dup /hi exch def } if /sum exch sum add def } for
+(ridged8 min max mean: ) print lo 20 string cvs print ( ) print hi 20 string cvs print ( ) print sum 5000 div =
+(dpi check, device px per pt: ) print matrix defaultmatrix 0 get =

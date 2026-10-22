@@ -4,6 +4,9 @@
 #   scripts/render.sh                    # every gallery/*.ps
 #   scripts/render.sh gallery/foo.ps     # just these
 #   DPI=144 scripts/render.sh            # higher resolution (default 72)
+#   scripts/render.sh -D Res=0.25 -D Seed=3 gallery/foo.ps
+#                                        # predefine /Res 0.25 and /Seed 3 (pieces
+#                                        # opt in with `/Name where { pop } {...} ifelse`)
 #
 # Output goes to renders/<name>.png; timings are appended to renders/timings.tsv.
 # The page size comes from the piece's %%BoundingBox (default 612x792).
@@ -42,6 +45,15 @@ if [ -d "$bundle_lib" ]; then
   done
 fi
 
+defs=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -D) defs="$defs /${2%%=*} ${2#*=} def"; shift 2 ;;
+    -D*) d="${1#-D}"; defs="$defs /${d%%=*} ${d#*=} def"; shift ;;
+    *) break ;;
+  esac
+done
+
 if [ $# -gt 0 ]; then
   pieces=("$@")
 else
@@ -51,7 +63,7 @@ else
   [ ${#pieces[@]} -gt 0 ] || { echo "render: no pieces in gallery/"; exit 0; }
 fi
 
-[ -s "$out/timings.tsv" ] || printf 'date\tpiece\tpscat\tdpi\tpage\tseconds\tstatus\n' > "$out/timings.tsv"
+[ -s "$out/timings.tsv" ] || printf 'date\tpiece\tpscat\tdpi\tpage\tseconds\tstatus\tdefines\n' > "$out/timings.tsv"
 
 failed=0
 for ps in "${pieces[@]}"; do
@@ -63,14 +75,16 @@ for ps in "${pieces[@]}"; do
   log="$out/$name.log"
   status=ok
   # /usr/bin/time -p writes "real N" to stderr on both macOS and Linux.
-  if ! /usr/bin/time -p pscat --page "$page" --dpi "$dpi" --lint --png "$out/$name.png" "$ps" >"$log" 2>&1; then
+  # with defines, feed `defs (piece) run` on stdin so the piece sees them
+  if [ -n "$defs" ]; then src=-; else src="$ps"; fi
+  if ! printf '%s (%s) run\n' "$defs" "$ps" | /usr/bin/time -p pscat --page "$page" --dpi "$dpi" --lint --png "$out/$name.png" "$src" >"$log" 2>&1; then
     status=error
     failed=1
   fi
   secs="$(awk '/^real/ {print $2}' "$log")"
   grep -q 'pscat: lint: clean' "$log" || [ "$status" = error ] || status=lint
 
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$name" "$have" "$dpi" "$page" "$secs" "$status" >> "$out/timings.tsv"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$name" "$have" "$dpi" "$page" "$secs" "$status" "${defs# }" >> "$out/timings.tsv"
   printf '%-28s %8ss  %s\n' "$name" "$secs" "$status"
   [ "$status" = ok ] || grep -v -E '^(real|user|sys) |^pscat: wrote ' "$log" | sed 's/^/    /' >&2
 done
