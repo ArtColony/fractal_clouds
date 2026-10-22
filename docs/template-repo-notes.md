@@ -85,6 +85,48 @@ name `def`'d in more than one `lib/` file, with an allowlist for intended
 shared settings. It belongs in the template and in CI, and each library
 should keep its temporaries under its own prefix.
 
+### Review tooling (from the mountains work)
+- **`scripts/codex_critique.sh PROMPT IMAGE...`**: a Codex critique of
+  renders. The Codex Claude Code plugin can't attach images, so it calls
+  `codex exec -i` directly, read-only with high reasoning effort. `-o FILE`
+  (last message to a file) is what made the output reliable; filtering
+  stdout for the answer broke as soon as stderr was discarded.
+- **`scripts/codex_pairwise.sh OLD NEW`**: blind A/B judgment in both
+  orders. Use it to see whether a change helped. Absolute 1–10 scores
+  stopped moving after the first fixes (3/10 four times running while the
+  images clearly improved), and the critiques repeated advice that had
+  already been applied. Later pairs got split or position-biased verdicts
+  (whichever image came first won), so a split verdict means "can't tell",
+  and the owner's eye decides.
+- Treat a critique's *where* observations as symptoms and its suggested
+  fixes as hypotheses: test the cheapest explanation first (for example,
+  render with one layer turned off) before building anything.
+- **`spikes/heightmap.ps`**: a top-down hillshade of the terrain with the
+  camera's field of view drawn on. It found why the mountains had
+  vanished (the view looked across lowland) and why ridges looked like rings.
+
+### Rendering lessons worth carrying into any project
+- **Work in linear light.** Give palette colours in sRGB, convert them on
+  load, light in linear, then tone-map and gamma-encode once at the end.
+  Writing linear values straight to 8 bits crushed shadows to black and
+  made lit faces look metallic.
+- **Ridged noise must be built on gradient noise.** On value noise its
+  ridges trace closed rings around blobs.
+- **Detail should follow distance.** Drop noise octaves finer than about
+  two pixels, and measure normals over a pixel footprint. That fixes
+  sparkle and horizon grain at the source.
+- **Bias coarse shadow rays.** A shadow march on coarser terrain starts
+  "inside" the detailed surface unless it's lifted by the height of the
+  octaves it leaves out.
+- **Erosion as a correction.** Baking droplet erosion and *replacing* the
+  terrain with the map lost all crispness (bilinear facets, or B-spline
+  rounding). Storing only the *change* erosion made, and adding it to the
+  full procedural terrain, kept the detail and gained drainage and
+  glacier-like valley fills.
+- **Defaults across libraries:** a "safe default" in one library silently
+  wins over another library's `fc-default` if it loads first. A flag
+  belongs to the library that owns it.
+
 ### Conventions worth writing down
 - **Prefix repo libraries** (`lib/fc_noise3.ps` here; something like
   `lib/<project>_*.ps`). The render-script guard catches a clash with

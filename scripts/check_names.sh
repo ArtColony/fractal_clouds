@@ -6,7 +6,7 @@
 # Names a piece is meant to share (settings like PixAng) go in ALLOW.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-ALLOW=" PixAng "
+ALLOW=" PixAng ErBaked ErBaking ErDelta "
 
 dups=$(for f in lib/*.ps; do
     grep -o '/[A-Za-z][A-Za-z0-9]*' "$f" | sort -u | sed "s|^/||; s|$| $f|"

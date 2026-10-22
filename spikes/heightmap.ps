@@ -1,14 +1,17 @@
 %!PS-Adobe-3.0
 %%BoundingBox: 0 0 300 300
 % Top-down view of the terrain height (fractal_clouds#1 diagnostics):
-% x -600..600 across, z -300..900 up the page (the camera sits at 0,0
+% Hillshade mixed with height (north-west light). x -600..600 across, z -300..900 up the page (the camera sits at 0,0
 % looking up the page). Black = TerrBase, white = TerrTop. Red marks the
 % camera, and the two lines its horizontal field of view.
 /Seed where { pop } { /Seed 11 def } ifelse
 (lib/fc_sky.ps) run
 (lib/fc_noise2.ps) run (lib/fc_noise3.ps) run
-(lib/fc_clouds.ps) run (lib/fc_terrain.ps) run (lib/fc_render.ps) run
+(lib/fc_clouds.ps) run (lib/fc_terrain.ps) run (lib/fc_render.ps) run (lib/fc_erode.ps) run
 Seed fc-noise2-init
+/Yaw where { pop } { /Yaw 10 def } ifelse fc-camera-update
+/Erode where { pop } { /Erode false def } ifelse
+Erode { Seed 202 add srand fc-erode-bake } if
 /N 150 def /Row N string def /J 0 def
 /lo 1e9 def /hi -1e9 def /sum 0 def
 gsave 300 300 scale
@@ -18,7 +21,12 @@ N N 8 [N 0 0 N neg 0 N] {
     /xx I 0.5 add N div 1200 mul 600 sub def
     xx zz 5 fc-height
     dup lo lt { dup /lo exch def } if dup hi gt { dup /hi exch def } if dup sum add /sum exch def
-    TerrBase sub TerrTop TerrBase sub div 255 mul cvi 0 fc-max 255 2 copy gt { exch } if pop
+    /hc exch def
+    % hillshade from the north-west, mixed with height
+    xx 2 add zz 5 fc-height hc sub  xx zz 2 add 5 fc-height hc sub
+    add neg 0.12 mul 0.5 add
+    hc TerrBase sub TerrTop TerrBase sub div 0.5 mul add
+    255 mul cvi 0 fc-max 255 2 copy gt { exch } if pop
     Row I 3 -1 roll put } for
   /J J 1 add def Row } image
 grestore

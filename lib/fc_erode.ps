@@ -1,0 +1,165 @@
+%!PS-Adobe-3.0
+% fc_erode.ps -- hydraulic erosion baked into a height map (fractal_clouds#1).
+%
+% Needs fc_terrain.ps (for the procedural height it starts from).
+%
+%   fc-erode-bake -          build the map: sample the procedural terrain on
+%                            an ErN x ErN grid covering the view, then run
+%                            ErDrops water droplets over it. Afterwards
+%                            fc-height reads the map (plus fine procedural
+%                            detail) inside the covered area and falls back
+%                            to the procedural terrain outside it.
+%
+% The droplet model is the common particle one (as in Hans Beyer's 2015
+% thesis and Sebastian Lague's write-up): a droplet runs downhill with some
+% inertia, picks up sediment while it speeds up on steep ground, drops it
+% where it slows or climbs, and evaporates. Heights are stored normalised,
+% (h - TerrBase) / TerrH, so the parameters don't depend on TerrH.
+%
+% The covered area is a square ErSize units wide centred ErDist units in
+% front of the camera, along the view's yaw. Its outer 6% blends back into
+% the procedural terrain, so there's no seam at the edge.
+
+/ErN 512 fc-default                  % map resolution
+/ErSize 1150 fc-default              % world units covered
+/ErDist 430 fc-default               % centre's distance ahead of the camera
+/ErDrops 60000 fc-default
+/ErSteps 48 fc-default               % most steps per droplet
+/ErInertia 0.06 fc-default
+/ErCapacity 0.6 fc-default
+/ErMinCap 0.0004 fc-default
+/ErErode 0.35 fc-default
+/ErDeposit 0.04 fc-default
+/ErEvap 0.015 fc-default
+/ErGravity 4 fc-default
+/ErBaseOct 5 fc-default              % procedural octaves baked into the map
+/ErDelta true fc-default             % store only erosion's change (see step 3)
+/FineAmp 0.07 fc-default            % fine procedural detail added on top (replace mode)
+/FineScale 7 fc-default              % its frequency, in ridge frequencies
+
+/fc-erode-bake {
+    /EbT0 usertime def
+    /ErX0 Yaw sin ErDist mul ErSize 2 div sub def
+    /ErZ0 Yaw cos ErDist mul ErSize 2 div sub def
+    /ErTex ErSize ErN 1 sub div def              % world units per texel
+    /ErMap ErN ErN mul array def
+    % 1. sample the procedural terrain (the massif and ridges, no fine detail)
+    /ErBaking true def
+    0 1 ErN 1 sub { /Eby exch def
+        0 1 ErN 1 sub { /Ebx exch def
+            ErMap Eby ErN mul Ebx add
+            ErX0 Ebx ErTex mul add  ErZ0 Eby ErTex mul add  ErBaseOct fc-height-proc
+            TerrBase sub TerrH div
+            put
+        } for
+    } for
+    /EbT1 usertime def
+    ErDelta { /ErOrig ErMap length array def ErOrig 0 ErMap putinterval } if
+    % 2. droplets
+    /ErLim ErN 2 sub def
+    ErDrops {
+        /Epx fc-rnd ErLim mul def /Epy fc-rnd ErLim mul def
+        /Edx 0 def /Edy 0 def /Espd 1 def /Ewat 1 def /Esed 0 def
+        ErSteps {
+            /Eix Epx cvi def /Eiy Epy cvi def
+            /Efx Epx Eix sub def /Efy Epy Eiy sub def
+            /Ei Eiy ErN mul Eix add def
+            /Eh00 ErMap Ei get def /Eh10 ErMap Ei 1 add get def
+            /Eh01 ErMap Ei ErN add get def /Eh11 ErMap Ei ErN add 1 add get def
+            /Egx Eh10 Eh00 sub 1 Efy sub mul Eh11 Eh01 sub Efy mul add def
+            /Egy Eh01 Eh00 sub 1 Efx sub mul Eh11 Eh10 sub Efx mul add def
+            /Eh Eh00 1 Efx sub mul Eh10 Efx mul add 1 Efy sub mul
+                Eh01 1 Efx sub mul Eh11 Efx mul add Efy mul add def
+            % new direction: inertia against the downhill gradient
+            /Edx Edx ErInertia mul Egx 1 ErInertia sub mul sub def
+            /Edy Edy ErInertia mul Egy 1 ErInertia sub mul sub def
+            /Elen Edx Edx mul Edy Edy mul add sqrt def
+            Elen 0.000001 lt { exit } if
+            /Edx Edx Elen div def /Edy Edy Elen div def
+            /Epx Epx Edx add def /Epy Epy Edy add def
+            Epx 0 lt Epx ErLim gt or Epy 0 lt or Epy ErLim gt or { exit } if
+            % height at the new position
+            /Enx Epx cvi def /Eny Epy cvi def
+            /Enfx Epx Enx sub def /Enfy Epy Eny sub def
+            /Enj Eny ErN mul Enx add def
+            ErMap Enj get 1 Enfx sub mul ErMap Enj 1 add get Enfx mul add 1 Enfy sub mul
+            ErMap Enj ErN add get 1 Enfx sub mul ErMap Enj ErN add 1 add get Enfx mul add Enfy mul add
+            Eh sub /Edh exch def
+            /Ecap Edh neg Espd mul Ewat mul ErCapacity mul ErMinCap fc-max def
+            Esed Ecap gt Edh 0 gt or {
+                % deposit: fill the pit it climbed out of, or drop the excess
+                Edh 0 gt { Edh Esed 2 copy gt { exch } if pop } { Esed Ecap sub ErDeposit mul } ifelse
+                /Eamt exch def
+                /Esed Esed Eamt sub def
+            } {
+                % erode, but never dig deeper than the drop just made
+                Ecap Esed sub ErErode mul Edh neg 2 copy gt { exch } if pop
+                neg /Eamt exch def
+                /Esed Esed Eamt sub def
+            } ifelse
+            % spread +amount (deposit) or -amount (erosion) over the 4 corners
+            ErMap Ei 2 copy get Eamt 1 Efx sub mul 1 Efy sub mul add put
+            ErMap Ei 1 add 2 copy get Eamt Efx mul 1 Efy sub mul add put
+            ErMap Ei ErN add 2 copy get Eamt 1 Efx sub mul Efy mul add put
+            ErMap Ei ErN add 1 add 2 copy get Eamt Efx mul Efy mul add put
+            /Espd Espd dup mul Edh ErGravity mul sub dup 0 lt { pop 0 } if sqrt def
+            /Ewat Ewat 1 ErEvap sub mul def
+        } repeat
+    } repeat
+    % 3. in delta mode, keep only what erosion changed: fc-height then adds
+    % this smooth correction to the full procedural terrain, which keeps
+    % its crisp detail
+    ErDelta {
+        0 1 ErN ErN mul 1 sub { /Ebi exch def
+            ErMap Ebi  ErMap Ebi get ErOrig Ebi get sub  put
+        } for
+        /ErOrig null def
+    } if
+    /ErBaking false def
+    /ErBaked true def
+    (fc-erode: ) print ErN 9 string cvs print (^2 map, sample ms ) print EbT1 EbT0 sub 9 string cvs print
+    ( erode ms ) print usertime EbT1 sub =
+} bind def
+
+/ErBaked false def /ErBaking false def
+
+% x z -> normalised height and blend weight (0 outside the map). Cubic
+% (Catmull-Rom) over 4x4 texels, so the normals are smooth: a bilinear
+% lookup shows every texel as a flat facet once it spans a few pixels. The weight falls to 0 over the outer 6% so fc-height can blend.
+/fc-erode-lookup {                               % x z -> hn weight
+    ErZ0 sub ErTex div /Elz exch def
+    ErX0 sub ErTex div /Elx exch def
+    Elx 1 lt Elz 1 lt or Elx ErN 2.001 sub ge or Elz ErN 2.001 sub ge or {
+        0 0
+    } {
+        /Elix Elx cvi def /Eliz Elz cvi def
+        Elx Elix sub fc-bspline-w /Ewx3 exch def /Ewx2 exch def /Ewx1 exch def /Ewx0 exch def
+        Elz Eliz sub fc-bspline-w /Ewz3 exch def /Ewz2 exch def /Ewz1 exch def /Ewz0 exch def
+        /Elj Eliz 1 sub ErN mul Elix add 1 sub def
+        0
+        [ Ewz0 Ewz1 Ewz2 Ewz3 ] {
+            % one row: four texels weighted across
+            ErMap Elj get Ewx0 mul  ErMap Elj 1 add get Ewx1 mul add
+            ErMap Elj 2 add get Ewx2 mul add  ErMap Elj 3 add get Ewx3 mul add
+            mul add
+            /Elj Elj ErN add def
+        } forall
+        % edge weight: 1 inside, falling to 0 over the outer 6%
+        Elx Elz fc-min 1 sub
+        ErN 2.001 sub Elx Elz fc-max sub
+        fc-min ErN 0.06 mul div dup 1 gt { pop 1 } if
+    } ifelse
+} bind def
+
+% t -> w0 w1 w2 w3, Catmull-Rom weights for fraction t: the curve passes
+% through the texel values (a B-spline smooths over ~2 texels and rounds
+% every ridge off) and its slope is continuous, so normals don't facet
+/fc-bspline-w {
+    /Ebt exch def /Ebt2 Ebt Ebt mul def /Ebt3 Ebt2 Ebt mul def
+    Ebt3 neg Ebt2 2 mul add Ebt sub 0.5 mul
+    Ebt3 3 mul Ebt2 5 mul sub 2 add 0.5 mul
+    Ebt3 -3 mul Ebt2 4 mul add Ebt add 0.5 mul
+    Ebt3 Ebt2 sub 0.5 mul
+} bind def
+
+/fc-min { 2 copy gt { exch } if pop } bind def

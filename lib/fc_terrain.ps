@@ -27,19 +27,46 @@
 /DetailAmp 0.16 fc-default
 /SnowLine 23 fc-default
 /TreeLine 7 fc-default
-/Rock [ 0.46 0.43 0.40 ] fc-colour
-/Rock2 [ 0.56 0.51 0.45 ] fc-colour
+/Rock [ 0.42 0.41 0.39 ] fc-colour
+/Rock2 [ 0.52 0.50 0.46 ] fc-colour
 /Snow [ 0.94 0.95 0.97 ] fc-colour
 /Forest [ 0.20 0.26 0.18 ] fc-colour
-/Scree [ 0.55 0.52 0.48 ] fc-colour
+/Scree [ 0.50 0.49 0.47 ] fc-colour
 /SkyAmb [ 0.58 0.66 0.80 ] fc-colour
 /Bounce [ 0.40 0.36 0.30 ] fc-colour         % light off the ground below
 /PixAng 0.0035 fc-default
+/SkyLight 1.15 fc-default            % strength of the sky dome on terrain
+/BumpAmp 0.55 fc-default             % fractured-rock normal perturbation
 
 % TerrFn: 0 ridged only, 1 erosion fBm only, 3 the massif hierarchy
 /TerrFn 3 fc-default
 
+% fc-height: the eroded map where fc_erode.ps has baked one (plus fine
+% procedural detail), the procedural terrain elsewhere
+/ErBaked where { pop } { /ErBaked false def /ErBaking false def } ifelse  % fc_erode.ps defines ErDelta
 /fc-height {                                     % x z oct -> h
+    ErBaked ErBaking not and { ErDelta } { false } ifelse {
+        % procedural terrain plus erosion's smooth correction
+        /Hfo exch def /Hfz exch def /Hfx exch def
+        Hfx Hfz Hfo fc-height-proc
+        Hfx Hfz fc-erode-lookup mul TerrH mul add
+    } {
+    ErBaked ErBaking not and {
+        /Hfo exch def /Hfz exch def /Hfx exch def
+        Hfx Hfz fc-erode-lookup /Hfw exch def
+        TerrH mul TerrBase add
+        % fine detail the map is too coarse to hold
+        Hfo 4 gt FineAmp 0 gt and {
+            Hfx TerrScale mul FineScale mul 3.7 add Hfz TerrScale mul FineScale mul 1.3 add
+            Hfo 4 sub fc-eroded 0.5 sub FineAmp mul TerrH mul add
+        } if
+        Hfw 1 lt {
+            Hfw mul  Hfx Hfz Hfo fc-height-proc 1 Hfw sub mul add
+        } if
+    } { fc-height-proc } ifelse } ifelse
+} bind def
+
+/fc-height-proc {                                % x z oct -> h
     /Ho exch def
     TerrScale mul exch TerrScale mul exch /Hz2 exch def /Hx2 exch def
     TerrFn 0 eq {
@@ -125,15 +152,15 @@
     /Nz exch def /Ny exch def /Nx exch def
     /Nn Nx Nx mul Ny Ny mul add Nz Nz mul add sqrt def
     /Nx Nx Nn div def /Ny Ny Nn div def /Nz Nz Nn div def
-    % concavity: how far the surface sits below a smoothed version of itself
-    /Kcav Kx Kz 3 fc-height Kh sub def
-    % sky visibility: how high the terrain rises around the point, sampled
-    % at four compass points 7 units out (a crude horizon test)
-    /Kocc 0 def
+    % sky visibility and concavity from four samples 7 units out: how high
+    % the ground rises around the point (a crude horizon test), and how far
+    % the point sits below their mean (hollows positive, crests negative)
+    /Kocc 0 def /Kcav 0 def
     [ 7 0 -7 0 0 7 0 -7 ] /Kring exch def
     0 2 6 { /Kj exch def
-        Kx Kring Kj get add Kz Kring Kj 1 add get add 4 fc-height Kh sub 7 div
-        dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if Kocc add /Kocc exch def
+        Kx Kring Kj get add Kz Kring Kj 1 add get add 4 fc-height Kh sub
+        dup 4 div Kcav add /Kcav exch def
+        7 div dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if Kocc add /Kocc exch def
     } for
     /Kao 1 Kocc 0.25 mul 0.75 mul sub def
     % broad and fine variation for materials
@@ -143,7 +170,10 @@
     Rock Rock2 Kv 0.6 mul Kh 90 mul Kv2 140 mul add sin 0.2 mul add 0.2 add mix3v   % sin takes degrees
     Scree 0.62 0.8 Ny fc-smooth 0.7 mul mix3v
     % darker and lighter rock in patches (lichen, wet rock, different beds)
-    Kx 0.07 mul 13.1 add Kz 0.07 mul 5.3 add fc-noise2 0.6 mul 0.7 add /Kpat exch def
+    Kx 0.07 mul 13.1 add Kz 0.07 mul 5.3 add fc-noise2 0.6 mul 0.7 add
+    % and fine mottling, which is what makes near ground read as rock
+    Kx 0.9 mul 2.3 add Kz 0.9 mul 8.9 add fc-noise2 0.5 sub 0.35 mul 1 add mul
+    /Kpat exch def
     [ exch { Kpat mul } forall ]
     % forest: low, gentle ground, in broad patches
     TreeLine Kv 10 mul add 4 add  TreeLine Kv 10 mul add 4 sub  Kh fc-smooth
@@ -156,9 +186,25 @@
     0.45 Kcav 0.16 mul add dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if mul
     Kocc 0.25 mul 0.5 mul 0.8 add mul           % sheltered ground holds more
     Kv2 0.25 mul 0.875 add mul
-    0.30 0.52 3 -1 roll fc-smooth
+    % faces turned away from the sun keep more snow
+    Nx SunDir 0 get mul Nz SunDir 2 get mul add neg 0.35 mul 1 add mul
+    0.24 0.58 3 -1 roll fc-smooth
     /Ksnow exch def Snow Ksnow mix3v
     /Alb exch def
+    % fractured rock: tilt the shading normal by a three-octave noise gradient
+    % on steep, snow-free ground, so faces break into planes in the light
+    BumpAmp 0 gt Ny 0.88 lt and Ksnow 0.9 lt and {
+        /Kbx 0 def /Kbz 0 def /Kbf 0.45 def /Kba 1 def
+        3 {
+            Kx Kbf mul 7.1 add Kz Kbf mul 2.9 add fc-noise2d
+            Kba mul Kbz add /Kbz exch def  Kba mul Kbx add /Kbx exch def  pop
+            /Kbf Kbf 2.1 mul def /Kba Kba 0.55 mul def
+        } repeat
+        0.62 0.88 Ny fc-smooth 1 exch sub 1 Ksnow sub mul BumpAmp mul /Kbk exch def
+        /Nx Nx Kbx Kbk mul sub def /Nz Nz Kbz Kbk mul sub def
+        /Nn Nx Nx mul Ny Ny mul add Nz Nz mul add sqrt def
+        /Nx Nx Nn div def /Ny Ny Nn div def /Nz Nz Nn div def
+    } if
     % light: sun (with cast shadow), sky dome, warm bounce, occlusion
     /Kl Nx SunDir 0 get mul Ny SunDir 1 get mul add Nz SunDir 2 get mul add def
     Kl 0 lt { /Kl 0 def } if
@@ -168,7 +214,7 @@
     0 1 2 { /Ki exch def
         Alb Ki get
         SunCol Ki get Kl mul 1.5 mul
-        SkyAmb Ki get Ksky mul 0.55 mul add
+        SkyAmb Ki get Ksky mul SkyLight mul add
         Bounce Ki get Kbn mul 0.35 mul add
         mul
     } for
