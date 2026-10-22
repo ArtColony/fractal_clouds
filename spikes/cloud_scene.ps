@@ -1,0 +1,137 @@
+%!PS-Adobe-3.0
+% cloud_scene.ps -- the scene both spike renderers share (fractal_clouds#1).
+%
+% World: y up, camera at the origin looking along +z, pitched up by Pitch.
+% A layer of cumulus between CloudLo and CloudHi, density from fc-fbm3.
+% Everything a renderer needs to agree on lives here: seed, camera, sun,
+% density, lighting, sky and haze. Units are roughly hundreds of metres.
+
+(lib/fc_noise3.ps) run
+
+/Seed where { pop } { /Seed 7 def } ifelse
+Seed fc-noise3-init
+
+/fc-rnd { rand 2147483647 div } bind def        % 0..1, follows srand
+
+% --- camera ---------------------------------------------------------------
+/Pitch 9 def                    % degrees above the horizon
+/HFov 64 def                    % horizontal field of view, degrees
+/TanH HFov 2 div dup sin exch cos div def
+/CosP Pitch cos def /SinP Pitch sin def
+
+% u v (u in -1..1 across, v scaled by the aspect) -> dx dy dz, unit length
+/fc-ray {
+    TanH mul exch TanH mul exch 1                % x y z before pitch
+    % rotate about x: y' = y cosP + z sinP ; z' = z cosP - y sinP
+    2 copy SinP mul exch CosP mul add            % x y z y'
+    3 1 roll CosP mul exch SinP mul sub          % x y' z'
+    /Rz exch def /Ry exch def /Rx exch def
+    /Rn Rx Rx mul Ry Ry mul add Rz Rz mul add sqrt def
+    Rx Rn div Ry Rn div Rz Rn div
+} bind def
+
+% --- clouds ---------------------------------------------------------------
+/CloudLo 14 def /CloudHi 40 def                 % layer bottom and top
+/TMax 900 def                                    % how far rays look
+/NoiseScale 0.045 def
+/Threshold 0.47 def                              % higher = less cover
+/Sigma 0.09 def                                  % extinction per unit density
+/DensOct 5 def                                   % fBm octaves for density
+/ShadOct 3 def                                   % ...and for shadow probes
+
+% x y z oct -> d >= 0
+/fc-density {
+    /Doct exch def /Dz exch def /Dy exch def /Dx exch def
+    Dy CloudLo sub CloudHi CloudLo sub div       % h in 0..1 through the layer
+    dup 0 le 1 index 1 ge or { pop 0 } {
+        /Dh exch def
+        % flat-ish bases, rounded tops: ramp up fast, fade out slowly
+        Dh 6 mul 1 2 copy gt { exch } if pop
+        1 Dh sub 1.6 mul 1 2 copy gt { exch } if pop mul
+        /Dprof exch def
+        Dx NoiseScale mul Dy NoiseScale mul 1.6 mul Dz NoiseScale mul Doct fc-fbm3
+        Threshold sub 1 Dprof sub 0.35 mul sub
+        dup 0 lt { pop 0 } { 14 mul } ifelse
+    } ifelse
+} bind def
+
+% --- light ----------------------------------------------------------------
+% Sun low on the left, slightly behind the clouds: lit edges, darker bellies.
+/SunDir [ -0.55 0.42 0.72 ] def
+SunDir aload pop /Rz exch def /Ry exch def /Rx exch def
+/Rn Rx Rx mul Ry Ry mul add Rz Rz mul add sqrt def
+/SunDir [ Rx Rn div Ry Rn div Rz Rn div ] def
+/SunCol [ 1.00 0.93 0.80 ] def
+/AmbTop [ 0.62 0.72 0.88 ] def                    % skylight on cloud tops
+/AmbBot [ 0.34 0.38 0.48 ] def                    % ...and on the bases
+/ShadStep 3.2 def                                 % shadow probe spacing
+/HazeDist 520 def                                 % aerial perspective
+
+% Henyey-Greenstein-ish forward scattering, from cos(angle ray, sun)
+/fc-phase {                                       % mu -> p
+    /Pg 0.45 def
+    1 Pg Pg mul sub
+    1 Pg Pg mul add 2 Pg mul 4 -1 roll mul sub 1.5 exp
+    div 0.25 mul 0.55 add
+} bind def
+
+% x y z d phase -> r g b   (light leaving a cloud sample toward the eye)
+/fc-light {
+    /Lph exch def /Ld exch def /Lz exch def /Ly exch def /Lx exch def
+    % optical depth toward the sun from two probes
+    0
+    1 1 2 {
+        ShadStep mul /Ls exch def
+        Lx SunDir 0 get Ls mul add Ly SunDir 1 get Ls mul add Lz SunDir 2 get Ls mul add
+        ShadOct fc-density add
+    } for
+    ShadStep mul Sigma mul /Lod exch def
+    2.71828 Lod neg exp                          % sun transmittance
+    % "powder": thin edges facing the sun scatter less, so they don't glow
+    1 2.71828 Ld Sigma mul 2.5 mul neg exp sub 0.6 mul 0.4 add mul
+    Lph mul 1.6 mul /Lsun exch def
+    Ly CloudLo sub CloudHi CloudLo sub div /Lh exch def
+    0 1 2 {
+        /Li exch def
+        SunCol Li get Lsun mul
+        AmbBot Li get AmbTop Li get AmbBot Li get sub Lh mul add 0.8 mul add
+    } for
+} bind def
+
+% --- sky ------------------------------------------------------------------
+/Zenith [ 0.22 0.42 0.78 ] def
+/Horizon [ 0.72 0.80 0.90 ] def
+/Ground [ 0.30 0.33 0.30 ] def
+/GroundFar [ 0.58 0.64 0.70 ] def
+
+% dx dy dz -> r g b
+/fc-sky {
+    /Sz exch def /Sy exch def /Sx exch def
+    Sx SunDir 0 get mul Sy SunDir 1 get mul add Sz SunDir 2 get mul add
+    dup 0 lt { pop 0 } if
+    dup dup mul dup mul dup mul dup mul dup mul /Sglow exch def   % mu^32
+    dup 4 { dup mul } repeat 4 { dup mul } repeat /Sdisc exch def % mu^256
+    pop
+    Sy 0 ge {
+        1 Sy sub dup mul dup mul /St exch def    % 1 at the horizon
+        0 1 2 { /Si exch def
+            Zenith Si get Horizon Si get Zenith Si get sub St mul add
+            SunCol Si get Sglow 0.35 mul Sdisc 2.5 mul add mul add
+            dup 1 gt { pop 1 } if
+        } for
+    } {
+        Sy neg 6 mul dup 1 gt { pop 1 } if /St exch def
+        0 1 2 { /Si exch def
+            GroundFar Si get Ground Si get GroundFar Si get sub St mul add
+        } for
+    } ifelse
+} bind def
+
+% r g b t -> r g b   blend toward the horizon colour by distance t
+/fc-haze {
+    HazeDist div neg 2.71828 exch exp 1 exch sub /Hf exch def
+    /Hb exch def /Hg exch def /Hr exch def
+    Hr Horizon 0 get Hr sub Hf mul add
+    Hg Horizon 1 get Hg sub Hf mul add
+    Hb Horizon 2 get Hb sub Hf mul add
+} bind def

@@ -1,0 +1,109 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+% splat.ps -- fractal_clouds#1 spike: the same cloud layer as raymarch.ps,
+% drawn as translucent discs. The volume is walked on a jittered grid from
+% far to near (world z descending, close to camera depth at this pitch), so
+% painter's order needs no sort. Cells grow with distance so each covers
+% about the same screen area.
+%
+% /Cell sets the cell size at distance 100 (default 4; smaller = more,
+% finer splats). The sky behind is a per-pixel image at /IW x /IH (cheap).
+% /Dump true prints each disc as [x y r red green blue alpha] (page points)
+% instead of drawing it; /SkyOnly true draws just the sky. Together they
+% let spikes/composite_check.py re-blend the exact same splats outside pscat.
+
+(spikes/cloud_scene.ps) run
+
+/Cell where { pop } { /Cell 4 def } ifelse
+/IW where { pop } { /IW 160 def } ifelse
+/IH IW 5 mul 8 idiv def
+Seed 2000 add srand
+/Dump where { pop } { /Dump false def } ifelse
+/SkyOnly where { pop } { /SkyOnly false def } ifelse
+
+/PW 320 def /PH 200 def                          % page, points
+/Focal PW 2 div TanH div def                     % screen units per unit x/z
+
+/byte { 255 mul round cvi dup 255 gt { pop 255 } if dup 0 lt { pop 0 } if } bind def
+
+/t0 usertime def
+
+% --- sky ------------------------------------------------------------------
+/Row IW 3 mul string def /J 0 def /Aspect IH IW div def
+gsave PW PH scale
+IW IH 8 [IW 0 0 IH neg 0 IH]
+{
+    /Vv IH 1 sub J sub 0.5 add IH div 2 mul 1 sub Aspect mul def
+    0 1 IW 1 sub {
+        /I exch def
+        I 0.5 add IW div 2 mul 1 sub Vv fc-ray fc-sky
+        byte Row I 3 mul 2 add 3 -1 roll put
+        byte Row I 3 mul 1 add 3 -1 roll put
+        byte Row I 3 mul 3 -1 roll put
+    } for
+    /J J 1 add def
+    Row
+}
+false 3 colorimage
+grestore
+/tsky usertime t0 sub def
+
+% --- splats ---------------------------------------------------------------
+/NSplat 0 def /NCell 0 def
+/ZFar TMax def /ZNear 8 def
+/Zs ZFar def
+{
+    Zs ZNear lt SkyOnly or { exit } if
+    /C Cell Zs mul 100 div def
+    /Xr Zs TanH mul 1.15 mul def
+    CloudLo C CloudHi {
+        /Yw exch def
+        Xr neg C Xr {
+            /Xw exch def
+            /NCell NCell 1 add def
+            /Qx Xw C fc-rnd mul add def
+            /Qy Yw C fc-rnd mul add def
+            /Qz Zs C fc-rnd mul sub def
+            % camera space (undo the pitch), then the screen: cull before
+            % paying for density
+            /Cy Qy CosP mul Qz SinP mul sub def
+            /Cz Qy SinP mul Qz CosP mul add def
+            /Sx Qx Cz div Focal mul PW 2 div add def
+            /Sy Cy Cz div Focal mul PH 2 div add def
+            /Sr C Cz div Focal mul 0.85 mul 1.35 mul def
+            Sx Sr add 0 gt Sx Sr sub PW lt and Sy Sr add 0 gt and Sy Sr sub PH lt and {
+                Qx Qy Qz DensOct fc-density dup 0 gt {
+                    /Qd exch def
+                    /Sr Sr 1.35 div def
+                    /NSplat NSplat 1 add def
+                    % eye ray for this sample, for the phase function
+                    /Rn Qx Qx mul Qy Qy mul add Qz Qz mul add sqrt def
+                    Qx SunDir 0 get mul Qy SunDir 1 get mul add Qz SunDir 2 get mul add Rn div
+                    fc-phase /Qph exch def
+                    Qx Qy Qz Qd Qph fc-light Rn fc-haze
+                    % a soft splat: wide faint disc, then a tighter core
+                    1 2.71828 Sigma Qd mul C mul neg exp sub /Qa exch def
+                    Dump {
+                        /Qb exch def /Qg exch def /Qr exch def
+                        [ Sx Sy Sr 1.35 mul Qr Qg Qb Qa 0.45 mul ] ==
+                        [ Sx Sy Sr 0.75 mul Qr Qg Qb Qa 0.6 mul ] ==
+                    } {
+                        setrgbcolor
+                        Qa 0.45 mul setalpha
+                        newpath Sx Sy Sr 1.35 mul 0 360 arc fill
+                        Qa 0.6 mul setalpha
+                        newpath Sx Sy Sr 0.75 mul 0 360 arc fill
+                    } ifelse
+                } { pop } ifelse
+            } if
+        } for
+    } for
+    /Zs Zs C sub def
+} loop
+1 setalpha
+
+(splat cell ) print Cell 9 string cvs print
+( cells ) print NCell 9 string cvs print ( splats ) print NSplat 9 string cvs print
+( sky ms ) print tsky 9 string cvs print
+( total ms ) print usertime t0 sub =
+showpage

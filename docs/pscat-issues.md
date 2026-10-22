@@ -73,3 +73,83 @@ an agent tries.
 **Suggested fix:** use `/Times-Italic` in the sketch, or add a note that it
 needs `pscat fonts install`. CI could run the skills' code blocks against a
 bare bundle with no font catalog.
+
+## 4. `/Interpolate true` on images is ignored
+
+- **Kind:** pscat divergence from Ghostscript (PLRM allows ignoring it; it's a hint)
+- **Status:** open
+- **Where:** `image` / `colorimage` with an image dictionary, PNG output
+- **Found:** 2026-10-21, fractal_clouds#1 spike
+
+An 8×4 RGB image scaled up to 100×100 points renders as hard-edged blocks
+whether or not the image dictionary has `/Interpolate true`. Ghostscript
+10.07.1 (`gs -sDEVICE=png16m -r144`) renders the same file with the
+interpolated half smooth. A program that computes an image at low resolution
+(a ray-marched cloud, say) and wants it scaled smoothly has to upsample by
+hand in PostScript.
+
+```postscript
+%%BoundingBox: 0 0 100 100
+/W 8 def /H 4 def /row W 3 mul string def /j 0 def
+100 100 scale
+<< /ImageType 1 /Width W /Height H /BitsPerComponent 8 /Decode [0 1 0 1 0 1]
+   /ImageMatrix [W 0 0 H neg 0 H] /Interpolate true
+   /DataSource { 0 1 W 1 sub { /i exch def row i 3 mul i 255 mul W 1 sub idiv put
+     row i 3 mul 1 add j 255 mul H 1 sub idiv put row i 3 mul 2 add 128 put } for
+     /j j 1 add def row } >>
+/DeviceRGB setcolorspace image showpage
+```
+
+**Suggested fix:** honour `/Interpolate` with bilinear sampling in the PNG
+and PDF backends (in PDF it's just the `/Interpolate` key on the image), or
+document that it's ignored.
+
+## 5. Many low-alpha layers stall: `setalpha` blending loses precision in 8 bits
+
+- **Kind:** pscat rendering precision
+- **Status:** open
+- **Where:** `setalpha` fills, PNG output
+- **Found:** 2026-10-21, fractal_clouds#1 spike (splat renderer)
+
+Stacking many faint translucent fills never reaches the colour the maths
+says it should, and stops early. White over black, 10×10-point squares:
+
+| alpha × layers | expected (`255·(1−(1−a)ⁿ)`) | pscat 0.6.2 |
+|---|---|---|
+| 0.05 × 40 | 222 | 221 |
+| 0.01 × 200 | 221 | 192 |
+| 0.002 × 1000 | 221 | **128** |
+
+```postscript
+%%BoundingBox: 0 0 40 10
+0 setgray 0 0 40 10 rectfill  1 setgray
+0.01 setalpha 200 { 0 0 10 10 rectfill } repeat
+0.05 setalpha 40 { 10 0 10 10 rectfill } repeat
+0.002 setalpha 1000 { 20 0 10 10 rectfill } repeat
+showpage
+```
+
+The precision is lost somewhere in compositing; the exact mechanism isn't
+confirmed. The 0.002 row fits alpha being stored as a multiple of 1/255
+with each blend rounded to 8 bits, so that a layer changes nothing once
+`(target − current) × alpha < 0.5`. The 0.01 row doesn't fit that: 3/255
+predicts a stall near 213, and pscat gives 192. Because the cut-off depends
+on each channel's distance to its target, colours also
+**drift in hue**: in the splat cloud render, red kept moving toward the cloud
+colour while green stalled, leaving purple fringes on cloud edges
+(`docs/spikes/1-cloud-timing.md`).
+
+**Confirmed in a real scene.** `spikes/composite_check.py` takes the exact
+301,814 discs pscat draws for the splat render, dumped with `/Dump true`,
+and blends them outside pscat over pscat's own sky. A floating-point blend
+has **no fringes**. An 8-bit model (alpha rounded to 1/255, every blend
+rounded) **reproduces the fringes in the same places**. pscat's own render
+is worse than that model: stronger fringes and a greyer cloud field overall.
+So pscat loses even more precision than per-blend 8-bit rounding.
+Side by side (pscat | float | 8-bit model):
+`docs/spikes/1-cloud-timing/fringe-pscat-float-8bit.png`.
+
+**Suggested fix:** composite in a higher-precision buffer (16-bit or float)
+and quantise once at the end, or at least keep alpha unquantised and dither
+the per-blend rounding. Volume splatting, soft glows and airbrush effects
+all stack hundreds of faint layers.
