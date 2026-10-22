@@ -1,0 +1,120 @@
+%!PS-Adobe-3.0
+% fc_clouds.ps -- a ray-marched cumulus layer (fractal_clouds#1).
+%
+% Needs fc_noise3.ps and fc_sky.ps. Same density and lighting model as the
+% spike (spikes/cloud_scene.ps), with two changes for distant clouds: steps
+% grow with distance, and noise octaves finer than about two pixels are
+% dropped (they only turned into grain near the horizon).
+%
+%   x y z oct fc-density d          cloud density, >= 0
+%   tlimit fc-clouds -               march the current ray (Mx My Mz from
+%                                    CamY) up to tlimit; leaves the light it
+%                                    picked up in Cr Cg Cb and the
+%                                    transmittance in Tr
+%
+% fc-clouds reads PixAng (radians per image pixel; fc_render.ps sets it).
+
+/CloudLo 14 fc-default /CloudHi 40 fc-default
+/NoiseScale 0.045 fc-default
+/Threshold 0.47 fc-default           % higher = less cover
+/Sigma 0.09 fc-default               % extinction per unit density
+/DensOct 5 fc-default                % most octaves, for near clouds
+/ShadOct 3 fc-default                % octaves for shadow probes
+/ShadStep 3.2 fc-default
+/CloudSteps 96 fc-default            % at most this many samples per ray
+/AmbTop [ 0.62 0.72 0.88 ] fc-default
+/AmbBot [ 0.34 0.38 0.48 ] fc-default
+/PixAng 0.0035 fc-default
+
+/fc-density {                                    % x y z oct -> d
+    /Doct exch def /Dz exch def /Dy exch def /Dx exch def
+    Dy CloudLo sub CloudHi CloudLo sub div
+    dup 0 le 1 index 1 ge or { pop 0 } {
+        /Dh exch def
+        Dh 6 mul 1 2 copy gt { exch } if pop
+        1 Dh sub 1.6 mul 1 2 copy gt { exch } if pop mul
+        /Dprof exch def
+        Dx NoiseScale mul Dy NoiseScale mul 1.6 mul Dz NoiseScale mul Doct fc-fbm3
+        Threshold sub 1 Dprof sub 0.35 mul sub
+        dup 0 lt { pop 0 } { 14 mul } ifelse
+    } ifelse
+} bind def
+
+/fc-phase {                                      % mu -> p
+    /Pg 0.45 def
+    1 Pg Pg mul sub
+    1 Pg Pg mul add 2 Pg mul 4 -1 roll mul sub 1.5 exp
+    div 0.25 mul 0.55 add
+} bind def
+
+/fc-cloud-light {                                % x y z d phase -> r g b
+    /Lph exch def /Ld exch def /Lz exch def /Ly exch def /Lx exch def
+    0
+    1 1 2 {
+        ShadStep mul /Ls exch def
+        Lx SunDir 0 get Ls mul add Ly SunDir 1 get Ls mul add Lz SunDir 2 get Ls mul add
+        ShadOct fc-density add
+    } for
+    ShadStep mul Sigma mul /Lod exch def
+    2.71828 Lod neg exp
+    1 2.71828 Ld Sigma mul 2.5 mul neg exp sub 0.6 mul 0.4 add mul
+    Lph mul 1.6 mul /Lsun exch def
+    Ly CloudLo sub CloudHi CloudLo sub div /Lh exch def
+    0 1 2 {
+        /Li exch def
+        SunCol Li get Lsun mul
+        AmbBot Li get AmbTop Li get AmbBot Li get sub Lh mul add 0.8 mul add
+    } for
+} bind def
+
+% octaves worth computing at distance t: drop any whose cell is under ~2 px
+/fc-cloud-oct {                                  % t -> oct
+    PixAng mul 2 mul NoiseScale mul              % one 2-px footprint, in noise cells
+    dup 0.000001 lt { pop DensOct } {
+        1 exch div ln 2.03 ln div floor cvi 1 add
+        dup DensOct gt { pop DensOct } if
+        dup 1 lt { pop 1 } if
+    } ifelse
+} bind def
+
+/fc-clouds {                                     % tlimit -> -
+    /Ctl exch def
+    /Cr 0 def /Cg 0 def /Cb 0 def /Tr 1 def
+    % the ray's interval inside the layer
+    My abs 0.00001 lt {
+        CamY CloudLo gt CamY CloudHi lt and { /Ct0 0 def /Ct1 TMax def } { /Ct0 1 def /Ct1 0 def } ifelse
+    } {
+        /Cta CloudLo CamY sub My div def /Ctb CloudHi CamY sub My div def
+        Cta Ctb 2 copy gt { exch } if /Ct1 exch def /Ct0 exch def
+        Ct0 0 lt { /Ct0 0 def } if
+    } ifelse
+    Ct1 Ctl gt { /Ct1 Ctl def } if
+    Ct1 TMax gt { /Ct1 TMax def } if
+    Ct0 Ct1 lt {
+        /Cph Mx SunDir 0 get mul My SunDir 1 get mul add Mz SunDir 2 get mul add fc-phase def
+        % step length grows with distance; the first step is jittered
+        /Cdt0 Ct1 Ct0 sub CloudSteps div def
+        /Ct Ct0 def
+        /Cdt Cdt0 Ct 0.012 mul add def
+        /Ct Ct Cdt fc-rnd mul add def
+        {
+            Ct Ct1 ge { exit } if
+            /Cdt Cdt0 Ct 0.012 mul add def
+            /Px Mx Ct mul def /Py My Ct mul CamY add def /Pz Mz Ct mul def
+            Px Py Pz Ct fc-cloud-oct fc-density dup 0 gt {
+                /Cd exch def
+                /Ca 1 2.71828 Sigma Cd mul Cdt mul neg exp sub def
+                Px Py Pz Cd Cph fc-cloud-light Ct Py fc-haze
+                Tr Ca mul /Cw exch def
+                Cw mul Cb add /Cb exch def
+                Cw mul Cg add /Cg exch def
+                Cw mul Cr add /Cr exch def
+                /Tr Tr 1 Ca sub mul def
+                Tr 0.01 lt { exit } if
+            } { pop } ifelse
+            /Ct Ct Cdt add def
+        } loop
+    } if
+} bind def
+
+/fc-rnd { rand 2147483647 div } bind def

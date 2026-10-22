@@ -1,0 +1,97 @@
+%!PS-Adobe-3.0
+% fc_sky.ps -- camera, sun, sky, aerial perspective and tone curve.
+%
+% World: y up, the camera at (0, CamY, 0) looking along +z, pitched up by
+% Pitch degrees. Units are roughly tens of metres. A piece sets any of the
+% /Name defaults below before loading this file (`/Name where` guards), or
+% redefines them after.
+%
+%   u v fc-ray dx dy dz       unit view ray; u in -1..1 across the frame,
+%                             v the same scale (so v spans +-aspect)
+%   dx dy dz fc-sky r g b     sky radiance seen along a ray (no clipping)
+%   dx dz fc-haze-colour -    sets HazeCol: the horizon colour toward (dx,dz)
+%   r g b t y fc-haze r g b   aerial perspective for a point at distance t
+%                             and height y (haze thins with altitude)
+%   r g b fc-tone r g b       exposure tone curve, 1 - exp(-c * Exposure)
+
+/fc-default { 1 index where { pop pop pop } { def } ifelse } bind def
+
+% --- camera ---------------------------------------------------------------
+/Pitch 9 fc-default                  % degrees above the horizon
+/HFov 64 fc-default                  % horizontal field of view, degrees
+/CamY 0 fc-default
+/TMax 900 fc-default                 % how far rays look
+
+/fc-camera-update {
+    /TanH HFov 2 div dup sin exch cos div def
+    /CosP Pitch cos def /SinP Pitch sin def
+} bind def
+fc-camera-update
+
+/fc-ray {                                        % u v -> dx dy dz
+    TanH mul exch TanH mul exch 1
+    2 copy SinP mul exch CosP mul add            % x y z y'
+    3 1 roll CosP mul exch SinP mul sub          % x y' z'
+    /Rz exch def /Ry exch def /Rx exch def
+    /Rn Rx Rx mul Ry Ry mul add Rz Rz mul add sqrt def
+    Rx Rn div Ry Rn div Rz Rn div
+} bind def
+
+% --- sun ------------------------------------------------------------------
+/SunDir [ -0.55 0.42 0.72 ] fc-default
+/SunCol [ 1.00 0.93 0.80 ] fc-default
+
+/fc-sun-update {                                 % normalise SunDir
+    SunDir aload pop /Rz exch def /Ry exch def /Rx exch def
+    /Rn Rx Rx mul Ry Ry mul add Rz Rz mul add sqrt def
+    /SunDir [ Rx Rn div Ry Rn div Rz Rn div ] def
+} bind def
+fc-sun-update
+
+% --- sky ------------------------------------------------------------------
+/Zenith [ 0.20 0.38 0.74 ] fc-default
+/Horizon [ 0.70 0.78 0.88 ] fc-default
+/Exposure 1.6 fc-default
+
+/fc-sky {                                        % dx dy dz -> r g b
+    /Sz exch def /Sy exch def /Sx exch def
+    Sx SunDir 0 get mul Sy SunDir 1 get mul add Sz SunDir 2 get mul add
+    dup 0 lt { pop 0 } if
+    % three lobes: a wide brightening, a halo, and the disc itself
+    dup dup mul dup mul dup mul /S8 exch def                       % mu^8
+    S8 dup mul dup mul dup mul /S64 exch def                       % mu^64
+    S64 6 { dup mul } repeat /S4096 exch def                       % mu^4096
+    pop
+    /Sglow S8 0.10 mul S64 0.30 mul add S4096 40 mul add def
+    Sy 0 lt { 0 } { Sy } ifelse /Sh exch def
+    1 Sh sub dup mul dup mul /St exch def        % 1 at the horizon
+    0 1 2 { /Si exch def
+        Zenith Si get Horizon Si get Zenith Si get sub St mul add
+        SunCol Si get Sglow mul add
+    } for
+} bind def
+
+/HazeCol [ 0.70 0.78 0.88 ] def
+/fc-haze-colour {                                % dx dz -> -
+    /Hz exch def /Hx exch def
+    /Hn Hx Hx mul Hz Hz mul add sqrt 0.000001 add def
+    Hx Hn div 0.999 mul 0.045 Hz Hn div 0.999 mul fc-sky
+    3 array astore /HazeCol exch def
+} bind def
+
+/HazeDist 520 fc-default             % e-folding distance at height 0
+/HazeH 45 fc-default                 % haze scale height
+
+/fc-haze {                                       % r g b t y -> r g b
+    HazeH div neg 2.71828 exch exp               % density factor at y
+    exch HazeDist div mul neg 2.71828 exch exp   % transmittance
+    1 exch sub /Hf exch def
+    /Hb exch def /Hg exch def /Hr exch def
+    Hr HazeCol 0 get Hr sub Hf mul add
+    Hg HazeCol 1 get Hg sub Hf mul add
+    Hb HazeCol 2 get Hb sub Hf mul add
+} bind def
+
+/fc-tone {                                       % r g b -> r g b
+    3 { Exposure mul neg 2.71828 exch exp 1 exch sub 3 1 roll } repeat
+} bind def

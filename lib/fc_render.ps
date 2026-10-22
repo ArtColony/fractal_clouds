@@ -1,0 +1,51 @@
+%!PS-Adobe-3.0
+% fc_render.ps -- the default renderer: one ray per pixel (fractal_clouds#1).
+%
+% A piece defines /fc-pixel { u v -> r g b } and calls
+%
+%   pw ph fc-render -
+%
+% which fills a pw x ph point page with an image at one sample per device
+% pixel (so `--dpi 144` doubles the detail), times /Res (default 1; 0.25
+% for a quick composition check). It sets IW, IH and PixAng before the
+% first pixel and prints the image size and render time.
+%
+% u runs -1..1 across the image; v runs over the same scale (so +-ih/iw).
+% Pixels are produced top row first, left to right, so a seeded fc-rnd
+% gives the same picture every time.
+
+/Res where { pop } { /Res 1 def } ifelse
+
+/fc-byte { 255 mul round cvi dup 255 gt { pop 255 } if dup 0 lt { pop 0 } if } bind def
+
+/fc-render {                                     % pw ph -> -
+    /FrPh exch def /FrPw exch def
+    matrix defaultmatrix 0 get abs /FrDpp exch def    % device px per point
+    /IW FrPw FrDpp mul Res mul round cvi 1 fc-max def
+    /IH FrPh FrDpp mul Res mul round cvi 1 fc-max def
+    /PixAng TanH 2 mul IW div def
+    /FrRow IW 3 mul string def /FrJ 0 def
+    /FrAsp IH IW div def
+    /FrT0 usertime def
+    gsave
+    FrPw FrPh scale
+    IW IH 8 [IW 0 0 IH neg 0 IH]
+    {
+        /FrV IH 1 sub FrJ sub 0.5 add IH div 2 mul 1 sub FrAsp mul def
+        0 1 IW 1 sub {
+            /FrI exch def
+            FrI 0.5 add IW div 2 mul 1 sub FrV fc-pixel
+            fc-byte FrRow FrI 3 mul 2 add 3 -1 roll put
+            fc-byte FrRow FrI 3 mul 1 add 3 -1 roll put
+            fc-byte FrRow FrI 3 mul 3 -1 roll put
+        } for
+        /FrJ FrJ 1 add def
+        FrRow
+    }
+    false 3 colorimage
+    grestore
+    (fc-render ) print IW 9 string cvs print (x) print IH 9 string cvs print
+    ( px, ms ) print usertime FrT0 sub =
+} bind def
+
+/fc-max { 2 copy lt { exch } if pop } bind def  % pscat has max; Ghostscript doesn't

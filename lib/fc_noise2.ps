@@ -1,0 +1,66 @@
+%!PS-Adobe-3.0
+% fc_noise2.ps -- fast 2D value noise and ridged fBm for fractal_clouds terrain.
+%
+%   seed fc-noise2-init -        fill the lattice (calls srand)
+%   x y fc-noise2 v              value noise, v in 0..1, period 64 per axis
+%   x y oct fc-ridged v          ridged multifractal, roughly 0..1
+%
+% Same layout trick as fc_noise3.ps: a 65x65 lattice with the border copied,
+% so a cell's four corners are fixed offsets from one base index. Each
+% octave of fc-ridged is rotated about 37 degrees and offset, so ridges don't
+% line up with the lattice axes. A fractional octave count fades the last
+% octave in, so detail can drop smoothly with distance.
+
+/FcN2 65 65 mul array def
+
+/fc-noise2-init {                                % seed -> -
+    srand
+    0 1 63 { /gy exch def
+      0 1 63 { /gx exch def
+        FcN2 gy 65 mul gx add  rand 16#7fffffff div  put
+      } for } for
+    0 1 64 { /gy exch def
+      0 1 64 { /gx exch def
+        gx 64 eq gy 64 eq or {
+          FcN2 gy 65 mul gx add  FcN2 gy 63 and 65 mul gx 63 and add get put
+        } if
+      } for } for
+} bind def
+
+/fc-noise2 {                                     % x y -> v
+    dup floor dup 3 1 roll sub
+    dup dup mul exch 2 mul 3 exch sub mul /N2v exch def
+    cvi 63 and 65 mul                            % x yo
+    exch
+    dup floor dup 3 1 roll sub
+    dup dup mul exch 2 mul 3 exch sub mul /N2u exch def
+    cvi 63 and add /N2b exch def
+    FcN2 N2b get       FcN2 N2b 1 add get   1 index sub N2u mul add
+    FcN2 N2b 65 add get FcN2 N2b 66 add get 1 index sub N2u mul add
+    1 index sub N2v mul add
+} bind def
+
+% Musgrave-style ridged multifractal: each octave is 1 - |2n - 1|, squared,
+% and weighted by the previous octave, so detail piles up on the ridges and
+% valleys stay smooth.
+/fc-ridged {                                     % x y oct -> v
+    /R2o exch def /R2y exch def /R2x exch def
+    /R2sum 0 def /R2amp 0.5 def /R2w 1 def /R2norm 0 def
+    /R2k 0 def
+    {
+        R2k R2o ge { exit } if
+        % the last, fractional octave fades in
+        R2o R2k sub dup 1 gt { pop 1 } if /R2f exch def
+        R2x R2y fc-noise2 2 mul 1 sub abs 1 exch sub dup mul
+        dup R2w mul R2amp mul R2f mul R2sum add /R2sum exch def
+        2 mul dup 1 gt { pop 1 } if /R2w exch def
+        R2amp R2f mul R2norm add /R2norm exch def
+        /R2amp R2amp 0.5 mul def
+        % rotate ~37 degrees, scale 2, offset
+        R2x 1.6 mul R2y 1.2 mul sub 3.1 add
+        R2x 1.2 mul R2y 1.6 mul add 7.7 add
+        /R2y exch def /R2x exch def
+        /R2k R2k 1 add def
+    } loop
+    R2sum R2norm div
+} bind def

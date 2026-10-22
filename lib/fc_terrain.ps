@@ -1,0 +1,114 @@
+%!PS-Adobe-3.0
+% fc_terrain.ps -- ray-marched ridged-fBm mountains (fractal_clouds#1).
+%
+% Needs fc_noise2.ps and fc_sky.ps.
+%
+%   x z oct fc-height h            terrain height
+%   fc-terrain-hit t | -1          march the current ray (Mx My Mz from
+%                                  CamY); distance to the terrain, or -1
+%   t fc-terrain-shade r g b       shade the hit at distance t (before haze)
+%
+% Detail follows distance like the clouds: octaves whose wavelength is
+% under about two pixels are left out, both when searching for the hit and
+% when shading it, and the normal's finite difference is one pixel wide.
+% Reads PixAng (radians per image pixel; fc_render.ps sets it).
+
+/TerrScale 0.011 fc-default          % 1 / wavelength of the biggest ridges
+/TerrH 64 fc-default                 % height of the tallest peaks
+/TerrBase -6 fc-default              % valley floor
+/TerrOct 8 fc-default                % most octaves, for near terrain
+/SnowLine 34 fc-default
+/TreeLine 14 fc-default
+/Rock [ 0.30 0.28 0.26 ] fc-default
+/Rock2 [ 0.42 0.38 0.33 ] fc-default
+/Snow [ 0.90 0.92 0.96 ] fc-default
+/Forest [ 0.10 0.14 0.09 ] fc-default
+/SkyAmb [ 0.42 0.50 0.64 ] fc-default
+/Bounce [ 0.16 0.14 0.11 ] fc-default        % light off the ground below
+/PixAng 0.0035 fc-default
+
+/fc-height {                                     % x z oct -> h
+    /Ho exch def
+    TerrScale mul exch TerrScale mul exch Ho fc-ridged
+    dup 1.35 exp exch 0.15 mul add               % steeper peaks, gentler foothills
+    TerrH mul TerrBase add
+} bind def
+
+/fc-terrain-oct {                                % t -> oct (real; fades the last in)
+    PixAng mul 2 mul TerrScale mul
+    dup 0.0000001 lt { pop TerrOct } {
+        1 exch div ln 2 ln div
+        dup TerrOct gt { pop TerrOct } if
+        dup 2 lt { pop 2 } if
+    } ifelse
+} bind def
+
+/TerrTop TerrH 1.2 mul TerrBase add def
+
+/fc-terrain-hit {                                % -> t | -1
+    /Gt 0.5 def /Gprev 0 def /Ghit -1 def
+    {
+        Gt TMax gt { exit } if
+        /Gy My Gt mul CamY add def
+        % above the highest possible peak and climbing: no hit
+        Gy TerrTop gt My 0 gt and { exit } if
+        /Go Gt fc-terrain-oct def
+        Mx Gt mul Mz Gt mul Go fc-height
+        Gy exch sub /Gd exch def
+        Gd 0 lt {
+            % bracketed between Gprev and Gt: bisect
+            /Ga Gprev def /Gb Gt def
+            5 {
+                /Gm Ga Gb add 2 div def
+                My Gm mul CamY add  Mx Gm mul Mz Gm mul Go fc-height  sub
+                0 lt { /Gb Gm def } { /Ga Gm def } ifelse
+            } repeat
+            /Ghit Ga Gb add 2 div def
+            exit
+        } if
+        /Gprev Gt def
+        /Gt Gt Gd 0.42 mul Gt 0.004 mul 0.2 add 2 copy lt { exch } if pop add def
+    } loop
+    Ghit
+} bind def
+
+% shading: albedo from height and slope, sun + sky light, no cast shadows yet
+/fc-terrain-shade {                              % t -> r g b
+    /Kt exch def
+    /Kx Mx Kt mul def /Ky My Kt mul CamY add def /Kz Mz Kt mul def
+    /Ko Kt fc-terrain-oct def
+    /Ke Kt PixAng mul 0.05 2 copy lt { exch } if pop def
+    /Kh Kx Kz Ko fc-height def
+    Kx Ke add Kz Ko fc-height Kh sub neg          % -dh/dx * e
+    Ke
+    Kx Kz Ke add Ko fc-height Kh sub neg          % -dh/dz * e
+    /Nz exch def /Ny exch def /Nx exch def
+    /Nn Nx Nx mul Ny Ny mul add Nz Nz mul add sqrt def
+    /Nx Nx Nn div def /Ny Ny Nn div def /Nz Nz Nn div def
+    % albedo: forest low and flat, rock on slopes, snow high and flat
+    /Kv Kx 0.035 mul Kz 0.035 mul fc-noise2 def  % broad patchiness
+    Rock Rock2 Kv mix3v
+    Kh TreeLine Kv 6 mul add lt Ny 0.80 gt and { pop Forest } if
+    Kh SnowLine Kv 10 mul sub gt {
+        % snow sticks where it's flat enough; fade it in on steeper ground
+        Ny 0.42 sub 3 mul dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if
+        Kh SnowLine Kv 10 mul sub sub 0.08 mul dup 1 gt { pop 1 } if mul
+        Snow exch mix3v
+    } if
+    /Alb exch def
+    /Kl Nx SunDir 0 get mul Ny SunDir 1 get mul add Nz SunDir 2 get mul add def
+    Kl 0 lt { /Kl 0 def } if
+    /Ksky Ny 0.5 mul 0.5 add def
+    0 1 2 { /Ki exch def
+        Alb Ki get
+        SunCol Ki get Kl mul 1.25 mul  SkyAmb Ki get Ksky mul add
+        Bounce Ki get 1 Ksky sub mul add
+        mul
+    } for
+} bind def
+
+% [a] [b] t -> [a + (b - a) t]
+/mix3v {
+    /Mt exch def /Mb exch def /Ma exch def
+    [ 0 1 2 { /Mi exch def Ma Mi get Mb Mi get Ma Mi get sub Mt mul add } for ]
+} bind def

@@ -7,6 +7,8 @@ PostScript generative art rendered with pscat. See `README.md` for setup and lay
 - Load repo procedures with `(lib/name.ps) run` from the repo root. Never give a `lib/` file the same name as one of pscat's built-in `lib/` files: it would replace the built-in (`render.sh` refuses).
 - Seed every piece (`N srand`) so renders reproduce.
 - pscat has no Ghostscript-only operators (`=only` and friends): print numbers with `N string cvs print`. When pscat output looks wrong, compare with `gs` before calling it a pscat bug.
+- Ray marching (`lib/fc_render.ps`: one ray per pixel, `fc-pixel` per piece) is the default renderer. `spikes/splat.ps` is kept for quick previews and comparison; see `docs/spikes/1-cloud-timing.md`.
+- PostScript has no locals: each `lib/` file keeps its temporaries under its own prefix, and `scripts/check_names.sh` must pass (it lists names that two libraries both `def`).
 - Repo libraries get a project prefix (`lib/fc_*.ps`). Spikes go in `spikes/`, with the write-up and its images in `docs/spikes/<issue>-<slug>`.
 - Bare installs have only Helvetica, Times and Courier; check `pscat --fonts` before using any other face.
 - When a pscat bug or a mistake in the skills turns up, log it in `docs/pscat-issues.md` with a repro. Don't file upstream until asked.

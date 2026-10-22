@@ -62,15 +62,28 @@ Every project needs the same thing, so it belongs in the template:
   quietly replace the real one;
 - exits 0 on an empty gallery, so a fresh project from the template passes.
 
-Learned in the #1 spike, still to add:
-- **defines**: `-D NAME=VALUE` (prepended as `/NAME VALUE def`). Spikes take
-  parameters (`/IW`, `/Cell`) through `/NAME where`, and `render.sh`
-  couldn't pass them, so timing runs bypassed it with
-  `echo '/IW 320 def (x.ps) run' | pscat ... -`, which also skipped the
-  timing log;
+Learned in the #1 spike:
+- **defines** (added to `render.sh` on the mountains branch):
+  `-D NAME=VALUE`, sent as `/NAME VALUE def (piece) run` on stdin, and
+  logged in `timings.tsv`. Pieces opt in with `/NAME where { pop } {...} ifelse`.
+  Before this existed, timing runs bypassed the script and skipped the log;
+- **resolution from DPI**: `matrix defaultmatrix 0 get` gives device pixels
+  per point under `--dpi`, so a per-pixel renderer can size its image from
+  the page and `DPI=144` doubles the detail, with a `Res` factor for quick
+  previews;
 - **`--determinism`**: render twice and compare SHA-256s. It was done by hand
   for the spike, and the SDLC notes make it a gate;
 - a `spikes/` glob alongside `gallery/`, or a `--all` that covers both.
+
+### `scripts/check_names.sh`
+PostScript has no local variables. Library procedures keep their scratch
+values in `userdict`, so two libraries that both use `/Fv` overwrite each
+other silently whenever one calls into the other. On the mountains branch
+this turned the first render into noise and streaks: the renderer's row
+coordinate `Fv` was clobbered by the 3D noise's `Fv`. The script lists every
+name `def`'d in more than one `lib/` file, with an allowlist for intended
+shared settings. It belongs in the template and in CI, and each library
+should keep its temporaries under its own prefix.
 
 ### Conventions worth writing down
 - **Prefix repo libraries** (`lib/fc_noise3.ps` here; something like
