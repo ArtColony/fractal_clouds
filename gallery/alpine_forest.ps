@@ -14,12 +14,12 @@
 /SunDir where { pop } { /SunDir [ 0.55 0.50 0.45 ] def } ifelse    % from the right, a little ahead
 /CloudLo where { pop } { /CloudLo 60 def /CloudHi 88 def } ifelse
 /CoverAmp where { pop } { /CoverAmp 0.45 def } ifelse      % clouds in groups
-/HazeDist where { pop } { /HazeDist 900 def } ifelse      % the camera is low, in denser air
+/HazeDist where { pop } { /HazeDist 650 def } ifelse      % some depth, though the camera is low in denser air
 /Threshold where { pop } { /Threshold 0.57 def } ifelse
 /TerrOX where { pop } { /TerrOX 180 def /TerrOZ 400 def } ifelse   % stand at the edge of a valley floor
 /HFov where { pop } { /HFov 50 def } ifelse
 /CamAbove where { pop } { /CamAbove 8 def } ifelse  % camera height above the ground below it
-/SnowLine where { pop } { /SnowLine 30 def } ifelse  % early summer
+/SnowLine where { pop } { /SnowLine 27 def } ifelse  % early summer
 /TreeLine where { pop } { /TreeLine -1000 def } ifelse  % fc_terrain's painted forest off: fc_trees does it
 
 (lib/fc_sky.ps) run

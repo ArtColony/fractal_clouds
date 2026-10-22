@@ -1,0 +1,33 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 400 200
+% Side view of single crowns (fractal_clouds#1 diagnostics): orthographic,
+% from the side, for five trees of fc_trees.ps at full branch detail. Grey
+% is darker toward the viewer. Checks proportions and outline, away from
+% the forest and the camera.
+(lib/fc_sky.ps) run (lib/fc_noise2.ps) run (lib/fc_noise3.ps) run
+(lib/fc_clouds.ps) run (lib/fc_terrain.ps) run (lib/fc_render.ps) run (lib/fc_trees.ps) run
+5 fc-noise2-init 7 fc-trees-init
+/FcPx 0.001 def                     % full branch detail
+/W 400 def /Hh 200 def /Row W string def
+/Span 10 def                        % world units across the page
+/Rj 0 def gsave 400 200 scale
+W Hh 8 [W 0 0 Hh neg 0 Hh]
+{
+    /Ty Hh 1 sub Rj sub 0.5 add Hh div Span Hh W div mul mul def
+    0 1 W 1 sub { /I exch def
+        /Tx I 0.5 add W div Span mul def
+        /Tk Tx 2 div cvi def                       % tree index: one per 2 units
+        /FcK Tk 37 mul 11 add 255 and def
+        /FcH FsHMax FsHMin sub FsR 3 get FcK get mul FsHMin add def
+        /FcR FcH 0.28 mul FsR 4 get FcK get 0.3 mul 0.85 add mul FsCell 0.55 mul fc-min def
+        /Tdx Tx Tk 2 mul 1 add sub def
+        255
+        -1 0.02 1 { FcR mul /Tdz exch def
+            Tdx Tdz fc-tree-prof Ty gt { pop Tdz FcR div 1 add 100 mul 30 add cvi exit } if
+        } for
+        Row I 3 -1 roll put
+    } for
+    /Rj Rj 1 add def Row
+} image
+grestore
+showpage
