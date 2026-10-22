@@ -180,3 +180,136 @@ arithmetic matches gs: both print `2147483647 2 mul` as `4294967294`.
 **Suggested fix:** match Ghostscript's six significant digits in `cvs` and
 `=` (keeping full precision in `==`, or behind a pscat-only operator), or
 at least list the difference in the pscat skill's pitfalls.
+
+## 7. Level 2 binary object operators are missing (`writeobject`, `printobject`, `setobjectformat`)
+
+- **Kind:** missing PLRM Level 2 operators
+- **Status:** open
+- **Where:** `systemdict`
+- **Found:** 2026-10-22, while looking for a fast way to save baked maps (fractal_clouds erosion and forest maps)
+
+```
+$ echo 'systemdict /writeobject known = systemdict /printobject known = systemdict /setobjectformat known =' | pscat --headless -
+false
+false
+false
+```
+
+Ghostscript 10.07.1 prints `true` three times. These are how a Level 2
+program writes arrays of numbers compactly. Without them, the only way to
+save a million-entry real array is as text, which is slow to write and
+slow to scan back in.
+
+**Suggested fix:** implement them (binary object sequences, PLRM 3.14), or
+see feature request 9 for a simpler pscat-only alternative.
+
+---
+
+The entries below are **feature requests**, not bugs. They come from the
+fractal_clouds renders, where one 1280×800 landscape takes 25 to 35
+minutes, almost all of it interpreting small numeric procedures. Numbers
+are from pscat 0.6.2 on an Apple-silicon Mac.
+
+## 8. Native noise operators
+
+- **Kind:** feature request (performance)
+- **Status:** open
+- **Found:** 2026-10-22, fractal_clouds#1 and #11
+
+Noise is the inner loop of every procedural texture and terrain, and in
+pscat it is interpreted PostScript, both in fractal_clouds' own
+libraries and in pscat's `lib/artkit.ps` (`noiseinit` / `noise2`).
+Measured in fractal_clouds (`spikes/bench_noise3.ps`):
+
+| call | µs per call |
+|---|---|
+| empty loop iteration | 0.25 |
+| 3D value noise (`fc-noise3`) | 1.8 |
+| 3D fBm, 4 octaves | 8.5 |
+| 3D fBm, 6 octaves | 12.4 |
+
+In the forest render, height evaluations (each one several octaves of
+noise) were 86 of the 92 terrain calls per pixel.
+
+**Suggested feature:** native operators with a seedable, documented
+algorithm, so results are the same on every platform and a PostScript
+fallback can reproduce them exactly. For example:
+
+```postscript
+seed noiseseed -                       % build the lattice / permutation tables
+x y noise2  n      x y z noise3  n     % gradient noise
+x y vnoise2 v      x y z vnoise3 v     % value noise
+x y noise2d n dx dy                    % with analytic derivatives
+x y oct gain lacunarity fbm2 v         % and fbm3, ridged2
+```
+
+A native call should cost about as much as an empty loop iteration, which
+would make noise-bound renders several times faster. That's an estimate,
+not a measurement.
+
+## 9. Fast save and load of numeric arrays
+
+- **Kind:** feature request (performance)
+- **Status:** open
+- **Found:** 2026-10-22
+
+fractal_clouds bakes maps before rendering: erosion on a 1024² grid (about
+1.5 min) and a forest density map (about 9 s). A large frame is rendered
+as four parallel processes, and each one bakes the same maps again. Saving
+the bake once and reading it back would remove that, but there's no fast
+way to write a million reals (entry 7).
+
+**Suggested feature:** either Level 2 `writeobject` (entry 7), or a pair of
+pscat operators that read and write a packed array of 32- or 64-bit floats:
+
+```postscript
+array (path) writereals -
+(path) n readreals array
+```
+
+## 10. Parallel rendering of independent image bands
+
+- **Kind:** feature request (performance)
+- **Status:** open
+- **Found:** 2026-10-22
+
+pscat runs on one core. fractal_clouds' `scripts/render_bands.sh` starts
+one pscat per horizontal band (each told which rows to render through a
+define) and stitches the PNGs, which gives about 4× on four cores. Every
+program with an expensive `colorimage` procedure needs the same thing.
+PostScript's global state rules out threads inside one interpreter, but
+separate processes work.
+
+**Suggested feature:** `pscat --bands N`. It runs N copies of the program
+with `/BandIndex` and `/BandCount` defined, has each render only its rows
+(or lets the program read those names), and composites the pages.
+
+## 11. A profiler
+
+- **Kind:** feature request (tooling)
+- **Status:** open
+- **Found:** 2026-10-22
+
+Finding where render time went meant hand-written call counters in
+PostScript. **Suggested feature:** `pscat --profile`, reporting per
+procedure (by name, for procedures bound to names) the call count,
+inclusive time and exclusive time.
+
+## 12. Research: a GPU path for pure numeric procedures
+
+- **Kind:** research idea
+- **Status:** open (see fractal_clouds#3)
+- **Found:** 2026-10-22
+
+The per-pixel procedures in a ray marcher are pure arithmetic over a few
+arrays. A restricted subset of PostScript (numbers, arithmetic, `for`,
+`if`, array reads, and names used as scratch variables) could be compiled
+to a GPU kernel, behind an operator such as `proc w h kernelimage`.
+
+Open questions:
+- Floating-point results differ between GPUs, which matters for
+  reproducible seeds.
+- GPU support would add dependencies to a single headless binary.
+- How much of the gain features 8 and 10 already give.
+
+Worth investigating after those two.
