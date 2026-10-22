@@ -9,7 +9,8 @@ them **before** `(lib/fc_landscape.ps) run`, in the usual form
 
 so `scripts/render.sh -D HazeDist=400` can still override it from the
 command line. A library keeps whatever is already defined (`fc-default`), so
-a setting made *after* loading is silently ignored. Several values are
+a setting written in that form *after* loading is skipped: the library has
+already defined the name. Several values are
 worked out when a library loads (the camera's trigonometry, the sun's unit
 vector, `TerrTop` from `TerrH`), so this rule applies even to settings
 that look as if they're only read later.
@@ -94,7 +95,7 @@ Resolution comes from the page size times `DPI` (a `render.sh` variable):
 | `TerrH` | 52 | Height of the tallest peaks above `TerrBase`. | 52 |
 | `TerrBase` | −6 | Valley floor. | −6 |
 | `TerrOct` | 8 | Most octaves, used only close up; farther away detail under ~2 px is dropped. | 8 |
-| `MassifScale` | 0.22 | Wavelength of the mask that decides where ranges and broad valleys are, in ridge wavelengths. | 0.22 |
+| `MassifScale` | 0.22 | Frequency of the mask that decides where ranges and broad valleys are, relative to the ridges: its wavelength is `1 / MassifScale` (4.5) ridge wavelengths. | 0.22 |
 | `MassifLo`, `MassifHi` | 0.30, 0.56 | That mask's ramp. Raising both gives fewer, separate massifs. | |
 | `WarpAmp` | 0.45 | Domain warp, in ridge wavelengths: how much the ridges wander. | 0.45 |
 | `DetailAmp` | 0.16 | Strength of the gully texture (erosion fBm). | 0.16 |

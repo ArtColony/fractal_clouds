@@ -165,7 +165,7 @@ ol.refs li { margin: .45rem 0; font-size: .95rem; }
 <!-- ===================================================================== -->
 <h2 id="camera">2. Camera and rays</h2>
 
-<p>The camera is a pinhole at <code>(0, CamY, 0)</code> looking along +z, with y up. A pixel's position across the frame is <code>u</code> from −1 to 1, and <code>v</code> on the same scale up the frame. <code>fc-ray</code> turns <code>(u·tan(HFov/2), v·tan(HFov/2), 1)</code> into a direction, tilts it up by <code>Pitch</code>, turns it right by <code>Yaw</code> and normalises it. The result is left in three global names, <code>Mx My Mz</code>, which every later stage reads. PostScript has no locals, so this is how the pieces talk to one another.</p>
+<p>The camera is a pinhole at <code>(0, CamY, 0)</code> looking along +z, with y up. A pixel's position across the frame is <code>u</code> from −1 to 1, and <code>v</code> on the same scale up the frame. <code>fc-ray</code> turns <code>(u·tan(HFov/2), v·tan(HFov/2), 1)</code> into a direction, tilts it up by <code>Pitch</code>, turns it right by <code>Yaw</code> and normalises it, leaving the three components on the stack. The pixel procedure stores them in three global names, <code>Mx My Mz</code>, which every later stage reads. PostScript has no locals, so this is how the pieces talk to one another.</p>
 
 <p>One number from the camera matters everywhere: <code>PixAng</code>, the angle one pixel covers, <code>2·tan(HFov/2) / image width</code>. Multiplied by a distance <code>t</code>, it gives the size of a pixel's footprint out there. That footprint decides how much detail is worth computing (section 5).</p>
 
@@ -184,7 +184,7 @@ ol.refs li { margin: .45rem 0; font-size: .95rem; }
 <p>Both are built for speed in an interpreter. The 2D lattice is 64×64 stored as 65×65, with the last row and column copied from the first, so a cell's four corners are fixed offsets from one array index and nothing wraps in the inner loop. The 3D lattice works the same way at 33³. Measured on pscat: one <code>fc-noise3</code> call costs 1.8 µs; four octaves of 3D fBm, 8.5 µs.</p>
 
 <h3>Fractal sums</h3>
-<p><strong>fBm</strong> (fractional Brownian motion) adds octaves of noise, each at twice the frequency and half the amplitude of the last, so detail appears at every scale. Here every octave is also rotated by about 37° and offset (<code>x' = 1.6x − 1.2y + 3.1</code>, <code>y' = 1.2x + 1.6y + 7.7</code>: twice the frequency and a rotation). Without that, the lattice axes of all the octaves line up and the eye finds the grid.</p>
+<p><strong>fBm</strong> (fractional Brownian motion) adds octaves of noise, each at twice the frequency and half the amplitude of the last, so detail appears at every scale. In the 2D terrain sums (<code>fc-ridged</code>, <code>fc-eroded</code>) every octave is also rotated by about 37° and offset (<code>x' = 1.6x − 1.2y + 3.1</code>, <code>y' = 1.2x + 1.6y + 7.7</code>: twice the frequency and a rotation). Without that, the lattice axes of all the octaves line up and the eye finds the grid. (The 3D cloud fBm, <code>fc-fbm3</code>, only scales each octave by 2.03 and offsets it.)</p>
 
 <p>A <strong>ridged multifractal</strong> (Musgrave, in <em>Texturing &amp; Modeling</em>) turns noise into mountain ridges. Each octave is folded, <code>r = (1 − 1.6·|n|)²</code>, so every zero crossing of the noise becomes a sharp crest. Each octave is then weighted by the previous octave's value (<code>w = min(2r, 1)</code>), so fine detail piles up on the ridges and the valleys between them stay smooth, as real erosion leaves them. That's <code>fc-ridged</code>.</p>
 
@@ -396,7 +396,7 @@ haze  = 1 − e^(−depth / HazeDist)        colour = mix(surface, HazeCol, haze
 </figure>
 
 <h3>The crown</h3>
-<p>A crown is a heightfield too: above each point near the trunk, how high is the tree? <code>fc-tree-prof</code> builds a spruce from <code>FsTiers</code> 9 whorls of branches. Whorl <code>k</code> hangs from the trunk at <code>k/9</code> of the tree's height, reaches out to the cone envelope <code>y = 1 − u</code>, and droops toward its tip by <code>FsDroop·(u/reach)^2.5</code>, most at the tips, like real spruce branches. Seen from above, the surface at distance <code>u</code> from the trunk belongs to the topmost whorl that reaches that far, so it steps down where each whorl ends. Each whorl's reach also varies around the trunk (±15%) and from whorl to whorl (±20%), so the outline is ragged, not a perfect cone.</p>
+<p>A crown is a heightfield too: above each point near the trunk, how high is the tree? <code>fc-tree-prof</code> builds a spruce from <code>FsTiers</code> 9 whorls of branches. Whorl <code>k</code> hangs from the trunk at <code>k/9</code> of the tree's height, reaches out to the cone envelope <code>y = 1 − u</code>, and droops toward its tip by <code>FsDroop·(u/reach)^2.5</code>, most at the tips, like real spruce branches. Seen from above, the surface at distance <code>u</code> from the trunk belongs to the topmost whorl that reaches that far. Where that whorl's drooping tip ends, the next whorl down takes over, and since its branch hasn't drooped as far there, the surface steps slightly <em>up</em> (see the figure). Each whorl's reach is also shortened by up to 15% depending on direction around the trunk, and by up to 20% from whorl to whorl, so the outline is ragged, not a perfect cone.</p>
 
 <div class="grid2">
   <figure class="chart"><img src="techniques/crown.svg" alt="Crown profile: dashed cone envelope, green whorl curves, and the black stepped surface." loading="lazy"><figcaption>The profile at true proportions, ragged reach off. Black: the surface. Green: each whorl's branch. Note the small upward step where each whorl's drooping tip ends and the whorl below takes over.</figcaption></figure>
@@ -481,7 +481,7 @@ showpage</code></pre>
 <p>Each option uses the <code>/Name where { pop } { ... } ifelse</code> form so that <code>scripts/render.sh -D Name=value</code> can override it from the command line.</p>
 
 <div class="note">
-<p><strong>Settings go before the libraries.</strong> Every library sets its defaults with <code>fc-default</code>, which keeps a value that's already defined. A setting made <em>after</em> <code>(lib/fc_landscape.ps) run</code> is silently ignored. That once switched antialiasing off for a 33-minute render. Hooks are different: they are procedures, redefined after loading.</p>
+<p><strong>Settings go before the libraries.</strong> Every library sets its defaults with <code>fc-default</code>, which keeps a value that's already defined. A setting made <em>after</em> <code>(lib/fc_landscape.ps) run</code> in the <code>/Name where</code> form is skipped, because the name already exists, and even a plain <code>def</code> misses every value a library worked out when it loaded. That once switched antialiasing off for a 33-minute render. Hooks are different: they are procedures, redefined after loading.</p>
 </div>
 
 <p><strong>Options the scene itself owns:</strong></p>

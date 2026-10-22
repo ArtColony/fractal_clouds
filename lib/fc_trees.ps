@@ -288,7 +288,7 @@
 } bind def
 
 /fc-forest-hit {                                 % -> t | -1
-    /FsT MarchT0 def /FsTp MarchT0 0.5 sub def /FsHit -1 def /FsMat 0 def
+    /FsT MarchT0 def /FsTp MarchT0 0.5 gt { MarchT0 } { 0 } ifelse def /FsHit -1 def /FsMat 0 def
     /FsHor Mx dup mul Mz dup mul add sqrt 0.001 fc-max def
     {
         FsT TMax gt { exit } if

@@ -112,7 +112,7 @@
 /MarchT0 0.5 fc-default             % where marches start along the ray (a reflection starts at the water)
 
 /fc-terrain-hit {                                % -> t | -1
-    /Gt MarchT0 def /Gprev MarchT0 0.5 sub def /Ghit -1 def
+    /Gt MarchT0 def /Gprev MarchT0 0.5 gt { MarchT0 } { 0 } ifelse def /Ghit -1 def
     {
         Gt TMax gt { exit } if
         /Gy My Gt mul CamY add def

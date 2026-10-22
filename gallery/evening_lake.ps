@@ -37,11 +37,13 @@
 Seed fc-noise2-init
 /WaterY 0 0 TerrOct fc-height-proc WaterRise add def
 % no trees on ground the lake covers, or on its very edge
-/fc-dry-dens /fc-forest-dens load def
-/fc-forest-dens {                                % x z h ny curv -> density height-scale
-    2 index /WkH exch def
-    fc-dry-dens exch WkH WaterY 0.3 add sub 0.8 div 0 fc-max 1 fc-min mul exch
-} bind def
+TreesOn {
+    /fc-dry-dens /fc-forest-dens load def
+    /fc-forest-dens {                            % x z h ny curv -> density height-scale
+        2 index /WkH exch def
+        fc-dry-dens exch WkH WaterY 0.3 add sub 0.8 div 0 fc-max 1 fc-min mul exch
+    } bind def
+} if
 fc-landscape-setup
 /Water [ Water { 2.2 exp } forall ] def
 
@@ -56,7 +58,7 @@ fc-landscape-setup
     fc-dry-hit /WkT exch def /WkWet false def
     My 0 lt {
         WaterY CamY sub My div /WkW exch def
-        WkT 0 lt WkW WkT lt or { /WkWet true def /WkT WkW def } if
+        WkT 0 lt WkW WkT lt or WkW TMax le and { /WkWet true def /WkT WkW def } if
     } if
     WkT
 } bind def
@@ -70,15 +72,17 @@ fc-landscape-setup
         WkW PixAng mul 0.35 exch div 1 fc-min 0.03 mul mul /WkRip exch def
         /CamY WaterY 2 mul CamY sub def /My My neg def
         /Mx Mx WkRip add def
-        /MarchT0 WkW def
+        /WkT0 MarchT0 def /MarchT0 WkW def
         fc-dry-hit /WkT exch def
-        /MarchT0 0.5 def
+        /MarchT0 WkT0 def
         WkT 0 gt {
             WkT fc-dry-surface
             % haze from the water to what it reflects
             /CamY WaterY def WkT WkW sub fc-haze /CamY WaterY 2 mul WkCam sub def
         } { /WkT TMax def Mx My Mz fc-landscape-sky } ifelse
         /WkB exch def /WkG exch def /WkR exch def
+        % (reflected clouds are hazed from the mirrored camera, which counts
+        % the camera-to-water stretch twice: a small error, far away)
         WkT fc-clouds
         % Fresnel (Schlick): the lake mirrors more at grazing angles
         1 WkMy neg sub 5 exp 0.98 mul 0.02 add /WkF exch def
