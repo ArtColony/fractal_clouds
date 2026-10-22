@@ -1,7 +1,8 @@
 %!PS-Adobe-3.0
 % fc_erode.ps -- hydraulic erosion baked into a height map (fractal_clouds#1).
 %
-% Needs fc_terrain.ps (for the procedural height it starts from).
+% Needs fc_terrain.ps (for the procedural height it starts from) and
+% fc_render.ps (fc-min, fc-max).
 %
 %   fc-erode-bake -          build the map: sample the procedural terrain on
 %                            an ErN x ErN grid covering the view, then run
@@ -162,4 +163,3 @@
     Ebt3 Ebt2 sub 0.5 mul
 } bind def
 
-/fc-min { 2 copy gt { exch } if pop } bind def

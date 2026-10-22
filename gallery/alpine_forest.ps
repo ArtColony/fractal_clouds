@@ -1,0 +1,61 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+%%Title: Alpine forest
+% Status: draft
+% fractal_clouds#1: a conifer forest on the valley floor and lower slopes
+% under the ridged-fBm massif of gallery/mountains.ps, seen from the
+% valley's edge; one ray per pixel. Preview: DPI=36 scripts/render.sh.
+% Closer look at part of a large frame: -D "Crop=[0.3 0.6 0.5 0.8]".
+
+/Seed where { pop } { /Seed 5 def } ifelse
+/AA where { pop } { /AA true def } ifelse          % antialias depth edges (before fc_render.ps loads)
+/Pitch where { pop } { /Pitch 3 def } ifelse
+/Yaw where { pop } { /Yaw -27 def } ifelse         % toward the massif
+/SunDir where { pop } { /SunDir [ 0.55 0.50 0.45 ] def } ifelse    % from the right, a little ahead
+/CloudLo where { pop } { /CloudLo 60 def /CloudHi 88 def } ifelse
+/CoverAmp where { pop } { /CoverAmp 0.45 def } ifelse      % clouds in groups
+/HazeDist where { pop } { /HazeDist 900 def } ifelse      % the camera is low, in denser air
+/Threshold where { pop } { /Threshold 0.57 def } ifelse
+/TerrOX where { pop } { /TerrOX 180 def /TerrOZ 400 def } ifelse   % stand at the edge of a valley floor
+/HFov where { pop } { /HFov 50 def } ifelse
+/CamAbove where { pop } { /CamAbove 8 def } ifelse  % camera height above the ground below it
+/SnowLine where { pop } { /SnowLine 30 def } ifelse  % early summer
+/TreeLine where { pop } { /TreeLine -1000 def } ifelse  % fc_terrain's painted forest off: fc_trees does it
+
+(lib/fc_sky.ps) run
+(lib/fc_noise2.ps) run (lib/fc_noise3.ps) run
+(lib/fc_clouds.ps) run
+(lib/fc_terrain.ps) run
+(lib/fc_render.ps) run
+(lib/fc_erode.ps) run
+(lib/fc_trees.ps) run
+
+Seed fc-noise2-init
+Seed 101 add fc-noise3-init
+Seed 303 add fc-trees-init
+Seed 202 add srand                          % march jitter
+
+/Erode where { pop } { /Erode true def } ifelse
+Erode { fc-erode-bake } if
+TreesOn { fc-forest-bake } if
+
+/CamY 0 0 TerrOct fc-height CamAbove add def
+
+/fc-pixel {                                 % u v -> r g b
+    fc-ray /Mz exch def /My exch def /Mx exch def
+    Mx Mz fc-haze-colour
+    fc-forest-hit dup 0 gt {
+        /Tl exch def /FcKey Tl def
+        FsMat 1 eq { Tl fc-tree-shade } { Tl fc-terrain-shade } ifelse Tl fc-haze
+    } {
+        pop /Tl TMax def
+        My 0 lt { HazeCol aload pop } { Mx My Mz fc-sky } ifelse
+    } ifelse
+    /Bb exch def /Bg exch def /Br exch def
+    Tl fc-clouds
+    Cr Br Tr mul add  Cg Bg Tr mul add  Cb Bb Tr mul add
+    fc-tone
+} bind def
+
+320 200 fc-render
+showpage
