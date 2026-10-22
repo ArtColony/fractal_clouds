@@ -49,7 +49,7 @@ The suggested order is in #36. In short:
 
 These are the ones that cost time when forgotten:
 
-- **Branches:** use one branch per issue (`<kind>/<issue#>-<slug>`). Stack a PR on an earlier branch only when it needs that branch's code, and say so in the PR body.
+- **Branches:** use one branch per issue (`<kind>/<issue#>-<slug>`). Stack a PR on an earlier branch only when it needs that branch's code, and say so in the PR body. Before merging a stacked PR, check that its base is `main`: GitHub retargets it only when the branch below is deleted on merge.
 - **Settings:** set them before the `(lib/...) run` lines, because `fc-default` keeps a value that is already defined.
 - **Random stream:** keep the setup order in `fc-landscape-setup` (noise seeds, trees seed, `srand`, erosion bake, forest bake, camera). The erosion bake draws from the random stream, so reordering these steps changes every picture.
 - **Names:** there are no locals. Give scratch names the library's prefix, and run `scripts/check_names.sh`.

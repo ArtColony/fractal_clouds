@@ -196,6 +196,12 @@ should keep its temporaries under its own prefix.
 - **The full pscat-style SDLC** (`sdlcify`, claim/heartbeat scripts, release
   pipeline). Gallery repos don't ship releases.
 
+- **Stacked PRs merge into their base, not `main`.** GitHub retargets a
+  stacked PR to `main` only when the branch below it is deleted on merge. In
+  fractal_clouds, #12 and #37 merged into their parent branches and needed a
+  catch-up PR. Turn on "Automatically delete head branches" in a new repo, or
+  retarget each stacked PR to `main` by hand before merging it.
+
 ## Open questions
 - Skills as copies vs. the marketplace plugin (see above).
 - Should shared procedures that turn up across projects (a camera / 3D
