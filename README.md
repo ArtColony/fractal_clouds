@@ -32,11 +32,34 @@ display faces).
 | `gallery/*.ps` | Finished and in-progress pieces, one file each |
 | `gallery/previews/` | Chosen renders, committed by hand |
 | `lib/*.ps` | Reusable procedures; load with `(lib/name.ps) run` from the repo root |
+| `lib/fc_landscape.ps` | The whole landscape scene (sky, clouds, terrain, erosion, forest) behind one `fc-pixel`; a piece's starting point |
+| `docs/settings.md` | Every landscape setting, its default and the values tried |
+| `docs/techniques.html` | How it works: the algorithms, with diagrams and references (open it in a browser) |
 | `scripts/render.sh` | Render, lint and time pieces into `renders/` (git-ignored) |
 | `scripts/render_bands.sh` | One large frame as parallel horizontal bands, stitched |
 | `docs/pscat-issues.md` | pscat bugs and skill-doc problems, waiting to be filed upstream |
 | `.claude/skills/` | The `pscat`, `psart` and `psviz` agent skills, copied from the pscat release |
 | `.mcp.json` | Registers `pscat-mcp` for Claude Code |
+
+## Making a landscape
+
+Set options, load `lib/fc_landscape.ps`, render:
+
+```postscript
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+/Seed where { pop } { /Seed 12 def } ifelse
+/TreesOn where { pop } { /TreesOn true def } ifelse
+/Yaw where { pop } { /Yaw -27 def } ifelse
+/TerrOX where { pop } { /TerrOX 180 def /TerrOZ 400 def } ifelse
+(lib/fc_landscape.ps) run
+320 200 fc-landscape
+showpage
+```
+
+`docs/settings.md` lists the settings and the hooks a piece can redefine
+for anything settings don't cover: `gallery/evening_lake.ps` adds a lake
+in about thirty lines.
 
 ## Rendering
 

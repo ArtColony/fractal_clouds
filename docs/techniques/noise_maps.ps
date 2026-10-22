@@ -1,0 +1,52 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 560 160
+% Figure for docs/techniques.html: four 2D noises from lib/fc_noise2.ps,
+% top-down, same window. Render from the repo root:
+%   pscat --page 560x160 --dpi 144 --png docs/techniques/noise_maps.png docs/techniques/noise_maps.ps
+(lib/fc_sky.ps) run (lib/fc_noise2.ps) run (lib/fc_render.ps) run
+5 fc-noise2-init
+/N 256 def /Sz 128 def /Row N string def
+% ridged multifractal like fc-ridged, but on value noise (rescaled to about
+% the gradient noise's range): the version whose ridges ring around blobs
+/vridged {                                       % x y oct -> v
+    /Vo exch def /Vy exch def /Vx exch def
+    /Vs 0 def /Va 0.5 def /Vw 1 def /Vn 0 def
+    Vo {
+        Vx Vy fc-noise2 0.5 sub 1.4 mul abs 1.6 mul 1 exch sub dup 0 lt { pop 0 } if dup mul
+        dup Vw mul Va mul Vs add /Vs exch def
+        2 mul dup 1 gt { pop 1 } if /Vw exch def
+        Va Vn add /Vn exch def /Va Va 0.5 mul def
+        Vx 1.6 mul Vy 1.2 mul sub 3.1 add  Vx 1.2 mul Vy 1.6 mul add 7.7 add /Vy exch def /Vx exch def
+    } repeat
+    Vs Vn div
+} bind def
+/vfbm {                                          % x y oct -> v (value-noise fBm, 0..1)
+    /Vo exch def /Vy exch def /Vx exch def
+    /Vs 0 def /Va 0.5 def /Vn 0 def
+    Vo {
+        Vx Vy fc-noise2 Va mul Vs add /Vs exch def Va Vn add /Vn exch def /Va Va 0.5 mul def
+        Vx 1.6 mul Vy 1.2 mul sub 3.1 add  Vx 1.2 mul Vy 1.6 mul add 7.7 add /Vy exch def /Vx exch def
+    } repeat
+    Vs Vn div
+} bind def
+/panel {                                         % x0 {x y -> 0..1} label -> -
+    /Lab exch def /Fn exch def /X0 exch def
+    gsave X0 24 translate Sz Sz scale
+    /J 0 def
+    N N 8 [N 0 0 N neg 0 N] {
+        /Py J 0.5 add N div 6 mul def
+        0 1 N 1 sub { /I exch def
+            I 0.5 add N div 6 mul Py Fn 255 mul cvi 0 fc-max 255 fc-min Row I 3 -1 roll put
+        } for
+        /J J 1 add def Row
+    } image
+    grestore
+    /Helvetica findfont 9 scalefont setfont 0.15 setgray
+    X0 Sz 2 div add 8 moveto Lab dup stringwidth pop 2 div neg 0 rmoveto show
+} bind def
+1 setgray clippath fill
+8   { fc-noise2 } (value noise, one octave) panel
+146 { 5 vfbm 0.5 sub 1.6 mul 0.5 add } (value-noise fBm, 5 octaves) panel
+284 { 5 vridged } (ridged, on value noise) panel
+422 { 5 fc-ridged } (ridged, on gradient noise) panel
+showpage

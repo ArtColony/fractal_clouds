@@ -20,44 +20,10 @@
 /Threshold where { pop } { /Threshold 0.57 def } ifelse
 /TerrOX where { pop } { /TerrOX 180 def /TerrOZ 400 def } ifelse   % stand at the edge of a valley floor
 /HFov where { pop } { /HFov 50 def } ifelse
+/TreesOn where { pop } { /TreesOn true def } ifelse   % the forest (lib/fc_trees.ps)
 /CamAbove where { pop } { /CamAbove 8 def } ifelse  % camera height above the ground below it
 /SnowLine where { pop } { /SnowLine 27 def } ifelse  % early summer
-/TreeLine where { pop } { /TreeLine -1000 def } ifelse  % fc_terrain's painted forest off: fc_trees does it
 
-(lib/fc_sky.ps) run
-(lib/fc_noise2.ps) run (lib/fc_noise3.ps) run
-(lib/fc_clouds.ps) run
-(lib/fc_terrain.ps) run
-(lib/fc_render.ps) run
-(lib/fc_erode.ps) run
-(lib/fc_trees.ps) run
-
-Seed fc-noise2-init
-Seed 101 add fc-noise3-init
-Seed 303 add fc-trees-init
-Seed 202 add srand                          % march jitter
-
-/Erode where { pop } { /Erode true def } ifelse
-Erode { fc-erode-bake } if
-TreesOn { fc-forest-bake } if
-
-/CamY 0 0 TerrOct fc-height CamAbove add def
-
-/fc-pixel {                                 % u v -> r g b
-    fc-ray /Mz exch def /My exch def /Mx exch def
-    Mx Mz fc-haze-colour
-    fc-forest-hit dup 0 gt {
-        /Tl exch def /FcKey Tl def
-        FsMat 1 eq { Tl fc-tree-shade } { Tl fc-terrain-shade } ifelse Tl fc-haze
-    } {
-        pop /Tl TMax def
-        My 0 lt { HazeCol aload pop } { Mx My Mz fc-sky } ifelse
-    } ifelse
-    /Bb exch def /Bg exch def /Br exch def
-    Tl fc-clouds
-    Cr Br Tr mul add  Cg Bg Tr mul add  Cb Bb Tr mul add
-    fc-tone
-} bind def
-
-320 200 fc-render
+(lib/fc_landscape.ps) run
+320 200 fc-landscape
 showpage

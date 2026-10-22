@@ -185,8 +185,10 @@
 % height k/FsTiers (as a fraction of the tree) and drooping, most at the
 % tips (as (u/reach)^2.5), by FsDroop to a
 % tip on the envelope y = (1 - u)^FsEnv. Seen from above, the surface at
-% radius u is the highest whorl that reaches that far: it falls outward
-% along the whorl's droop, and steps down where a whorl ends. How far each
+% radius u is the topmost whorl that reaches that far: it falls outward
+% along the whorl's droop, and where that whorl's drooped tip ends the next
+% one down takes over (a small step up, as its branch there hasn't
+% drooped as far; docs/techniques/crown.svg). How far each
 % whorl reaches varies with direction, so the outline is ragged.
 % Whorls and raggedness fade into the smooth envelope as the crown gets
 % small on screen (FcPx: world units per pixel where it stands), before
@@ -286,7 +288,7 @@
 } bind def
 
 /fc-forest-hit {                                 % -> t | -1
-    /FsT 0.5 def /FsTp 0 def /FsHit -1 def /FsMat 0 def
+    /FsT MarchT0 def /FsTp MarchT0 0.5 sub def /FsHit -1 def /FsMat 0 def
     /FsHor Mx dup mul Mz dup mul add sqrt 0.001 fc-max def
     {
         FsT TMax gt { exit } if

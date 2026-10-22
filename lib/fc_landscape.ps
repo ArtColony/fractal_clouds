@@ -1,0 +1,113 @@
+%!PS-Adobe-3.0
+% fc_landscape.ps -- a whole landscape scene: sky, clouds, terrain,
+% erosion and (optionally) forest, behind one general fc-pixel
+% (fractal_clouds#11).
+%
+% A piece sets its options, then loads only this file, which loads the
+% others in the order they need:
+%
+%   /Seed where { pop } { /Seed 5 def } ifelse     % ...and any other settings
+%   (lib/fc_landscape.ps) run
+%   320 200 fc-landscape
+%   showpage
+%
+%   fc-landscape-setup -     seed the noise, bake erosion (and the forest),
+%                            place the camera; fc-landscape calls it if the
+%                            piece hasn't (call it yourself to change
+%                            something afterwards, such as CamY)
+%   pw ph fc-landscape -     set up if needed, then fc-render the page
+%
+% Options this file owns (docs/settings.md lists every library's):
+%   Seed      5      one number seeds everything
+%   TreesOn   false  load lib/fc_trees.ps and march the forest; also turns
+%                    fc_terrain's painted forest off (TreeLine -1000)
+%   Erode     true   bake droplet erosion over the view (fc_erode.ps)
+%   CamLift   0      if > 0: camera at this fraction of the tallest peaks,
+%                    but at least CamAbove over the ground below it
+%   CamAbove  6      otherwise: camera this far above the ground below it
+%   CamHeight null   a number puts the camera at exactly that height
+%
+% Hooks: fc-pixel calls these by name, so a piece can redefine any of them
+% after loading (each one's default is below):
+%
+%   fc-landscape-hit      - -> t | -1    nearest surface along the ray
+%   fc-landscape-surface  t -> r g b     its colour, linear light, before haze
+%   fc-landscape-sky      dx dy dz -> r g b   what a ray that hits nothing sees
+%   fc-landscape-grade    r g b -> r g b      last change before fc-tone
+%
+% While a pixel is shaded, Mx My Mz is its unit ray (from (0, CamY, 0));
+% after the surface and sky, LnT is the hit distance (TMax for sky) and
+% LnR LnG LnB the colour before clouds. A piece can also write its own
+% /fc-pixel from these parts.
+
+(lib/fc_sky.ps) run
+(lib/fc_noise2.ps) run (lib/fc_noise3.ps) run
+(lib/fc_clouds.ps) run
+
+/Seed 5 fc-default
+/TreesOn false fc-default
+/Erode true fc-default
+/CamLift 0 fc-default
+/CamAbove 6 fc-default
+/CamHeight null fc-default
+TreesOn { /TreeLine -1000 fc-default } if     % fc_trees paints the forest
+
+(lib/fc_terrain.ps) run
+(lib/fc_render.ps) run
+(lib/fc_erode.ps) run
+TreesOn { (lib/fc_trees.ps) run } if
+
+/LnSetUp false def
+/fc-landscape-setup {
+    % the order matters: erosion's droplets draw from the march seed
+    Seed fc-noise2-init
+    Seed 101 add fc-noise3-init
+    TreesOn { Seed 303 add fc-trees-init } if
+    Seed 202 add srand
+    Erode { fc-erode-bake } if
+    TreesOn { fc-forest-bake } if
+    CamHeight null ne { /CamY CamHeight def } {
+        0 0 TerrOct fc-height CamAbove add
+        CamLift 0 gt { TerrTop CamLift mul exch fc-max } if
+        /CamY exch def
+    } ifelse
+    /LnSetUp true def
+} bind def
+
+% --- hooks -----------------------------------------------------------------
+/fc-landscape-hit { TreesOn { fc-forest-hit } { fc-terrain-hit } ifelse } bind def
+
+/fc-landscape-surface {                          % t -> r g b
+    TreesOn { FsMat 1 eq } { false } ifelse { fc-tree-shade } { fc-terrain-shade } ifelse
+} bind def
+
+/fc-landscape-sky {                              % dx dy dz -> r g b
+    1 index 0 lt { pop pop pop HazeCol aload pop } { fc-sky } ifelse
+} bind def
+
+/fc-landscape-grade { } def                      % r g b -> r g b
+
+% --- the pixel ---------------------------------------------------------------
+/fc-landscape-pixel {                            % u v -> r g b
+    fc-ray /Mz exch def /My exch def /Mx exch def
+    Mx Mz fc-haze-colour
+    fc-landscape-hit dup 0 gt {
+        /LnT exch def /FcKey LnT def
+        LnT fc-landscape-surface LnT fc-haze
+    } {
+        pop /LnT TMax def
+        Mx My Mz fc-landscape-sky
+    } ifelse
+    /LnB exch def /LnG exch def /LnR exch def
+    LnT fc-clouds
+    Cr LnR Tr mul add  Cg LnG Tr mul add  Cb LnB Tr mul add
+    fc-landscape-grade
+    fc-tone
+} bind def
+
+/fc-pixel { fc-landscape-pixel } bind def
+
+/fc-landscape {                                  % pw ph -> -
+    LnSetUp not { fc-landscape-setup } if
+    fc-render
+} bind def

@@ -147,6 +147,15 @@ should keep its temporaries under its own prefix.
   differences across a step flip from pixel to pixel; take normals from a
   smooth envelope and put the detail in the shading.
 
+- **Pull the scene into a library once two pieces share it.** fractal_clouds
+  did this after its second piece: one `fc_landscape.ps` that loads the
+  rest in order, does setup, and gives a general `fc-pixel` with named
+  hooks (hit, surface, sky, grade). A new piece is then settings and a
+  few hooks. Prove the refactor with a pixel diff of cheap renders before
+  and after, not by eye.
+- **Write the settings reference with only the values actually rendered**,
+  not guessed safe ranges.
+
 ### Conventions worth writing down
 - **Prefix repo libraries** (`lib/fc_noise3.ps` here; something like
   `lib/<project>_*.ps`). The render-script guard catches a clash with

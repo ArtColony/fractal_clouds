@@ -4,10 +4,11 @@
 # temporaries in userdict, so two libraries using the same scratch name
 # overwrite each other silently whenever one calls into the other.
 # Names a piece is meant to share (settings like PixAng, and the terrain
-# material hook's Alb KlMul KskyMul KbMul) go in ALLOW.
+# material hook's Alb KlMul KskyMul KbMul, and the settings and per-pixel
+# values fc_landscape.ps sets for the other libraries) go in ALLOW.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-ALLOW=" PixAng ErBaked ErBaking ErDelta Alb KlMul KskyMul KbMul "
+ALLOW=" PixAng ErBaked ErBaking ErDelta Alb KlMul KskyMul KbMul CamY FcKey TreeLine TreesOn "
 
 dups=$(for f in lib/*.ps; do
     grep -o '/[A-Za-z][A-Za-z0-9]*' "$f" | sort -u | sed "s|^/||; s|$| $f|"
