@@ -85,6 +85,58 @@ Resolution comes from the page size times `DPI` (a `render.sh` variable):
 | `ShadOct`, `ShadStep` | 3, 3.2 | Octaves and spacing of the two probes toward the sun. | |
 | `CloudSteps` | 96 | Most samples per ray. | |
 | `AmbTop`, `AmbBot` | [0.62 0.72 0.88], [0.34 0.38 0.48] | Ambient light at the layer's top and bottom (sRGB). | |
+| `CloudLayers` | null | null marches the one layer the settings above describe. Otherwise an array of layers (below), marched one after another, nearest band first. | null, `[/Cumulus /Altocumulus /Cirrus]` |
+
+### Cloud layers (`CloudLayers`)
+
+Each element of `CloudLayers` is a preset name or a dict that starts from a
+preset and overrides some of its keys:
+
+```postscript
+/CloudLayers where { pop } {
+    /CloudLayers [ /Default << /Type /Cirrus /Lo 140 /Hi 152 /Wind 60 >> ] def
+} ifelse
+```
+
+The presets are `/Cumulus` (the gallery pieces' layer: 60–88, `Threshold`
+0.57, `CoverAmp` 0.45), `/Stratus`, `/Altocumulus`, `/Cirrus`,
+`/Nimbostratus`, and `/Default`, which is the single layer the `Cloud*`
+settings describe (so `[/Default /Cirrus]` keeps a piece's clouds and adds
+cirrus above them). A dict without `/Type` starts from `/Default`. A
+misspelt preset or key stops the job with an `undefined` error naming it.
+Layers should not overlap in height: each is marched through its own band,
+and a ray's bands are taken in height order. The sun probes of a layer see
+only that layer, so a layer isn't shaded by another above it.
+
+| Key | Cumulus | What it does |
+|---|---|---|
+| `Lo`, `Hi` | 60, 88 | Base and top. |
+| `Profile` | [6 1.6] | Height profile `min(a·h, 1)·min(b·(1 − h), 1)` over the band: `a` rounds the base, `b` the top. Larger is flatter. |
+| `ProfAmp` | 0.35 | How much the profile raises the threshold: `(1 − profile)·ProfAmp`. |
+| `Noise` | /Value | `/Value` is fBm; `/Billow` folds each octave (`abs(2n − 1)`) into rounded lumps with creases. |
+| `Scale` | 0.045 | 1 / billow size, like `NoiseScale`. |
+| `Stretch` | [1 1.6 1] | Multiplies the noise coordinates along the wind, up, and across the wind. Below 1 stretches: cirrus uses 0.1 along the wind. |
+| `Wind` | 0 | Degrees from +x (0 is across the default view, 90 is away from the camera): the direction streaks run. |
+| `Shear` | 0 | Streaks lean this far along the wind per unit of height above the base (cirrus fall streaks). |
+| `Threshold` | 0.57 | Density cut-off, like `Threshold`. |
+| `CoverAmp`, `CoverScale` | 0.45, 0.0045 | The coverage map, like `CoverAmp` and `CoverScale`. |
+| `Gain` | 14 | Density per unit of noise above the threshold. Lower is softer and more translucent. |
+| `Sigma` | 0.09 | Extinction, like `Sigma`. |
+| `DensOct`, `ShadOct`, `ShadStep` | 5, 3, 3.2 | Octaves and sun probes, like the settings. |
+| `Steps` | 96 | Most samples per ray through this layer, like `CloudSteps`. A thin layer needs fewer. |
+| `AmbTop`, `AmbBot` | as the settings | Ambient at the top and bottom (sRGB). |
+| `Rain` | 0 | If above 0, rain shafts reach this far below the base: the cloud a quarter of the way up the band, in vertical columns that thin toward the ground. Extends the march. |
+| `RainDens` | 0.15 | Their density, as a fraction of the cloud's. |
+| `Shape` | null | A procedure `x y z → dd` added to the density before the gain: a positive value adds cloud, a negative one cuts it. For placed objects such as a cumulonimbus (#15). Costs a call per sample. |
+
+Each preset's own values are in `FcClPresets` in `lib/fc_clouds.ps`; the
+ones not listed there come from `/Cumulus`.
+
+`x y z fc-cloud-shadow` gives the sunlight that reaches a point through
+every layer above it (one density probe per layer, no march), for ground
+shadows and sun shafts. `fc_terrain`'s `CloudShadowsOn` still probes
+`fc-density` once, at the middle of `CloudLo`–`CloudHi`, so with a layer
+list the ground is shaded by whatever layers cross that height.
 
 ## Terrain shape (`fc_terrain.ps`)
 
