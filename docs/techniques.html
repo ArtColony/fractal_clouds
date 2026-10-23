@@ -544,6 +544,18 @@ showpage</code></pre>
 </table></div>
 <p>The near-forest march dominates: crowns are marched in short steps through a three-unit band.</p>
 
+<h3>Profiling</h3>
+<p><code>Profile</code> (<code>lib/fc_bench.ps</code>) shows where a render's time goes. Set it like any option, before the library loads: <code>scripts/render.sh -D Profile=true -D Res=0.25 gallery/mountains.ps</code>. Setup and render then run with the main procedures (<code>ProfileProcs</code>: heights, the terrain and tree shaders, sky, haze, clouds, the bakes, the landscape hooks) wrapped in a counter and a <code>usertime</code> stopwatch, and a table follows the <code>fc-render</code> line. The table is in the log; <code>render.sh</code> keeps it in <code>renders/&lt;piece&gt;.log</code>. With <code>Profile</code> false (the default) the library isn't even loaded.</p>
+<p>How to read it:</p>
+<ul>
+  <li><strong>Time is inclusive.</strong> <code>fc-terrain-shade</code>'s row contains <code>fc-height</code> and <code>fc-terrain-shadow</code> inside it, so rows overlap and the percentages add to far more than 100. Subtract a callee's row from its caller's to get the caller's own time.</li>
+  <li><strong>Calls per pixel</strong> divides by the pixels rendered. Antialiased pixels cost extra samples, so a value above the number of calls per sample is expected near edges.</li>
+  <li><strong>The clock ticks in whole milliseconds</strong> (<code>usertime</code>). Each call adds the difference of two readings, which averages out over many calls but is noise for rows of a few ms or few calls.</li>
+  <li><strong>The profiler costs time.</strong> Each wrapped call pays for a counter, two <code>usertime</code> readings and one more procedure call: about 0.8 µs measured on an Apple-silicon Mac (the footer measures it on every run, with an empty procedure). That is a few percent when the wrapped procedures take tens of µs, and most of the time when they don't: wrapping a noise function turns it into a table of overhead. A callee's wrapper cost is also inside its caller's row.</li>
+  <li>The wrapper leaves the stack and the random stream alone, so a profiled render is the same picture (checked pixel for pixel).</li>
+</ul>
+<p>It wraps by redefining the name, so it sees procedures a piece redefines as hooks, provided they're defined when <code>fc-landscape-setup</code> starts or before <code>fc-render</code> runs. A piece that redefines one afterwards calls <code>fc-bench-wrap</code> again; the counters carry on.</p>
+
 <!-- ===================================================================== -->
 <h2 id="limits">16. Known limits</h2>
 <ul>

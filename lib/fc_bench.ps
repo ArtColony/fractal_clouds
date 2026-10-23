@@ -1,0 +1,178 @@
+%!PS-Adobe-3.0
+% fc_bench.ps -- per-procedure call counts and timing (fractal_clouds#20).
+%
+% With Profile true, fc_landscape.ps loads this file and wraps the main
+% procedures with a call counter and a usertime stopwatch, then prints a
+% table once fc-render has finished:
+%
+%   Profile true                           % set before loading; or: render.sh -D Profile=true
+%   (lib/fc_landscape.ps) run
+%   320 200 fc-landscape                   % ... prints the table
+%
+% With Profile false (the default) this file isn't even loaded, nothing
+% is wrapped, and the picture is the same pixel for pixel: the wrapper
+% touches neither the operand stack nor the random stream.
+%
+%   fc-bench-wrap     -   wrap every procedure in /ProfileProcs that is
+%                         defined now and isn't wrapped yet (safe to call
+%                         again; a procedure a piece redefined since gets
+%                         wrapped afresh and keeps its counters)
+%   fc-bench-report   -   print the table
+%
+% fc-landscape-setup and fc-landscape call fc-bench-wrap before they run
+% anything, so wrapping happens after every library is loaded and sees
+% the piece's own hooks. A piece that redefines a procedure *after*
+% fc-landscape-setup has started must call fc-bench-wrap again.
+%
+% What the table means:
+%   * time is INCLUSIVE: a procedure's row contains the time of everything
+%     it calls, so rows overlap and don't add up (fc-render contains all
+%     the others). A procedure that calls itself is timed once, outermost.
+%   * usertime ticks in whole milliseconds. Each call adds the difference
+%     of two readings, which averages out over many calls but is noisy for
+%     rows with few calls or a few ms.
+%   * profiling costs time: every wrapped call pays for an enter, a leave
+%     and two usertime readings, and a callee's wrapper cost is inside its
+%     caller's row. The footer measures it (an empty procedure wrapped and
+%     called 50000 times) and estimates the share of the run it explains.
+%     Wrap a hot leaf such as fc-noise3 and the overhead is most of its row.
+%
+% Settings:
+%   Profile       false   (fc_landscape.ps) wrap and report
+%   ProfileProcs  [...]   names to wrap; names that aren't defined, such as
+%                         the tree procedures without TreesOn, are skipped.
+%                         Add names (e.g. /fc-noise3) to look closer.
+%
+% Scratch names start with Bn.
+
+/ProfileProcs [
+    /fc-render
+    /fc-landscape-hit /fc-landscape-surface /fc-landscape-sky /fc-landscape-grade
+    /fc-terrain-hit /fc-forest-hit /fc-crowns /fc-canopy
+    /fc-height
+    /fc-terrain-shade /fc-terrain-shadow /fc-tree-shade /fc-tree-sunvis
+    /fc-sky /fc-haze-colour /fc-haze /fc-tone
+    /fc-clouds /fc-density /fc-cloud-light
+    /fc-erode-bake /fc-forest-bake
+] fc-default
+
+/BnStats null def                                % name -> [calls ms t0 depth]
+/BnWraps null def                                % name -> the wrapper we installed
+/BnT0 null def                                   % usertime at the first wrap
+
+% stat -> -    count a call; start the stopwatch on the outermost one
+/fc-bench-enter {
+    dup 0 2 copy get 1 add put
+    dup 3 get 0 eq { dup 2 usertime put } if
+    3 2 copy get 1 add put
+} bind def
+
+% stat -> -    stop the stopwatch when the outermost call returns
+/fc-bench-leave {
+    dup 3 2 copy get 1 sub put
+    dup 3 get 0 eq {
+        dup 1 get usertime 2 index 2 get sub add 1 index exch 1 exch put
+    } if
+    pop
+} bind def
+
+% stat proc -> wrapper   (the wrapper leaves the stack as proc does)
+/fc-bench-make {
+    /fc-bench-enter cvx exch /exec cvx 3 index /fc-bench-leave cvx
+    6 array astore cvx
+} bind def
+
+% name -> -    wrap that procedure unless it is missing or already wrapped
+/fc-bench-one {
+    dup userdict exch known not { pop } {
+        dup load                                      % name proc
+        dup type /arraytype eq 1 index xcheck and not { pop pop } {
+            BnWraps 2 index known { BnWraps 2 index get 1 index eq } { false } ifelse {
+                pop pop                               % our wrapper is current
+            } {
+                BnStats 2 index known not { BnStats 2 index [ 0 0 0 0 ] put } if
+                BnStats 2 index get exch fc-bench-make      % name wrapper
+                BnWraps 2 index 2 index put
+                userdict 3 1 roll put
+            } ifelse
+        } ifelse
+    } ifelse
+} def
+
+/fc-bench-wrap {
+    BnStats null eq {
+        /BnStats ProfileProcs length 8 add dict def
+        /BnWraps ProfileProcs length 8 add dict def
+        /BnT0 usertime def
+    } if
+    ProfileProcs { fc-bench-one } forall
+} def
+
+% --- the report ----------------------------------------------------------
+/BnBuf 40 string def
+% string width -> -    print right-aligned
+/BnPad { 1 index length sub dup 0 gt { { ( ) print } repeat } { pop } ifelse print } bind def
+
+% number width decimals -> -   print right-aligned, rounded to that many decimals
+/BnNum {
+    /BnDec exch def /BnWid exch def
+    10 BnDec exp dup /BnScale exch def mul round BnScale div
+    BnDec 0 eq { cvi } if
+    BnBuf cvs BnWid BnPad
+} bind def
+
+% mean cost of one wrapped call, in microseconds
+/fc-bench-overhead {
+    /BnN 50000 def
+    [ 0 0 0 0 ] { } fc-bench-make /BnCalW exch def
+    usertime /BnC0 exch def
+    BnN { } repeat
+    usertime /BnC1 exch def
+    BnN { BnCalW } repeat
+    usertime BnC1 sub  BnC1 BnC0 sub sub  1000 mul BnN div
+} def
+
+/fc-bench-report {
+    BnStats null eq { (fc-bench: nothing was wrapped) = } {
+    /BnTot usertime BnT0 sub 1 fc-max def
+    % pixels rendered (fc-render's crop size), if fc-render has run; (the name
+    % is built at run time: a literal would look like a second def to check_names.sh)
+    userdict (FrCW) cvn known { FrCW FrCH mul } { 0 } ifelse
+    /BnPx exch def
+    /BnKeys BnStats length array def  /BnKn 0 def
+    BnStats { pop BnKeys BnKn 3 -1 roll put /BnKn BnKn 1 add def } forall
+    % sort by ms, biggest first
+    0 1 BnKn 2 sub { pop
+        0 1 BnKn 2 sub {
+            /BnI exch def
+            BnStats BnKeys BnI get get 1 get BnStats BnKeys BnI 1 add get get 1 get lt {
+                BnKeys BnI get /BnX exch def
+                BnKeys BnI BnKeys BnI 1 add get put
+                BnKeys BnI 1 add BnX put
+            } if
+        } for
+    } for
+    (fc-bench: inclusive time per procedure; rows overlap, see lib/fc_bench.ps) =
+    (  procedure                     calls  calls/px        ms      %    us/call) =
+    /BnSum 0 def
+    BnKeys {
+        /BnName exch def  BnStats BnName get /BnS exch def
+        BnS 0 get /BnC exch def  BnS 1 get /BnMs exch def
+        /BnSum BnSum BnC add def
+        (  ) print  BnName BnBuf cvs dup length 24 gt { 0 24 getinterval } if dup print
+        length 24 exch sub { ( ) print } repeat
+        BnC 11 0 BnNum
+        BnPx 0 gt { BnC BnPx div 10 2 BnNum } { (         -) print } ifelse
+        BnMs 10 0 BnNum
+        BnMs 100 mul BnTot div 7 1 BnNum
+        BnC 1 gt { BnMs 1000 mul BnC div 11 2 BnNum } { (          -) print } ifelse
+        () =
+    } forall
+    fc-bench-overhead /BnOv exch def
+    (  total ms, first wrap to here: ) print BnTot 0 0 BnNum () =
+    (  profiling overhead: ) print BnOv 0 2 BnNum
+    ( us per wrapped call; ) print BnSum 0 0 BnNum ( calls, about ) print
+    BnSum BnOv mul 1000 div 0 0 BnNum ( ms = ) print
+    BnSum BnOv mul 10 div BnTot div 0 1 BnNum (% of the total) =
+    } ifelse
+} def

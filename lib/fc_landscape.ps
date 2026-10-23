@@ -26,6 +26,8 @@
 %                    but at least CamAbove over the ground below it
 %   CamAbove  6      otherwise: camera this far above the ground below it
 %   CamHeight null   a number puts the camera at exactly that height
+%   Profile   false  count calls and time the main procedures, and print a
+%                    table after fc-render (lib/fc_bench.ps)
 %
 % Hooks: fc-pixel calls these by name, so a piece can redefine any of them
 % after loading (each one's default is below):
@@ -50,15 +52,18 @@
 /CamLift 0 fc-default
 /CamAbove 6 fc-default
 /CamHeight null fc-default
+/Profile false fc-default
 TreesOn { /TreeLine -1000 fc-default } if     % fc_trees paints the forest
 
 (lib/fc_terrain.ps) run
 (lib/fc_render.ps) run
 (lib/fc_erode.ps) run
 TreesOn { (lib/fc_trees.ps) run } if
+Profile { (lib/fc_bench.ps) run } if
 
 /LnSetUp false def
 /fc-landscape-setup {
+    Profile { fc-bench-wrap } if
     % the order matters: erosion's droplets draw from the march seed
     Seed fc-noise2-init
     Seed 101 add fc-noise3-init
@@ -109,5 +114,7 @@ TreesOn { (lib/fc_trees.ps) run } if
 
 /fc-landscape {                                  % pw ph -> -
     LnSetUp not { fc-landscape-setup } if
+    Profile { fc-bench-wrap } if                 % again: the piece's hooks are in by now
     fc-render
+    Profile { fc-bench-report } if
 } bind def
