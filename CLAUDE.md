@@ -15,4 +15,4 @@ PostScript generative art rendered with pscat. See `README.md` for setup and lay
 - Repo libraries get a project prefix (`lib/fc_*.ps`). Spikes go in `spikes/`, with the write-up and its images in `docs/spikes/<issue>-<slug>`.
 - Bare installs have only Helvetica, Times and Courier; check `pscat --fonts` before using any other face.
 - When a pscat bug or a mistake in the skills turns up, log it in `docs/pscat-issues.md` with a repro. Don't file upstream until asked.
-- Work happens on a branch per issue (`<kind>/<issue#>-<slug>`), merged by PR into `main`.
+- Work happens on a branch per issue (`<kind>/<issue#>-<slug>`), merged by PR into `main`. Push the branch and open its PR without asking first; merging into `main` is still the owner's call.
