@@ -52,7 +52,11 @@ The owner closes #36 itself.
 
 ## Order and dependencies
 
-Start with **#20 (per-stage timing)**, so that the performance work can be measured. After that, follow these dependencies:
+Start with **#20 (per-stage timing)**, so that the performance work can be measured.
+
+On 2026-10-23, use the owner's fable credits before they reset at midnight. Run #20 (sonnet) alongside the first fable issues; the head of each fable chain can start at once: #13, #14, #28, #22 and #21. Keep to the one-issue-per-library rule. If fable is unavailable or out of credits, use opus for those issues.
+
+After that, follow these dependencies:
 
 - #13 (terrain from a map) → #39 (coastal terrain)
 - #28 (water) → #38 (ocean) → #40 (coastal pieces). #40 also needs #39.
@@ -68,7 +72,7 @@ The rest can fit in between, in any order.
 
 - **One subagent per issue.** Each runs in its own git worktree (`isolation: "worktree"`) on the branch `<kind>/<issue#>-<slug>`. Its job is to implement the issue, render, look at the results, run the checks, push, and open the PR with `Closes #N`. It does not merge.
 - **Models:**
-  - **The strongest model the Agent tool offers** (fable at the time of writing; confirm which is strongest at the start of the run): new algorithms and decisions about how pieces look. That means #13, #14, #15, #21, #22, #25, #26, #28, #30, #38, #39 and #40.
+  - **fable**, the most capable model. The owner has fable credits that reset at midnight on 2026-10-23, so put fable to work early: new algorithms and decisions about how pieces look. That means #13, #14, #15, #21, #22, #25, #26, #28, #30, #38, #39 and #40.
   - **opus**: performance and tooling that needs judgment (#17, #18, #19, #23, #24, #27, #29, #33), and every PR review.
   - **sonnet**: mechanical work. That means #20, #31, #32, #34, doc updates, preset tables and wrappers.
 
