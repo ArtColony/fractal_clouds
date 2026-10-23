@@ -62,7 +62,7 @@ if [ "$docker" = 1 ]; then
   args=()
   [ "$mode" = update ] && args+=(--update)
   args+=(${only[@]+"${only[@]}"})
-  exec docker run --rm -v "$root:/w" -v "$cache/$t:/pscat:ro" -w /w alpine:3.20 sh -c '
+  exec docker run --rm -e JOBS -v "$root:/w" -v "$cache/$t:/pscat:ro" -w /w alpine:3.20 sh -c '
     apk add -q bash py3-pillow >/dev/null && PATH=/pscat:$PATH bash scripts/regress.sh "$@"
     s=$?; chown -R '"$(id -u):$(id -g)"' renders tests/regress 2>/dev/null; exit $s' regress ${args[@]+"${args[@]}"}
 fi
