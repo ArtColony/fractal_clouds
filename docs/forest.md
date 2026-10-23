@@ -20,6 +20,7 @@ trees would have been a pixel or two. So this piece moves the camera
 | Where | A density map baked over the view (384², 700 units): below a wandering treeline that ribs raise and gullies lower, off slopes steeper than ~45°, with clearings, meadows on the flattest valley floor, and a few stunted trees above the line. Trees near the line are shorter. |
 | Which | One candidate per 1.3-unit cell, jittered by up to 0.45 cell, kept where a hash is under the density (which an 8-unit noise thins into groves). A quarter are young or suppressed (about half height); the rest 1.6–3.2 units (16–32 m), crown radius ~0.28 × height. |
 | Shape | A crown is a heightfield over the ground: nine whorls of branches, each hanging from the trunk and drooping (most at the tips) to a straight-cone envelope. Seen from above the surface is the highest whorl that reaches that far, so it steps down at each whorl's end. Whorls vary in length, and each whorl's reach varies around the trunk, so the outline is ragged. |
+| Species, trunks | (#25) Each tree is of a species from the `FsSpecies` table, picked by `FsMix` (spruce only by default). In a closed stand the crown is lifted onto a bare trunk (self-pruned lower branches); at the edge and in the open it reaches the ground. A few trees are snags or logs. All of it only where a crown is over ~4 px wide. |
 | March | `fc-forest-hit` replaces `fc-terrain-hit`. Above the trees it steps by clearance over the steepest nearby ground (a slope map baked with the density, so gentle valleys take long steps); among them, by vertical clearance over the crowns or horizontal distance to the nearest crown, whichever is larger. Bisection finds the surface. |
 | Light | Crown normals come from the smooth envelope plus noise laid out along the branches, not from differencing the stepped whorls (that flips at random between pixels). Branch tops catch light, undersides and the gaps between clumps are dark. Sunlit needles are warm olive, sky-lit ones blue-green. Sun through other crowns (a short march toward it), the terrain's shadow, cloud shadow, sky light reduced inside and low in the crown. |
 | Ground | `fc-terrain-shade`'s material hook: dark needle litter under the trees, with their shadows and most of the sky hidden; grass on open gentle ground below the line. |
@@ -74,8 +75,10 @@ slowest, so `0.45 0.62 0.8` would balance better.
 
 - The near-tree march is the cost: crowns are marched in short steps
   through the 3-unit tree band.
-- No trunks: under dense spruce they're hidden, but they'd show at a
-  forest edge seen close.
+- Trunks only show where a crown is over about 4 px wide (#25 lifted the
+  crowns of interior trees onto trunks, added snags and logs, and a
+  species table; `FsMix` turns the spruce stand into a mixed one; see
+  `docs/techniques.html`, "Species, trunks and dead trees").
 - Trees don't know about snow: the density map is baked without it, and the
   ground shading thins the canopy colour where snow lies.
 - The massif's rock still reads as folded rather than fractured (Codex's
