@@ -1,0 +1,45 @@
+# Lint the library names and check that the gallery still renders
+# pixel-identical to tests/regress/linux/ (scripts/regress.sh), with the
+# pscat release pinned in .pscat-version. A PR that changes the look on
+# purpose updates the references: scripts/regress.sh --docker --update, or
+# take the PNGs from the failed run's regress artifact (renders/regress/new/).
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Install Pillow and time
+        run: |
+          pip install pillow
+          [ -x /usr/bin/time ] || { sudo apt-get update -q && sudo apt-get install -y -q time; }
+      - name: Install pscat
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="$(cat .pscat-version)"
+          t="pscat-$v-x86_64-unknown-linux-musl"
+          cd "$RUNNER_TEMP"
+          gh release download "v$v" -R PSCatLabs/pscat -p "$t.tar.gz" -p SHA256SUMS
+          sha256sum -c SHA256SUMS --ignore-missing
+          tar xzf "$t.tar.gz"
+          # keep the bundle together: render.sh finds pscat's lib/ next to it
+          echo "$RUNNER_TEMP/$t" >> "$GITHUB_PATH"
+      - run: pscat --version
+      - run: scripts/check_names.sh
+      - run: scripts/regress.sh
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: regress
+          path: renders/regress/

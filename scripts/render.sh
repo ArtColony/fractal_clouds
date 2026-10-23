@@ -4,11 +4,13 @@
 #   scripts/render.sh                    # every gallery/*.ps
 #   scripts/render.sh gallery/foo.ps     # just these
 #   DPI=144 scripts/render.sh            # higher resolution (default 72)
+#   OUT=renders/x scripts/render.sh      # write into another directory
 #   scripts/render.sh -D Res=0.25 -D Seed=3 gallery/foo.ps
 #                                        # predefine /Res 0.25 and /Seed 3 (pieces
 #                                        # opt in with `/Name where { pop } {...} ifelse`)
 #
-# Output goes to renders/<name>.png; timings are appended to renders/timings.tsv.
+# Output goes to renders/<name>.png (or $OUT/<name>.png); timings are appended
+# to timings.tsv in the same directory.
 # The page size comes from the piece's %%BoundingBox (default 612x792).
 # Exits nonzero if any piece errors.
 set -euo pipefail
@@ -17,7 +19,7 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"   # pieces load (lib/...) relative to the repo root
 
 dpi="${DPI:-72}"
-out="renders"
+out="${OUT:-renders}"
 mkdir -p "$out"
 
 if ! command -v pscat >/dev/null 2>&1; then

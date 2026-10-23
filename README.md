@@ -37,6 +37,7 @@ display faces).
 | `docs/techniques.html` | How it works: the algorithms, with diagrams and references (open it in a browser) |
 | `scripts/render.sh` | Render, lint and time pieces into `renders/` (git-ignored) |
 | `scripts/render_bands.sh` | One large frame as parallel horizontal bands, stitched |
+| `scripts/regress.sh` | Pixel-regression check of the gallery against `tests/regress/linux/` or a git ref; run by CI (`.github/workflows/ci.yml`) |
 | `docs/pscat-issues.md` | pscat bugs and skill-doc problems, waiting to be filed upstream |
 | `.claude/skills/` | The `pscat`, `psart` and `psviz` agent skills, copied from the pscat release |
 | `.mcp.json` | Registers `pscat-mcp` for Claude Code |

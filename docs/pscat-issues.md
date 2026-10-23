@@ -313,3 +313,45 @@ Open questions:
 - How much of the gain features 8 and 10 already give.
 
 Worth investigating after those two.
+
+## 13. Seeded renders differ between macOS and Linux
+
+- **Kind:** reproducibility caveat (not a correctness bug)
+- **Status:** open
+- **Environment:** pscat 0.6.2: `aarch64-apple-darwin` on macOS 15 against
+  `aarch64-unknown-linux-musl` and `x86_64-unknown-linux-musl` in Alpine 3.20
+  containers
+- **Found:** 2026-10-22 (fractal_clouds#35)
+
+The same seeded piece renders different pixels on macOS and on Linux.
+`gallery/mountains.ps` at `/ErN 256 def /ErDrops 20000 def /Res 0.25 def`
+differs in 27k of 64k pixels, by up to 101 levels. The two Linux builds
+(arm64 and x86_64) match each other exactly, on all four regression cases.
+
+The trig and exponential operators round differently in the last bit. They
+appear to use the platform libm: Apple's on macOS, musl's on Linux. The
+erosion and noise then grow those differences into visible ones. Repro, with
+400 lines of 7 results each:
+
+```postscript
+/p { 30 string cvs print ( ) print } def
+1 1 400 { /i exch def
+ i 0.37 mul sin p i 0.37 mul cos p i 0.013 mul 1.7 exp p i 0.01 mul ln p
+ i 0.7 mul sqrt p 3.3 i 0.11 mul atan p i 0.01 mul 2.5 exp p (\n) print } for
+```
+
+Run it with `pscat --headless` on both platforms and diff the output. Out of
+400 results each, these differ: `atan` 88, `cos` 17, `sin` 13, `exp` 4,
+`ln` 0, `sqrt` 0. For example, `3.3 0.88 atan` gives `75.06858282186245` on
+macOS and `75.06858282186246` on Linux. Ghostscript can't serve as the
+reference here, because it computes reals in single precision
+(`75.0685806`).
+
+**Effect here:** "seed every piece so renders reproduce" holds only per
+platform. The regression references in `tests/regress/linux/` are Linux
+renders, and a Mac checks them with `scripts/regress.sh --docker` or compares
+against a git ref with `--ref`.
+
+**Possible request:** if cross-platform reproducibility matters to pscat,
+bundle one libm (for example a port of musl's or of CORE-MATH) instead of
+using the platform's.

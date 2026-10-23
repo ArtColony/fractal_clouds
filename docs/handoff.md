@@ -9,7 +9,7 @@ Notes for the session that picks up the roadmap epic (#36). Written 2026-10-22, 
   - the shared scene `lib/fc_landscape.ps`, with settings first and then hooks;
   - the settings reference `docs/settings.md`;
   - the technique guide `docs/techniques.html`, with figures from `docs/techniques/make_figures.py`;
-  - the pscat log `docs/pscat-issues.md`, with entries 1–12;
+  - the pscat log `docs/pscat-issues.md`, with entries 1–13;
   - the SDLC notes `docs/sdlc-notes.md`, a working draft that isn't adopted.
 - **After merging:**
   - Close #1 by hand, because no PR closes it.
@@ -28,14 +28,13 @@ Notes for the session that picks up the roadmap epic (#36). Written 2026-10-22, 
 
 The suggested order is in #36. In short:
 
-1. **#35 regression script and CI** comes first, because it protects every change after it. Until it lands, check by hand:
+1. **#35 regression script and CI** comes first, because it protects every change after it. `scripts/regress.sh` renders each gallery piece at `ErN=256 ErDrops=20000 Res=0.5`, plus a full-detail crop of `alpine_forest`, and compares them pixel for pixel. CI runs it on every PR, against the Linux references in `tests/regress/linux/`. On a Mac:
    ```sh
-   d='/ErN 256 def /ErDrops 20000 def'
-   echo "$d /Res 0.5 def (gallery/mountains.ps) run"     | pscat --page 320x200 --png out/mountains.png -
-   echo "$d /Res 0.5 def (gallery/alpine_forest.ps) run" | pscat --page 320x200 --png out/alpine.png -
-   echo "$d /Crop [0.35 0.72 0.5 0.86] def (gallery/alpine_forest.ps) run" | pscat --page 320x200 --png out/alpine_crop.png -
+   scripts/regress.sh --ref main          # this working tree against main, about 2 minutes
+   scripts/regress.sh --docker            # against the stored Linux references
+   scripts/regress.sh --docker --update   # after a change meant to alter the look
    ```
-   Run those once on `main` for the baselines and once on the branch. Compare each pair with PIL: `ImageChops.difference(a, b).getbbox()` must be `None`. Add `evening_lake` to the set; it takes about 5 minutes at 320×200.
+   Mac renders never match the Linux references (`docs/pscat-issues.md` #13).
 2. **#20 timing**, so the performance work can be measured.
 3. **Features, along their dependencies:**
    - #13 (terrain from a map) → #39 (coastal terrain);
