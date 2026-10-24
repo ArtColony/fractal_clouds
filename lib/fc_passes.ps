@@ -40,7 +40,8 @@
 %   PassKeep    []       passes to record while the image renders, any of
 %                        /beauty /mask /depth /material, for fc-pass-draw
 %                        and the clips below (one byte a pixel, three for
-%                        the beauty; the centre sample, so no AA)
+%                        the beauty; the centre sample, so no AA, except
+%                        the beauty when Pass is /beauty: its finished rows)
 %   MaskClouds  true     clouds over the sky count in the mask
 %   DepthFar    null     the distance /depth reaches black at; null: TMax
 %
@@ -96,9 +97,11 @@ Pass /material eq { /AA false store } if          % an average of IDs is no ID
     FcKey 0 lt { PsW 0 Tr put } {
         /AqWet where { pop AqWet } { false } ifelse { PsW 5 Tr put } {
             TreesOn { FsMat 1 eq } { false } ifelse { PsW 4 Tr put } {
+                % sand over the canopy over snow over the painted forest
                 /PsS 1 1 XcMw 0 fc-max sub 1 OcSd 0 fc-max sub mul sub def
-                /PsSn Ksnow 1 PsS sub mul def
-                /PsFo Kfor 1 Ksnow sub mul 1 PsS sub mul def
+                /PsC Ftc 0 fc-max 1 PsS sub mul def      % fc_trees' far canopy
+                /PsSn Ksnow 1 PsS sub PsC sub mul def
+                /PsFo Kfor 1 Ksnow sub mul 1 PsS sub PsC sub mul PsC add def
                 PsW 6 PsS Tr mul put
                 PsW 3 PsSn Tr mul put
                 PsW 4 PsFo Tr mul put
@@ -119,7 +122,7 @@ Pass /material eq { /AA false store } if          % an average of IDs is no ID
 } bind def
 
 /fc-pass-depth {                                 % - -> 0..1
-    FcKey 0 lt { 0 } { 1 FcKey PsFar div sub 0 fc-max 1 fc-min } ifelse
+    FcKey 0 lt { 0 } { 1 PsT PsFar div sub 0 fc-max 1 fc-min } ifelse
 } bind def
 
 % --- the pixel ------------------------------------------------------------------
@@ -127,7 +130,7 @@ Pass /material eq { /AA false store } if          % an average of IDs is no ID
 /fc-pass-fast {                                  % u v -> r g b
     fc-ray /Mz exch def /My exch def /Mx exch def
     Mx Mz fc-haze-colour
-    fc-landscape-hit dup 0 gt { /FcKey exch def } { pop } ifelse
+    fc-landscape-hit dup 0 gt { dup /PsT exch def /FcKey exch def } { pop } ifelse
     Pass /mask eq {
         FcKey 0 lt { MaskClouds { /LnT TMax store TMax fc-clouds 1 Tr sub } { 0 } ifelse } { 1 } ifelse
     } { fc-pass-depth } ifelse
@@ -138,11 +141,16 @@ Pass /material eq { /AA false store } if          % an average of IDs is no ID
 /fc-pass-pixel {                                 % u v -> r g b
     /PsV exch def /PsU exch def
     /FcKey -1 def
-    /XcMw 0 store /OcSd 0 store                  % fc_coast's and fc_ocean's sand, if any
+    % what the shading leaves behind is read afterwards; zero it first, as
+    % not every surface sets it (fc_coast's and fc_ocean's sand, fc_trees'
+    % far canopy, and fc_terrain's snow and forest, for a piece's own surface)
+    /XcMw 0 store /OcSd 0 store /Ftc 0 store /Ksnow 0 store /Kfor 0 store
     PsU PsV fc-landscape-pixel
+    /PsT LnT def                                 % the hit distance (FcKey may be scaled)
     fc-pass-weights
     PsKeepOn { PsU FrU eq PsV FrV eq and { fc-pass-record } if } if
     Pass /beauty ne {
+        PsKeepD /beauty known PsU FrU eq PsV FrV eq and and { fc-pass-keep-rgb } if
         pop pop pop
         Pass /mask eq { MaskClouds { 1 PsW 0 get sub } { FcKey 0 lt { 0 } { 1 } ifelse } ifelse dup dup } if
         Pass /depth eq { fc-pass-depth dup dup } if
@@ -174,9 +182,19 @@ Pass /material eq { /AA false store } if          % an average of IDs is no ID
     PsKeepD /material known { PsKeepD /material get FrJ get FrI fc-pass-id put } if
 } bind def
 
-% fc_render.ps hands over every finished row
+% r g b -> r g b: the picture's centre sample, when the image shows a pass
+/fc-pass-keep-rgb {
+    PsFresh { fc-pass-alloc } if
+    PsKeepD /beauty get FrJ get
+    /PsKr exch def
+    3 copy fc-byte PsKr FrI 3 mul 2 add 3 -1 roll put
+    fc-byte PsKr FrI 3 mul 1 add 3 -1 roll put
+    fc-byte PsKr FrI 3 mul 3 -1 roll put
+} bind def
+
+% fc_render.ps hands over every finished row (the antialiased picture)
 /fc-render-row {                                 % row -> -
-    PsKeepD /beauty known {
+    PsKeepD /beauty known Pass /beauty eq and {
         PsFresh { fc-pass-alloc } if
         PsKeepD /beauty get FrJ get FrI0 3 mul 3 -1 roll putinterval
     } { pop } ifelse

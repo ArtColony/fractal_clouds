@@ -83,9 +83,10 @@
     % device pixels per unit of the current user space (#33): a piece can
     % translate and scale first to place the frame in a larger page
     1 0 dtransform dup mul exch dup mul add sqrt /FrDpp exch def
+    0 1 dtransform dup mul exch dup mul add sqrt /FrDppY exch def
     /FrMtx matrix currentmatrix def               % for overlays drawn later
     /IW FrPw FrDpp mul Res mul round cvi 1 fc-max def
-    /IH FrPh FrDpp mul Res mul round cvi 1 fc-max def
+    /IH FrPh FrDppY mul Res mul round cvi 1 fc-max def
     /PixAng TanH 2 mul IW div def
     /FrKeyUp IW array def /FrKeyRow IW array def
     0 1 IW 1 sub { FrKeyUp exch -2 put } for

@@ -309,9 +309,9 @@ DPI=288 scripts/render_bands.sh gallery/foo.ps -- -D Pass=/mask  # bands stitch 
 
 | Setting | Default | What it does | Used |
 |---|---|---|---|
-| `Pass` | /beauty | What the image shows. `/mask`: coverage, white on the landscape and black on open sky; clouds over the sky count by their opacity (1 − `Tr`) unless `MaskClouds` is false; antialiased edges come out soft, an alpha. `/depth`: 1 − t/`DepthFar`, clamped (white near, black at `DepthFar` and on the sky; t is the hit distance, `FcKey`). `/material`: one flat colour per material (table below), the one with the largest share of the pixel; `AA` is turned off, so every pixel is exactly one of the seven colours. `/matte`: the share of the pixel that `PassMat` covers, 0–1, soft where materials blend. `/mask` and `/depth` march the hit (and the clouds, for the mask) without shading anything, so they cost a fraction of the picture. | /mask, /depth, /material, /matte |
+| `Pass` | /beauty | What the image shows. `/mask`: coverage, white on the landscape and black on open sky; clouds over the sky count by their opacity (1 − `Tr`) unless `MaskClouds` is false; antialiased edges come out soft, an alpha. `/depth`: 1 − t/`DepthFar`, clamped (white near, black at `DepthFar` and on the sky; t is the hit distance, `LnT`; not `FcKey`, which water scales for the antialiasing). `/material`: one flat colour per material (table below), the one with the largest share of the pixel; `AA` is turned off, so every pixel is exactly one of the seven colours. `/matte`: the share of the pixel that `PassMat` covers, 0–1, soft where materials blend. `/mask` and `/depth` march the hit (and the clouds, for the mask) without shading anything, so they cost a fraction of the picture. | /mask, /depth, /material, /matte |
 | `PassMat` | /snow | The material `/matte` shows: `/sky /cloud /rock /snow /forest /water /sand`. | /snow |
-| `PassKeep` | [] | Passes to record while the image renders, any of `/beauty /mask /depth /material`, to draw again with `fc-pass-draw` and to clip with (below). One byte a pixel (three for the beauty); the centre sample, so kept passes aren't antialiased. | [/beauty /mask /depth /material] |
+| `PassKeep` | [] | Passes to record while the image renders, any of `/beauty /mask /depth /material`, to draw again with `fc-pass-draw` and to clip with (below). One byte a pixel (three for the beauty); the centre sample, so the kept mask, depth and IDs aren't antialiased (the kept beauty is, when `Pass` is `/beauty`: it copies the finished rows). | [/beauty /mask /depth /material] |
 | `MaskClouds` | true | Clouds over the sky count in the mask (and so in `fc-sky-clip`). false: the mask is the ground alone. | false |
 | `DepthFar` | null | The distance at which `/depth` reaches black; null: `TMax`. | 500 |
 
@@ -323,19 +323,21 @@ The materials, and their colours in `/material` (sRGB):
 | 1 | cloud | 255 255 255 | the clouds in front of whatever is behind, by their opacity |
 | 2 | rock | 214 39 40 | bare ground: rock, scree, strata |
 | 3 | snow | 102 224 255 | `fc_terrain`'s snow (`Ksnow`) |
-| 4 | forest | 44 160 44 | `fc_terrain`'s painted forest (`Kfor`) and `fc_trees`' trees (`FsMat` 1) |
+| 4 | forest | 44 160 44 | `fc_terrain`'s painted forest (`Kfor`), `fc_trees`' trees (`FsMat` 1) and its far canopy painted on the ground (`Ftc`) |
 | 5 | water | 31 79 216 | lakes, rivers and the sea (`fc_water`'s `AqWet`) |
 | 6 | sand | 242 200 75 | `fc_coast`'s beaches, `fc_ocean`'s sand |
 
 A pixel's shares come from what the hit and the shading left behind: no hit is
 sky; a water hit is water; a tree is forest; ground is sand S (`fc_coast`'s
-`XcMw`, `fc_ocean`'s `OcSd`), snow (1 − S)·`Ksnow`, forest
-(1 − S)(1 − `Ksnow`)·`Kfor` and rock the rest. Each is scaled by the clouds'
+`XcMw`, `fc_ocean`'s `OcSd`), far canopy C = (1 − S)·`Ftc` (forest), then of
+the rest R = 1 − S − C: snow R·`Ksnow`, painted forest R(1 − `Ksnow`)·`Kfor`,
+and rock what is left. These are zeroed before each pixel, so a piece's own
+surface hook that sets none of them reads as rock. Each is scaled by the clouds'
 transmittance `Tr`, and the cloud gets 1 − `Tr`. Shore stones, wet sand and
 ledge snow count as the ground under them.
 
 **Placement.** `fc-render` (and so `fc-landscape`) fills `pw`×`ph` units of
-the *current* user space at one sample per device pixel, so translate and
+the *current* user space at one sample per device pixel (along each axis), so translate and
 scale first to put a landscape in a rectangle of a larger page:
 `gsave 36 84 translate 1.125 dup scale 320 200 fc-landscape grestore`. The
 detail follows the placed size. `Crop`, `PixSeed` and `Res` count in the
