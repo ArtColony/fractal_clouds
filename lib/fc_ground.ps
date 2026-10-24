@@ -1,0 +1,209 @@
+%!PS-Adobe-3.0
+% fc_ground.ps -- foreground ground cover (fractal_clouds#29): boulders,
+% stones and shrubs, grass texture, and more terrain octaves near the camera.
+%
+% fc_terrain.ps loads this file at its end when GroundOn is true (set it
+% before loading, like every setting). It
+%
+%   - wraps fc-height: x z oct fc-height h now adds two layers of rounded
+%     rocks (boulders and stones) standing on the ground, so the march,
+%     the normals and the water all see them;
+%   - adds fc-ground-shade, which fc-terrain-shade calls after the material
+%     hook: rock colour on the rocks, a contact shadow and a sun shadow
+%     beside each boulder, stones on green ground turned into dark shrubs,
+%     and a clumpy grass texture (albedo and normal) on green ground;
+%   - lets fc-terrain-oct go GroundOct octaves past TerrOct (fc_terrain.ps
+%     reads GroundOct), so near ground keeps getting finer instead of going
+%     smooth inside about 50 units at 320 px (200 at 1280).
+%
+% Each layer is a jittered grid, one candidate rock per cell, kept where a
+% hash of the cell is under a density that two smooth noises gather into
+% patches. Every per-rock number comes from an integer hash of its cell
+% (no rand: the random stream the bakes use is untouched). A rock is a
+% flattened, tilted ellipsoid, partly buried, with a lumpy outline from a
+% noise in its own frame. Detail follows distance: a layer is skipped once
+% its biggest rock is under about a pixel across, and each rock fades in
+% between two pixels and about half a pixel of radius. The grass texture
+% shows only within the same near band.
+
+/BoulderCell 2.6 fc-default          % boulder grid cell, world units (~10 m)
+/BoulderDens 0.22 fc-default         % mean share of cells with a boulder
+/BoulderSize 0.42 fc-default         % biggest boulder radius
+/BoulderH 0.6 fc-default             % mean height / radius
+/StoneCell 0.55 fc-default           % stone (and shrub) grid cell
+/StoneDens 0.3 fc-default
+/StoneSize 0.11 fc-default
+/GroundPatch 0.5 fc-default          % 0..1: how strongly rocks gather in patches
+/GrassAmp 1 fc-default               % strength of the grass texture (0: none)
+/GrassDry [ 0.56 0.52 0.33 ] fc-colour   % sRGB: sun-dried grass in patches
+/ShrubCol [ 0.17 0.22 0.13 ] fc-colour   % sRGB: shrubs (stones on green ground)
+/GroundNear 0.35 fc-default          % two-pixel footprint (units) under which grass texture starts
+
+% i j k -> h: a 31-bit hash of a cell (one xorshift, two multiply rounds)
+/fc-ground-hash {
+    1013904223 mul exch 668265263 mul add exch 374761393 mul add
+    16#7fffffff and dup -13 bitshift xor
+    16#45D9F3B mul 16#7fffffff and dup -16 bitshift xor
+    16#45D9F3B mul 16#7fffffff and dup -15 bitshift xor
+} bind def
+
+% oct -> two-pixel footprint, world units (inverse of fc-terrain-oct)
+/fc-ground-foot { 2 exch exp TerrScale mul 1 exch div } bind def
+
+% x z cell dens size k -> h: one rock layer at x z; leaves GnD2 (the
+% point's squared distance from its cell's rock, in radii; 9 if none),
+% GnR (that rock's radius), GnRx GnRz (its centre), GnT (a 0..1 tone) and
+% GnW (its distance fade). Reads GnF, the two-pixel footprint.
+/fc-ground-layer {
+    /GnK exch def /GnS exch def /GnP exch def /GnC exch def /GnZ exch def /GnX exch def
+    /GnD2 9 def /GnR 0 def /GnW 0 def
+    GnF GnS 2 mul lt {
+        GnX GnC div floor cvi /GnI exch def  GnZ GnC div floor cvi /GnJ exch def
+        GnI GnJ GnK fc-ground-hash /GnQ exch def
+        GnQ 255 and 255 div GnP 2 mul lt {
+        % rocks gather in patches, with open ground between
+        GnX 0.035 mul 17.3 add GnK add GnZ 0.035 mul 5.1 add fc-noise2 0.65 mul
+        GnX 0.13 mul 2.9 add GnZ 0.13 mul 11.7 add GnK add fc-noise2 0.35 mul add
+        0.5 GroundPatch 0.25 mul sub  0.5 GroundPatch 0.25 mul add  3 -1 roll fc-smooth
+        GroundPatch mul 1 GroundPatch sub 0.5 mul add 2 mul GnP mul
+        GnQ 255 and 255 div gt {
+            % many small rocks, few big ones
+            /GnR GnQ -23 bitshift 255 and 255 div dup mul 0.65 mul 0.35 add GnS mul def
+            % fade in between two pixels and half a pixel of radius
+            /GnW GnR 2 mul GnR 0.6 mul GnF fc-smooth def
+            GnW 0 gt {
+                GnI GnJ GnK 7 add fc-ground-hash /GnQ2 exch def
+                /GnT GnQ2 -23 bitshift 255 and 255 div def
+                % the centre, jittered as far as the rock still fits its cell
+                1 GnR 2.7 mul GnC div sub 0 fc-max /GnJit exch def
+                /GnRx GnI 0.5 add GnQ -8 bitshift 255 and 255 div 0.5 sub GnJit mul add GnC mul def
+                /GnRz GnJ 0.5 add GnQ -16 bitshift 255 and 255 div 0.5 sub GnJit mul add GnC mul def
+                /GnDx GnX GnRx sub def /GnDz GnZ GnRz sub def
+                % elongated up to 1.3 : 0.7, turned its own way
+                /GnA GnQ2 255 and 255 div 180 mul def
+                /GnE GnQ2 -8 bitshift 255 and 255 div 0.3 mul def
+                GnDx GnA cos mul GnDz GnA sin mul add GnR 1 GnE add mul div dup mul
+                GnDz GnA cos mul GnDx GnA sin mul sub GnR 1 GnE sub mul div dup mul add
+                % a lumpy outline and top
+                GnDx GnR div 1.1 mul GnT 37 mul add GnDz GnR div 1.1 mul GnI 0.37 mul add fc-noise2
+                0.5 sub 0.7 mul 1 add mul /GnD2 exch def
+                GnD2 0.94 lt {
+                    % partly buried: the top of an ellipsoid above a quarter of its height
+                    1 GnD2 sub sqrt 0.25 sub 0.75 div
+                    GnQ2 -16 bitshift 255 and 255 div 0.6 mul 0.7 add BoulderH mul GnR mul mul
+                    GnW mul
+                } { 0 } ifelse
+            } { 0 } ifelse
+        } { 0 } ifelse
+        } { 0 } ifelse
+    } { 0 } ifelse
+} bind def
+
+% x z oct -> h: the boulders (0 at the camera's own probe, 0 0). Only
+% boulders are geometry: stones are smaller than the march's shortest step
+% near the camera, so they are shading only (fc-ground-shade)
+/fc-ground-rocks {
+    fc-ground-foot /GnF exch def
+    /GnPz exch def /GnPx exch def
+    GnPx 0 eq GnPz 0 eq and { 0 } {
+        GnPx GnPz BoulderCell BoulderDens BoulderSize 0 fc-ground-layer
+    } ifelse
+} bind def
+
+% below this many octaves the footprint is over twice the biggest boulder
+% and nothing shows: skip the layer without the exp
+/GnOctMin 1 BoulderSize 2 mul TerrScale mul div ln 2 ln div def
+/fc-height-base /fc-height load def
+/fc-height {                                     % x z oct -> h
+    dup GnOctMin gt { 3 copy fc-height-base 4 1 roll fc-ground-rocks add } { fc-height-base } ifelse
+} bind def
+
+% fc-terrain-shade's ground hook: reads Kx Kz Ko Kt Ksnow Alb, may change
+% Alb and KlMul KskyMul KbMul, and leaves GnTx GnTz, a tilt that
+% fc-terrain-shade adds to the normal's x and z
+/fc-ground-shade {
+    Ko fc-ground-foot /GnF exch def
+    /GnTx 0 def /GnTz 0 def
+    % greenness of what the ground is already painted (meadow, forest
+    % floor, painted forest): grass texture and shrubs go there
+    Alb 1 get  Alb 0 get Alb 2 get add 0.5 mul 0.0001 add div /GnG exch def
+    1.04 1.3 GnG fc-smooth 1 Ksnow sub mul /GnG exch def
+    % stones: dark shrubs on green ground, pebbles elsewhere
+    Kx Kz StoneCell StoneDens StoneSize 3 fc-ground-layer
+    GnR 0.25 mul exch fc-ground-sat 1 Ksnow sub mul /GnSw exch def
+    GnSw 0 gt {
+        Alb
+        Rock Rock2 GnT mix3v  [ ShrubCol { GnT 0.4 mul 0.8 add mul } forall ]  GnG mix3v
+        GnSw mix3v /Alb exch def
+        /KbMul KbMul 1 GnSw sub mul def
+        % rounded: the normal leans out from the stone's centre
+        /GnTx GnDx GnR div GnSw mul 0.9 mul def
+        /GnTz GnDz GnR div GnSw mul 0.9 mul def
+    } if
+    % boulders: rock colour on top, a dark ring where they meet the ground
+    Kx Kz BoulderCell BoulderDens BoulderSize 0 fc-ground-layer
+    /GnBh exch def
+    GnBh 0 gt {
+        GnR 0.15 mul GnBh fc-ground-sat 1 Ksnow 0.8 mul sub mul /GnBw exch def
+        % each boulder its own tone, mottled with lichen
+        Rock Rock2 GnT mix3v
+        Kx GnR div 2.3 mul 7.7 add Kz GnR div 2.3 mul 1.9 add fc-noise2 0.5 sub 0.5 mul 1 add
+        /GnM exch def [ exch { GnM mul } forall ]
+        Alb exch GnBw mix3v /Alb exch def
+        /KbMul KbMul 1 GnBw 0.5 mul sub mul def
+    } if
+    % contact shadow: ground just outside a boulder sees less sky
+    GnD2 9 lt GnBh GnR 0.05 mul lt and {
+        1  1 0.9 1.9 GnD2 fc-smooth sub 0.5 mul GnW mul sub
+        dup KskyMul mul /KskyMul exch def KbMul mul /KbMul exch def
+    } if
+    % and the boulder's own sun shadow: is the boulder above the sun ray
+    % at two points toward the sun?
+    GnBh GnR 0.05 mul lt SunDir 1 get 0.02 gt and {
+        SunDir 0 get dup mul SunDir 2 get dup mul add sqrt 0.0001 fc-max /GnSh exch def
+        /GnSs 1 def
+        [ 0.12 0.3 ] { BoulderSize mul /GnSd exch def
+            Kx SunDir 0 get GnSh div GnSd mul add  Kz SunDir 2 get GnSh div GnSd mul add
+            BoulderCell BoulderDens BoulderSize 0 fc-ground-layer
+            GnSd SunDir 1 get mul GnSh div sub BoulderSize 0.06 mul div
+            0 1 3 -1 roll fc-smooth 1 exch sub GnSs fc-min /GnSs exch def
+        } forall
+        /KlMul KlMul GnSs mul def
+    } if
+    % grass: clumps at three scales, each only once it spans a few pixels,
+    % in a near band, with sun-dried patches and a clumpy normal
+    GrassAmp 0 gt GnG 0 gt and GnF GroundNear lt and {
+        GroundNear GroundNear 0.55 mul GnF fc-smooth GnG mul GrassAmp mul /GnGw exch def
+        Alb GrassDry
+        Kx 0.21 mul 4.3 add Kz 0.21 mul 9.7 add fc-noise2 0.6 mul
+        Kx 0.9 mul 1.7 add Kz 0.9 mul 3.1 add fc-noise2 0.4 mul add
+        0.45 0.75 3 -1 roll fc-smooth 0.6 mul GnGw mul mix3v
+        /GnTone 1 def /GnBx 0 def /GnBz 0 def
+        % (fc-noise2 repeats every 64 lattice cells: each octave is turned
+        % its own way and shifted by the coarser ones, so the fine ones,
+        % which repeat within a few units, never line up into a tiling)
+        [ 0.17 0  0.06 37  0.022 79 ] /GnOcts exch def
+        /GnWu 0 def /GnWv 0 def
+        0 2 4 { /GnOi exch def
+            GnOcts GnOi get /GnWl exch def
+            GnOcts GnOi 1 add get /GnOa exch def
+            1 2.5 GnWl GnF div fc-smooth GnGw mul /GnOw exch def
+            GnOw 0 gt {
+                Kx GnOa cos mul Kz GnOa sin mul add GnWl div GnWu add GnOi 2.1 mul add
+                Kz GnOa cos mul Kx GnOa sin mul sub GnWl div GnWv add 5.3 add fc-noise2d
+                % (the gradient is in the turned frame: turn it back)
+                /GnGz exch def /GnGx exch def
+                GnGx GnOa cos mul GnGz GnOa sin mul sub GnOw 0.08 mul mul GnBx add /GnBx exch def
+                GnGz GnOa cos mul GnGx GnOa sin mul add GnOw 0.08 mul mul GnBz add /GnBz exch def
+                dup 0.5 sub 0.55 mul GnOw mul GnTone add /GnTone exch def
+                dup 7.1 mul GnWu add /GnWu exch def 4.3 mul GnWv add /GnWv exch def
+            } if
+        } for
+        [ exch { GnTone mul } forall ] /Alb exch def
+        /GnTx GnTx GnBx sub def /GnTz GnTz GnBz sub def
+        /KbMul KbMul 1 GnGw sub mul def
+    } if
+} bind def
+
+% a h -> 0..1: a ramp from 0 at height 0 to 1 at height a
+/fc-ground-sat { exch 0.0001 fc-max div 0 fc-max 1 fc-min } bind def
