@@ -1,19 +1,43 @@
 %!PS-Adobe-3.0
-% fc_clouds.ps -- a ray-marched cumulus layer (fractal_clouds#1).
+% fc_clouds.ps -- ray-marched cloud layers (fractal_clouds#1, #14).
 %
-% Needs fc_noise3.ps and fc_sky.ps (and fc_noise2.ps if CoverAmp > 0). Same density and lighting model as the
-% spike (spikes/cloud_scene.ps), with two changes for distant clouds: steps
-% grow with distance, and noise octaves finer than about two pixels are
-% dropped (they only turned into grain near the horizon).
+% Needs fc_noise3.ps and fc_sky.ps (and fc_noise2.ps for a layer with
+% CoverAmp > 0). Same density and lighting model as the spike
+% (spikes/cloud_scene.ps), with two changes for distant clouds: steps grow
+% with distance, and noise octaves finer than about two pixels are dropped
+% (they only turned into grain near the horizon).
 %
-%   x y z oct fc-density d          cloud density, >= 0
+% One layer or several. With CloudLayers null (the default) there is one
+% layer, described by the Cloud* settings below, exactly as before #14.
+% Otherwise CloudLayers is an array of layers, each a preset name
+% (/Cirrus /Altocumulus /Cumulus /Stratus /Nimbostratus, or /Default for
+% the layer the settings describe) or a dict << /Type /Cirrus /Lo 150 ... >>
+% that starts from a preset and overrides any of its keys (docs/settings.md
+% lists them). Layers are marched one after another in the order the ray
+% meets them, nearest band first, so they should not overlap in height.
+%
+%   x y z oct fc-density d           cloud density at a point, >= 0, summed
+%                                    over the layers
+%   x y z fc-cloud-shadow T          sunlight that reaches the point through
+%                                    every layer above it, 0..1: one density
+%                                    probe per layer, for ground shadows and
+%                                    sun shafts (cheap: no march)
 %   tlimit fc-clouds -               march the current ray (Mx My Mz from
 %                                    CamY) up to tlimit; leaves the light it
 %                                    picked up in Cr Cg Cb and the
 %                                    transmittance in Tr
+%   fc-clouds-compile -              rebuild the layer list from CloudLayers
+%                                    and the settings (fc-clouds,
+%                                    fc-density and fc-cloud-shadow do it on
+%                                    first use; call it after changing
+%                                    CloudLayers or a Cloud* setting later)
 %
-% fc-clouds reads PixAng (radians per image pixel; fc_render.ps sets it).
+% fc-clouds reads PixAng (radians per image pixel; fc_render.ps sets it)
+% and TMax.
+% While a layer is marched its parameters are bound to the Cl* names, which
+% fc-layer-density, fc-cloud-light and fc-cloud-oct read.
 
+% --- the single layer (and the defaults of a /Default layer) --------------
 /CloudLo 14 fc-default /CloudHi 40 fc-default
 /NoiseScale 0.045 fc-default
 /Threshold 0.47 fc-default           % higher = less cover
@@ -27,25 +51,292 @@
 /AmbTop [ 0.62 0.72 0.88 ] fc-colour
 /AmbBot [ 0.34 0.38 0.48 ] fc-colour
 /PixAng 0.0035 fc-default
+/CloudLayers null fc-default         % null: the one layer above
 
-/fc-density {                                    % x y z oct -> d
-    /Doct exch def /Dz exch def /Dy exch def /Dx exch def
-    Dy CloudLo sub CloudHi CloudLo sub div
-    dup 0 le 1 index 1 ge or { pop 0 } {
-        /Dh exch def
-        Dh 6 mul 1 2 copy gt { exch } if pop
-        1 Dh sub 1.6 mul 1 2 copy gt { exch } if pop mul
-        /Dprof exch def
-        Dx NoiseScale mul Dy NoiseScale mul 1.6 mul Dz NoiseScale mul Doct fc-fbm3
-        Threshold sub 1 Dprof sub 0.35 mul sub
-        % low-frequency coverage, so clouds gather into groups with gaps
-        CoverAmp 0 gt {
-            Dx CoverScale mul 41.3 add Dz CoverScale mul 7.9 add fc-noise2 0.5 sub CoverAmp mul add
+% --- presets ----------------------------------------------------------------
+% Every key a layer has, with the values the presets start from: the gallery
+% pieces' layer (60-88, Threshold 0.57, CoverAmp 0.45, value noise). The
+% constants in fc-cloud-binder-globals must match these. Colours are sRGB
+% here and converted when the list is compiled.
+/FcClBase <<
+    /Lo 60 /Hi 88                    % base and top, world units
+    /Profile [ 6 1.6 ]               % height profile min(a h, 1) min(b (1 - h), 1)
+    /ProfAmp 0.35                    % how much the profile raises the threshold
+    /Noise /Value                    % /Value (fBm) or /Billow (abs: cauliflower)
+    /Scale 0.045                     % 1 / billow size
+    /Stretch [ 1 1.6 1 ]             % noise squashed along wind, up, across wind
+    /Wind 0                          % degrees from +x, the streak direction
+    /Shear 0                         % streaks lean this much per unit height
+    /Threshold 0.57
+    /CoverAmp 0.45 /CoverScale 0.0045
+    /Gain 14                         % density per unit of noise above threshold
+    /Sigma 0.09
+    /DensOct 5 /ShadOct 3 /ShadStep 3.2
+    /Steps 96
+    /AmbTop [ 0.62 0.72 0.88 ] /AmbBot [ 0.34 0.38 0.48 ]
+    /Rain 0                          % rain shafts this far below the base
+    /RainDens 0.15                   % their density, as a fraction of the base's
+    /Shape null                      % { x y z oct -> dd } added to the density (#15)
+>> def
+
+/FcClPresets <<
+    % billowy (folded) noise for cauliflower tops; Threshold and Gain matched
+    % to the value-noise layer's cover, then raised a little by eye (billow fBm: mean 0.30, sd 0.13,
+    % against 0.50 and 0.11)
+    /Cumulus << /Noise /Billow /Threshold 0.41 /Gain 12 >>
+    % high, thin, streaked along the wind
+    /Cirrus << /Lo 150 /Hi 166 /Profile [ 3 3 ] /ProfAmp 0.25 /Scale 0.035
+        /Stretch [ 0.1 1.5 1 ] /Wind 25 /Threshold 0.55
+        /CoverAmp 0.5 /CoverScale 0.003 /Gain 4 /Sigma 0.05
+        /DensOct 5 /ShadOct 2 /ShadStep 5 /Steps 40
+        /AmbTop [ 0.74 0.80 0.94 ] /AmbBot [ 0.62 0.70 0.86 ] >>
+    % mid-height, thin, small flattened cells in patches
+    /Altocumulus << /Lo 112 /Hi 122 /Profile [ 6 3 ] /ProfAmp 0.3 /Scale 0.08
+        /Stretch [ 1 2.5 1 ] /Threshold 0.58 /CoverAmp 0.45 /CoverScale 0.006
+        /Gain 10 /Sigma 0.10 /DensOct 4 /ShadOct 2 /ShadStep 2.5 /Steps 48
+        /AmbTop [ 0.68 0.76 0.90 ] /AmbBot [ 0.44 0.48 0.58 ] >>
+    % low, flat, nearly uniform, little contrast: the threshold sits under
+    % the noise's range, so the sheet has no holes
+    /Stratus << /Lo 44 /Hi 56 /Profile [ 3 3 ] /ProfAmp 0.3 /Scale 0.025
+        /Stretch [ 1 3 1 ] /Threshold 0.22 /CoverAmp 0 /Gain 6 /Sigma 0.2
+        /DensOct 3 /ShadOct 2 /ShadStep 6 /Steps 48
+        /AmbTop [ 0.60 0.65 0.75 ] /AmbBot [ 0.30 0.32 0.37 ] >>
+    % thick, dark, low base, overcast, with rain below
+    /Nimbostratus << /Lo 56 /Hi 100 /Profile [ 10 1.2 ] /ProfAmp 0.3 /Scale 0.03
+        /Stretch [ 1 1.8 1 ] /Threshold 0.34 /CoverAmp 0.3 /CoverScale 0.004
+        /Gain 10 /Sigma 0.14 /DensOct 4 /ShadOct 3 /ShadStep 4 /Steps 96
+        /AmbTop [ 0.52 0.56 0.66 ] /AmbBot [ 0.20 0.21 0.25 ]
+        /Rain 24 /RainDens 0.08 >>
+>> def
+
+% --- binding a layer ---------------------------------------------------------
+% The march and the density read plain Cl* names, not the layer dict, so the
+% hot loop does no dict lookups. Compiling turns each layer into a dict of
+% those names (fc-cloud-binder); binding one is a def per entry.
+/fc-cloud-bind { { def } forall } bind def       % binding -> -
+
+/fc-cloud-binder {                               % layer dict -> binding
+    /ClD exch def
+    48 dict begin
+    /ClLo ClD /Lo get def /ClHi ClD /Hi get def /ClDy ClHi ClLo sub def
+    /ClRain ClD /Rain get def /ClRainD ClD /RainDens get def
+    /ClMLo ClLo ClRain sub def                   % the march starts here
+    ClD /Profile get aload pop                   % (a layer key, not the
+    /ClPb exch def /ClPa exch def                %  fc_landscape setting)
+    /ClPamp ClD /ProfAmp get def
+    /ClBillow ClD /Noise get /Billow eq def
+    /ClScale ClD /Scale get def
+    ClD /Stretch get aload pop /ClSz exch def /ClSy exch def /ClSx exch def
+    /ClShear ClD /Shear get def
+    ClD /Wind get dup cos /ClWc exch def dup sin /ClWs exch def
+    0 ne ClShear 0 ne or /ClWarp exch def
+    /ClThr ClD /Threshold get def
+    /ClCovA ClD /CoverAmp get def /ClCovS ClD /CoverScale get def
+    /ClGain ClD /Gain get def /ClSig ClD /Sigma get def
+    /ClDOct ClD /DensOct get def /ClSOct ClD /ShadOct get def /ClSStep ClD /ShadStep get def
+    /ClSteps ClD /Steps get def
+    /ClAmbT ClD /AmbTop get def /ClAmbB ClD /AmbBot get def
+    /ClShape ClD /Shape get def /ClShaped ClD /Shape get null ne def
+    % fade the samples over the last 30% of TMax, so a layer that reaches
+    % the horizon thins out instead of ending in a hard line
+    /ClFade true def /ClF0 TMax 0.7 mul def /ClF1 1 TMax 0.3 mul div def
+    currentdict end
+    /ClD null def
+} bind def
+
+% the single layer the Cloud* settings describe (CloudLayers null). The
+% constants here are FcClBase's values, which is also how a /Default layer
+% gets them: keep the two in step. No horizon fade, as before #14.
+/fc-cloud-binder-globals {                       % - -> binding
+    48 dict begin
+    /ClLo CloudLo def /ClHi CloudHi def /ClDy CloudHi CloudLo sub def
+    /ClRain 0 def /ClRainD 0 def /ClMLo CloudLo def
+    /ClPa 6 def /ClPb 1.6 def /ClPamp 0.35 def
+    /ClBillow false def
+    /ClScale NoiseScale def /ClSx 1 def /ClSy 1.6 def /ClSz 1 def
+    /ClShear 0 def /ClWc 1 def /ClWs 0 def /ClWarp false def
+    /ClThr Threshold def /ClCovA CoverAmp def /ClCovS CoverScale def
+    /ClGain 14 def /ClSig Sigma def
+    /ClDOct DensOct def /ClSOct ShadOct def /ClSStep ShadStep def
+    /ClSteps CloudSteps def
+    /ClAmbT AmbTop def /ClAmbB AmbBot def
+    /ClShape null def /ClShaped false def
+    /ClFade false def /ClF0 0 def /ClF1 0 def
+    currentdict end
+} bind def
+
+% --- compiling CloudLayers -----------------------------------------------------
+% FcClList: one complete dict per layer (colours linear). FcClUp: their
+% bindings sorted by base height; FcClDown: the reverse.
+/FcClCompiled false def
+/FcClColourKeys [ /AmbTop /AmbBot ] def
+
+/fc-cloud-compile-one {                          % name | dict -> dict
+    dup type /dicttype eq { dup /Type known { dup /Type get } { /Default } ifelse } {
+        << >> exch
+    } ifelse
+    /ClType exch def /ClOver exch def            % the overrides and the preset name
+    /ClNew FcClBase maxlength 2 add dict def
+    FcClBase { ClNew 3 1 roll put } forall
+    ClType /Default eq {
+        ClNew /Lo CloudLo put ClNew /Hi CloudHi put ClNew /Scale NoiseScale put
+        ClNew /Threshold Threshold put ClNew /CoverAmp CoverAmp put ClNew /CoverScale CoverScale put
+        ClNew /Sigma Sigma put ClNew /DensOct DensOct put ClNew /ShadOct ShadOct put
+        ClNew /ShadStep ShadStep put ClNew /Steps CloudSteps put
+    } {
+        FcClPresets ClType known not {
+            (fc_clouds: no cloud preset named /) print ClType 40 string cvs print (\n) print
+            CloudLayers-unknown-preset             % undefined: stops the job
         } if
-        dup 0 lt { pop 0 } { 14 mul } ifelse
+        FcClPresets ClType get { ClNew 3 1 roll put } forall
+    } ifelse
+    ClOver {
+        /ClVal exch def /ClKey exch def
+        ClKey /Type ne {
+            FcClBase ClKey known not {
+                (fc_clouds: no cloud layer key named /) print ClKey 40 string cvs print (\n) print
+                CloudLayers-unknown-key            % undefined: stops the job
+            } if
+            ClNew ClKey /ClVal load put          % load: a Shape procedure must not run here
+        } if
+    } forall
+    % colours: sRGB to linear, unless they came from the (already linear) settings
+    FcClColourKeys {
+        /ClKey exch def
+        ClType /Default eq ClOver ClKey known not and {
+            ClNew ClKey ClKey load put
+        } {
+            ClNew ClKey [ ClNew ClKey get { 2.2 exp } forall ] put
+        } ifelse
+    } forall
+    % a band with no height, or nothing to march, would divide by zero later
+    ClNew /Hi get ClNew /Lo get le
+    ClNew /Steps get 1 lt or ClNew /DensOct get 1 lt or ClNew /ShadOct get 1 lt or {
+        (fc_clouds: a layer needs Hi above Lo, and Steps, DensOct and ShadOct of at least 1\n) print
+        CloudLayers-bad-layer                    % undefined: stops the job
+    } if
+    ClNew
+} bind def
+
+% Called on first use, after the piece's settings. With CloudLayers null it
+% binds the single layer once and for all; otherwise it builds the bindings
+% in height order (FcClUp, FcClDown) for the march to bind layer by layer.
+/fc-clouds-compile {                             % - -> -
+    CloudLayers null eq {
+        /FcClList [ ] def /FcClN 0 def /FcClUp [ ] def /FcClDown [ ] def
+        fc-cloud-binder-globals fc-cloud-bind
+    } {
+    /FcClList [ CloudLayers { fc-cloud-compile-one } forall ] def
+    /FcClN FcClList length def
+    % insertion sort by base height
+    /FcClUp [ FcClList { } forall ] def
+    1 1 FcClN 1 sub {
+        /ClI exch def
+        {
+            ClI 0 le { exit } if
+            FcClUp ClI 1 sub get /Lo get FcClUp ClI get /Lo get le { exit } if
+            FcClUp ClI get FcClUp ClI 1 sub get FcClUp ClI 3 -1 roll put FcClUp ClI 1 sub 3 -1 roll put
+            /ClI ClI 1 sub def
+        } loop
+    } for
+    % the bands, rain included, must not overlap: the march takes them one
+    % after another
+    1 1 FcClN 1 sub {
+        /ClI exch def
+        FcClUp ClI get dup /Lo get exch /Rain get sub FcClUp ClI 1 sub get /Hi get lt {
+            (fc_clouds: cloud layers overlap: a band from Lo - Rain to Hi must start above the Hi of the layer below\n) print
+            CloudLayers-overlap                  % undefined: stops the job
+        } if
+    } for
+    /FcClUp [ FcClUp { fc-cloud-binder } forall ] def
+    /FcClDown [ FcClN 1 sub -1 0 { FcClUp exch get } for ] def
+    } ifelse
+    /FcClCompiled true def
+} bind def
+
+% --- density -------------------------------------------------------------------
+% fBm of folded noise, |2n - 1| per octave: rounded lumps with creases
+/fc-cloud-billow3 {                              % x y z oct -> v
+    /CbO exch def /CbZ exch def /CbY exch def /CbX exch def
+    0 1 0                                        % sum amp norm
+    CbO {
+        CbX CbY CbZ fc-noise3 2 mul 1 sub abs 2 index mul
+        4 -1 roll add 3 1 roll
+        1 index add exch 0.5 mul exch
+        /CbX CbX 2.03 mul 5.3 add def
+        /CbY CbY 2.03 mul 1.7 add def
+        /CbZ CbZ 2.03 mul 9.1 add def
+    } repeat
+    exch pop div
+} bind def
+
+% rain under the base: the cloud a little way up, in vertical shafts that
+% thin out toward the ground
+/fc-cloud-rain {                                 % (Dx Dy Dz Doct) -> d
+    ClLo Dy sub ClRain div
+    dup 1 ge { pop 0 } {
+        1 exch sub ClRainD mul
+        Dx ClLo ClDy 0.25 mul add Dz Doct fc-layer-density mul
     } ifelse
 } bind def
 
+/fc-layer-density {                              % x y z oct -> d   (bound layer)
+    /Doct exch def /Dz exch def /Dy exch def /Dx exch def
+    Dy ClLo sub ClDy div
+    dup 0 le { pop ClRain 0 gt { fc-cloud-rain } { 0 } ifelse } {
+    dup 1 ge { pop 0 } {
+        /Dh exch def
+        Dh ClPa mul 1 2 copy gt { exch } if pop
+        1 Dh sub ClPb mul 1 2 copy gt { exch } if pop mul
+        /Dprof exch def
+        % noise coordinates: turned so x runs along the wind, leaning with
+        % height by Shear; then scaled and stretched
+        ClWarp {
+            Dx ClWc mul Dz ClWs mul add Dy ClLo sub ClShear mul add
+            Dz ClWc mul Dx ClWs mul sub
+            /Dnz exch def /Dnx exch def
+        } { /Dnx Dx def /Dnz Dz def } ifelse
+        Dnx ClScale mul ClSx mul Dy ClScale mul ClSy mul Dnz ClScale mul ClSz mul Doct
+        ClBillow { fc-cloud-billow3 } { fc-fbm3 } ifelse
+        ClThr sub 1 Dprof sub ClPamp mul sub
+        % low-frequency coverage, so clouds gather into groups with gaps
+        ClCovA 0 gt {
+            Dx ClCovS mul 41.3 add Dz ClCovS mul 7.9 add fc-noise2 0.5 sub ClCovA mul add
+        } if
+        ClShaped { Dx Dy Dz Doct ClShape add } if
+        dup 0 lt { pop 0 } { ClGain mul } ifelse
+    } ifelse } ifelse
+} bind def
+
+/fc-density {                                    % x y z oct -> d   (all layers)
+    FcClCompiled not { fc-clouds-compile } if
+    CloudLayers null eq { fc-layer-density } {
+        /DqO exch def /DqZ exch def /DqY exch def /DqX exch def
+        0 FcClUp { fc-cloud-bind DqX DqY DqZ DqO fc-layer-density add } forall
+    } ifelse
+} bind def
+
+% sunlight through one bound layer: one probe at the middle of the part of
+% the layer above the point, along the sun (the estimate fc_terrain's cloud
+% shadows use)
+/fc-cloud-shadow1 {                              % T -> T
+    DqY ClHi lt SunDir 1 get 0.01 gt and {
+        DqY ClLo 2 copy lt { exch } if pop /DqB exch def     % the probe spans DqB..ClHi
+        /DqM DqB ClHi add 2 div def
+        /DqT DqM DqY sub SunDir 1 get div def
+        DqX SunDir 0 get DqT mul add DqM DqZ SunDir 2 get DqT mul add ClSOct fc-layer-density
+        ClSig mul ClHi DqB sub mul 0.5 mul neg 2.71828 exch exp mul
+    } if
+} bind def
+
+/fc-cloud-shadow {                               % x y z -> T
+    /DqZ exch def /DqY exch def /DqX exch def
+    FcClCompiled not { fc-clouds-compile } if
+    1
+    CloudLayers null eq { fc-cloud-shadow1 } { FcClUp { fc-cloud-bind fc-cloud-shadow1 } forall } ifelse
+} bind def
+
+% --- lighting ------------------------------------------------------------------
 /fc-phase {                                      % mu -> p
     /Pg 0.45 def
     1 Pg Pg mul sub
@@ -55,46 +346,48 @@
 
 /fc-cloud-light {                                % x y z d phase -> r g b
     /Lph exch def /Ld exch def /Lz exch def /Ly exch def /Lx exch def
+    % rain is lit as the cloud base above it: probe from there
+    ClRain 0 gt { Ly ClLo lt { /Ly ClLo ClDy 0.25 mul add def } if } if
     0
     1 1 2 {
-        ShadStep mul /Ls exch def
+        ClSStep mul /Ls exch def
         Lx SunDir 0 get Ls mul add Ly SunDir 1 get Ls mul add Lz SunDir 2 get Ls mul add
-        ShadOct fc-density add
+        ClSOct fc-layer-density add
     } for
-    ShadStep mul Sigma mul /Lod exch def
+    ClSStep mul ClSig mul /Lod exch def
     2.71828 Lod neg exp
-    1 2.71828 Ld Sigma mul 2.5 mul neg exp sub 0.6 mul 0.4 add mul
+    1 2.71828 Ld ClSig mul 2.5 mul neg exp sub 0.6 mul 0.4 add mul
     Lph mul 1.6 mul
     % light scattered many times inside the cloud: keeps thick interiors
     % from going flat grey
     2.71828 Lod 0.25 mul neg exp 0.45 mul add
     /Lsun exch def
-    Ly CloudLo sub CloudHi CloudLo sub div /Lh exch def
+    Ly ClLo sub ClDy div dup 0 lt { pop 0 } if /Lh exch def    % (rain was moved into the band above)
     0 1 2 {
         /Li exch def
         SunCol Li get Lsun mul
-        AmbBot Li get AmbTop Li get AmbBot Li get sub Lh mul add 0.8 mul add
+        ClAmbB Li get ClAmbT Li get ClAmbB Li get sub Lh mul add 0.8 mul add
     } for
 } bind def
 
 % octaves worth computing at distance t: drop any whose cell is under ~2 px
 /fc-cloud-oct {                                  % t -> oct
-    PixAng mul 2 mul NoiseScale mul              % one 2-px footprint, in noise cells
-    dup 0.000001 lt { pop DensOct } {
+    PixAng mul 2 mul ClScale mul                 % one 2-px footprint, in noise cells
+    dup 0.000001 lt { pop ClDOct } {
         1 exch div ln 2.03 ln div floor cvi 1 add
-        dup DensOct gt { pop DensOct } if
+        dup ClDOct gt { pop ClDOct } if
         dup 1 lt { pop 1 } if
     } ifelse
 } bind def
 
-/fc-clouds {                                     % tlimit -> -
-    /Ctl exch def
-    /Cr 0 def /Cg 0 def /Cb 0 def /Tr 1 def
-    % the ray's interval inside the layer
+% --- the march -----------------------------------------------------------------
+% one layer (bound), up to Ctl, accumulating into Cr Cg Cb Tr
+/fc-cloud-march {                                % - -> -
+    % the ray's interval inside the layer (and its rain)
     My abs 0.00001 lt {
-        CamY CloudLo gt CamY CloudHi lt and { /Ct0 0 def /Ct1 TMax def } { /Ct0 1 def /Ct1 0 def } ifelse
+        CamY ClMLo gt CamY ClHi lt and { /Ct0 0 def /Ct1 TMax def } { /Ct0 1 def /Ct1 0 def } ifelse
     } {
-        /Cta CloudLo CamY sub My div def /Ctb CloudHi CamY sub My div def
+        /Cta ClMLo CamY sub My div def /Ctb ClHi CamY sub My div def
         Cta Ctb 2 copy gt { exch } if /Ct1 exch def /Ct0 exch def
         Ct0 0 lt { /Ct0 0 def } if
     } ifelse
@@ -103,7 +396,7 @@
     Ct0 Ct1 lt {
         /Cph Mx SunDir 0 get mul My SunDir 1 get mul add Mz SunDir 2 get mul add fc-phase def
         % step length grows with distance; the first step is jittered
-        /Cdt0 Ct1 Ct0 sub CloudSteps div def
+        /Cdt0 Ct1 Ct0 sub ClSteps div def
         /Ct Ct0 def
         /Cdt Cdt0 Ct 0.012 mul add def
         /Ct Ct Cdt fc-rnd mul add def
@@ -111,9 +404,10 @@
             Ct Ct1 ge { exit } if
             /Cdt Cdt0 Ct 0.012 mul add def
             /Px Mx Ct mul def /Py My Ct mul CamY add def /Pz Mz Ct mul def
-            Px Py Pz Ct fc-cloud-oct fc-density dup 0 gt {
+            Px Py Pz Ct fc-cloud-oct fc-layer-density dup 0 gt {
                 /Cd exch def
-                /Ca 1 2.71828 Sigma Cd mul Cdt mul neg exp sub def
+                /Ca 1 2.71828 ClSig Cd mul Cdt mul neg exp sub def
+                ClFade { Ct ClF0 gt { /Ca Ca TMax Ct sub ClF1 mul mul def } if } if
                 Px Py Pz Cd Cph fc-cloud-light Ct fc-haze
                 Tr Ca mul /Cw exch def
                 Cw mul Cb add /Cb exch def
@@ -125,6 +419,18 @@
             /Ct Ct Cdt add def
         } loop
     } if
+} bind def
+
+/fc-clouds {                                     % tlimit -> -
+    /Ctl exch def
+    /Cr 0 def /Cg 0 def /Cb 0 def /Tr 1 def
+    FcClCompiled not { fc-clouds-compile } if
+    CloudLayers null eq { fc-cloud-march } {
+        % nearest band first: up the list for a rising ray, down it otherwise
+        My 0 ge { FcClUp } { FcClDown } ifelse {
+            Tr 0.01 lt { pop } { fc-cloud-bind fc-cloud-march } ifelse
+        } forall
+    } ifelse
 } bind def
 
 /fc-rnd { rand 2147483647 div } bind def

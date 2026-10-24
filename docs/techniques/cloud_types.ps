@@ -1,0 +1,33 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+%%Title: Cloud types
+% Figure for docs/techniques.html: one panel of the cloud-type contact sheet
+% (fractal_clouds#14). The scene is gallery/mountains.ps with cheap erosion;
+% Panel picks the layer list. docs/techniques/cloud_types.py renders every
+% panel and pastes them into docs/techniques/cloud_types.png:
+%   scripts/render.sh -D Panel=2 docs/techniques/cloud_types.ps
+
+/Panel where { pop } { /Panel 0 def } ifelse
+/Panels [
+    [ /Stratus ]
+    [ /Altocumulus ]
+    [ /Cirrus ]
+    [ /Cumulus ]
+    [ /Nimbostratus ]
+    [ /Cumulus /Altocumulus /Cirrus ]            % a layered sky
+] def
+/CloudLayers Panels Panel get def
+
+/Seed where { pop } { /Seed 5 def } ifelse
+/AA where { pop } { /AA true def } ifelse
+/Pitch where { pop } { /Pitch 4 def } ifelse
+/Yaw where { pop } { /Yaw 10 def } ifelse
+/SunDir where { pop } { /SunDir [ -0.62 0.40 0.62 ] def } ifelse
+/HazeDist where { pop } { /HazeDist 400 def } ifelse
+/CamLift where { pop } { /CamLift 0.72 def } ifelse
+/ErN where { pop } { /ErN 256 def } ifelse
+/ErDrops where { pop } { /ErDrops 20000 def } ifelse
+
+(lib/fc_landscape.ps) run
+320 200 fc-landscape
+showpage
