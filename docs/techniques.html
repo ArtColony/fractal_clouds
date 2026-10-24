@@ -511,6 +511,16 @@ haze  = 1 − e^(−w · depth / HazeDist)    colour = mix(surface, HazeCol, haz
 
 <p>Channels start where the catchment passes <code>RiverLo</code> (10000 square units, 1 km²) and are full size from <code>RiverHi</code>, on a log scale. Every channel texel presses a rounded groove, <code>1 − (d/r)²</code>, into the erosion map, with its width and depth growing with the square root of that strength, so a young stream is a narrow nick and a river a broad bed; grooves combine by taking the deepest. Because the groove goes into the erosion map, the terrain's own height, normals, shadows and the forest all see it, and nothing in <code>fc_terrain.ps</code> changes. The water level is then flat across each channel: the lowest bed (at full detail) within a texel, plus <code>RiverFill</code> of the deepest groove there. It is carried two texels out past the channel, so the bilinear lookup stays smooth over the banks, which stand above it.</p>
 
+<figure>
+  <img src="techniques/water_flow.png" alt="A dark map with a branching network of bright lines: the drainage of the eroded terrain." loading="lazy">
+  <figcaption>Catchment over a 256² erosion map (log scale): the priority flood joins every slope into one network that leaves the map at its edges. Straight runs cross pits filled to their spill height.</figcaption>
+</figure>
+
+<figure>
+  <img src="techniques/water_river.png" alt="A river running away from the camera between forested banks, reflecting the sky and the far mountains." loading="lazy">
+  <figcaption><code>docs/prs/28-water/river_valley.ps</code>: the valley of <em>alpine forest</em> seen from a river bank (18 min at 320×200 on one core, on a loaded machine; the water is 11% of the render).</figcaption>
+</figure>
+
 <h3>The surface</h3>
 
 <p>Ripples are two octaves of noise stretched across the wind, used as a slope, so the normal comes from the noise's analytic gradient rather than a tilt of the mirror. Each octave fades out as its wavelength approaches three pixels, measured along the view, where the water is foreshortened by <code>1/|dy|</code>. The slope an octave loses doesn't vanish: it tilts the mean normal toward the camera, because at grazing angles the facets that face the viewer are the ones seen, and they reflect higher sky. That is why far rough water reads lighter than calm water, and it makes wind streaks (bands of more and less roughness along the wind, from a long noise) visible at any distance.</p>
