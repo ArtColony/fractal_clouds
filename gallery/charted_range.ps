@@ -35,7 +35,7 @@
 ] def } ifelse
 
 % --- the viewpoints: x z yaw, in map coordinates -----------------------------
-/Views [ [ 0 -250 0 ] [ 430 0 -72 ] ] def
+/Views [ [ 0 -250 0 46 ] [ 430 0 -72 60 ] ] def      % and the field of view, for the plan
 View 2 eq {
     /TerrOX where { pop } { /TerrOX 430 def } ifelse
     /TerrOZ where { pop } { /TerrOZ 0 def } ifelse
@@ -125,7 +125,9 @@ fc-landscape-setup
 
 Plan {
     320 200 fc-map-plan
-    (1) Views 0 get aload pop fc-map-plan-camera
-    (2) Views 1 get aload pop fc-map-plan-camera
+    1 1 2 { /WkV exch def
+        /HFov Views WkV 1 sub get 3 get def
+        WkV 1 string cvs Views WkV 1 sub get aload pop pop fc-map-plan-camera
+    } for
 } { 320 200 fc-landscape } ifelse
 showpage
