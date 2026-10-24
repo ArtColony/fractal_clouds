@@ -25,7 +25,7 @@ march and the normals.
 |---|---|---|---|---|
 | 1 | step 3, tread 0.65, dip [0.40 0.20], every bed a ledge | 384×200 (DPI 144) | old, old | old, old |
 | 2 | dip [0.60 0.25], only 45% of beds stand out (`TerraceBeds`) | 384×200 (DPI 144) | old, old | old, old |
-| 3 | hashed (not periodic) hard beds and treads; beds cut from the ground without its fine detail, which goes back on top | 576×300 (DPI 216) | see below | |
+| 3 | hashed (not periodic) hard beds and treads; beds cut from the ground without its fine detail, which goes back on top | 576×300 (DPI 216) | old, old | old, old |
 
 Round 1 and 2 reasons: "repeated horizontal terraces look artificial",
 "horizontal shelves look mechanically cut", "conspicuous stair-step
@@ -33,3 +33,29 @@ terraces". Round 2's hard-bed choice used `sin(k)` with k in radians, which
 repeats every 6.3 beds: a fixed rhythm. Round 3 fixes that with a hash and
 keeps the gully detail on the ledges, so the lips are ragged instead of
 ruler-straight.
+
+Round 3 reasons: "angular ledges and abrupt cliff bands look artificially
+cut", "fewer conspicuous block-like interruptions" (for the old one).
+
+## Verdict
+
+Lost all three rounds, in both orders, on realism and aesthetics alike. The
+judge consistently prefers the continuous, eroded-looking slopes over any
+visible bedding, even sparse, dipping, faulted beds with ragged lips. Per
+the protocol, terraces ship opt-in (`TerraceAmp 0` by default) and the PR is
+"Part of #21"; the gallery massif round was not run, since it only decides
+the default after a win.
+
+## Cost
+
+`-D Profile=true`, the same 192×100 crop of the test view, DPI 72 (the
+machine was shared, so timings are approximate):
+
+| | `fc-height` µs/call | `fc-height` share | `fc-render` ms |
+|---|---|---|---|
+| `TerraceAmp 0` | 59.7 | 66.5% | 84 157 |
+| `TerraceAmp 1` | 89.5 | 74.6% | 121 573 (+44%) |
+
+The view is almost all massif in outcrop patches, so this is near the worst
+case; most of it is the slope gate's three 2-octave ridged samples. Off, the
+term is one comparison per height call.
