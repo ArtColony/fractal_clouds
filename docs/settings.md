@@ -241,7 +241,8 @@ blend sky (`SkyModel` false), exactly as before.
 | `MoonLight` | 0.12 | Moonlight as a fraction of `SunPower` (a day-for-night convention; raise `Exposure` too). | 0.12 |
 | `MoonCol` | [0.60 0.76 1.00] | Moonlight colour above the air, sRGB: blue-grey, as night reads to the eye. | |
 | `Stars` | 1 | Star brightness, where the sky is dark enough. 0 for none. | 1 |
-| `Exposure` | 1.6 | Brightness before the tone curve `1 − exp(−Exposure·L)`. | 1.6, 1.9, 3, 4 (night) |
+| `Exposure` | 1.6 | Brightness before the tone curve. Means the same with either `ToneCurve`: mid-tones land in the same place. | 1.6, 1.9, 3, 4 (night) |
+| `ToneCurve` | /Exp | The tone curve, chosen as `fc_sky.ps` loads. `/Exp`: `1 − exp(−Exposure·L)` per channel, then a 2.2 power (no toe, so shadows stay light). `/ACES`: a filmic curve (Hill's fit of ACES) with a toe and a long shoulder, then the exact sRGB transfer function: deeper, more colourful shadows and softer highlights. Also the `/Filmic` and `/Classic` presets. | /Exp, /ACES |
 | `HazeDist` | 520 | Distance at which haze reaches 63% at height 0. Smaller means thicker air. | 400, 520, 650 |
 | `HazeH` | 45 | Height over which the haze thins by a factor of e. | 45 |
 | `HazeChroma` | 1 with `SkyModel`, else 0 | How far the haze fades each channel at its own rate. 1 takes the haze to be the model's Rayleigh air plus enough neutral aerosol to reach `HazeDist` in green, so blue fades a little sooner and red a little later (about 15% and 4% at `HazeDist` 650: a haze that thick is mostly aerosol); 0 fades every channel over `HazeDist`; 2 or 3 exaggerates the blue distance. `HazeDist` is the green channel's distance. | 0, 1 |
