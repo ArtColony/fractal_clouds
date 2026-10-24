@@ -1,0 +1,27 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+%%Title: River valley
+% Status: draft
+% fractal_clouds#28: the valley of gallery/alpine_forest.ps, seen from a
+% bank of the river the erosion map's drainage carves through it.
+% scripts/render.sh docs/prs/28-water/river_valley.ps
+
+/Seed where { pop } { /Seed 5 def } ifelse
+/AA where { pop } { /AA true def } ifelse
+/Pitch where { pop } { /Pitch -3 def } ifelse
+/Yaw where { pop } { /Yaw -45 def } ifelse
+/SunDir where { pop } { /SunDir [ 0.55 0.50 0.45 ] def } ifelse
+/CloudLo where { pop } { /CloudLo 60 def /CloudHi 88 def } ifelse
+/CoverAmp where { pop } { /CoverAmp 0.45 def } ifelse
+/HazeDist where { pop } { /HazeDist 650 def } ifelse
+/Threshold where { pop } { /Threshold 0.57 def } ifelse
+/TerrOX where { pop } { /TerrOX 244 def /TerrOZ 433 def } ifelse
+/HFov where { pop } { /HFov 50 def } ifelse
+/TreesOn where { pop } { /TreesOn true def } ifelse
+/CamAbove where { pop } { /CamAbove 6 def } ifelse
+/SnowLine where { pop } { /SnowLine 27 def } ifelse
+/Rivers where { pop } { /Rivers true def } ifelse
+
+(lib/fc_landscape.ps) run
+320 200 fc-landscape
+showpage

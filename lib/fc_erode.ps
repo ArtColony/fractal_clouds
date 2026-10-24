@@ -37,6 +37,7 @@
 /ErDelta true fc-default             % store only erosion's change (see step 3)
 /FineAmp 0.07 fc-default            % fine procedural detail added on top (replace mode)
 /FineScale 7 fc-default              % its frequency, in ridge frequencies
+/ErFlowOn false fc-default           % record the flow per texel in ErFlow (#28; fc_landscape's Rivers does too)
 
 /fc-erode-bake {
     /EbT0 usertime def
@@ -107,6 +108,8 @@
             /Ewat Ewat 1 ErEvap sub mul def
         } repeat
     } repeat
+    % 2b. flow, for rivers: trace water over the finished map
+    /Rivers where { pop Rivers } { false } ifelse ErFlowOn or { fc-erode-flow } if
     % 3. in delta mode, keep only what erosion changed: fc-height then adds
     % this smooth correction to the full procedural terrain, which keeps
     % its crisp detail
@@ -123,6 +126,92 @@
 } bind def
 
 /ErBaked false def /ErBaking false def
+
+% Flow (fractal_clouds#28): ErFlow holds, per texel, how many texels drain
+% through it (its catchment), over the finished map. A priority flood
+% (Barnes, Lehman and Mulla 2014) visits the texels from the map's edge
+% inwards, lowest first, so each texel drains to the neighbour it was
+% reached from; pits (deposition leaves many) fill to their spill height,
+% with a tiny rise across flats so they still drain toward the outlet.
+% Summing in reverse visiting order then gives every texel's catchment.
+% Tracing the erosion droplets' own water instead gives short dashes: they
+% die after ErSteps, and in the first pit. Neither changes the map nor
+% draws random numbers.
+/fc-erode-flow {
+    /EfT0 usertime def
+    /EfN ErN ErN mul def
+    /ErFlow EfN array def       % first the parent texel (-2: not reached), then the flow
+    /EfFill EfN array def       % filled height
+    /EfOrd EfN array def /EfNo 0 def
+    /EfHk EfN array def /EfHv EfN array def /EfHn 0 def    % binary heap: keys, texels
+    0 1 EfN 1 sub { ErFlow exch -2 put } for
+    % the outermost ring is left out (drained); the next one seeds the heap
+    0 1 EfN 1 sub { /Efi exch def
+        Efi ErN mod /Efx exch def Efi ErN idiv /Efy exch def
+        Efx Efy fc-min Efx Efy fc-max ErN 1 sub exch sub fc-min /Efe exch def
+        Efe 0 eq { ErFlow Efi -1 put } if
+        Efe 1 eq {
+            ErFlow Efi -1 put EfFill Efi ErMap Efi get put
+            Efi ErMap Efi get fc-erode-push
+        } if
+    } for
+    [ -1 1 ErN neg ErN ErN neg 1 sub ErN neg 1 add ErN 1 sub ErN 1 add ] /EfNb exch def
+    {
+        EfHn 0 eq { exit } if
+        fc-erode-pop /Efc exch def
+        EfOrd EfNo Efc put /EfNo EfNo 1 add def
+        /Efh EfFill Efc get 0.000001 add def
+        EfNb { Efc add /Efn exch def
+            ErFlow Efn get -2 eq {
+                ErFlow Efn Efc put
+                ErMap Efn get Efh fc-max
+                dup EfFill Efn 3 -1 roll put
+                Efn exch fc-erode-push
+            } if
+        } forall
+    } loop
+    % catchments, downstream last
+    /EfPar ErFlow def /ErFlow EfN array def
+    0 1 EfN 1 sub { ErFlow exch 1 put } for
+    EfNo 1 sub -1 0 { EfOrd exch get /Efi exch def
+        EfPar Efi get dup 0 ge {
+            ErFlow exch 2 copy get ErFlow Efi get add put
+        } { pop } ifelse
+    } for
+    /EfPar null def /EfFill null def /EfOrd null def /EfHk null def /EfHv null def
+    (fc-erode: flow ms ) print usertime EfT0 sub =
+} bind def
+
+/fc-erode-push {                                 % texel key -> -
+    /Epk exch def /Epv exch def
+    /Epi EfHn def /EfHn EfHn 1 add def
+    {
+        Epi 0 le { exit } if
+        /Epp Epi 1 sub 2 idiv def
+        EfHk Epp get Epk le { exit } if
+        EfHk Epi EfHk Epp get put EfHv Epi EfHv Epp get put
+        /Epi Epp def
+    } loop
+    EfHk Epi Epk put EfHv Epi Epv put
+} bind def
+
+/fc-erode-pop {                                  % -> texel (lowest key)
+    EfHv 0 get
+    /EfHn EfHn 1 sub def
+    EfHn 0 gt {
+        /Epk EfHk EfHn get def /Epv EfHv EfHn get def
+        /Epi 0 def
+        {
+            /Epc Epi 2 mul 1 add def
+            Epc EfHn ge { exit } if
+            Epc 1 add EfHn lt { EfHk Epc 1 add get EfHk Epc get lt { /Epc Epc 1 add def } if } if
+            EfHk Epc get Epk ge { exit } if
+            EfHk Epi EfHk Epc get put EfHv Epi EfHv Epc get put
+            /Epi Epc def
+        } loop
+        EfHk Epi Epk put EfHv Epi Epv put
+    } if
+} bind def
 
 % x z -> normalised height and blend weight (0 outside the map). Cubic
 % (Catmull-Rom) over 4x4 texels, so the normals are smooth: a bilinear

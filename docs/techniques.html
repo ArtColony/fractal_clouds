@@ -126,6 +126,7 @@ ol.refs li { margin: .45rem 0; font-size: .95rem; }
   <li><a href="#sky">Sky, haze and tone</a></li>
   <li><a href="#clouds">Clouds</a></li>
   <li><a href="#forest">The forest</a></li>
+  <li><a href="#water">Water</a></li>
   <li><a href="#render">Writing the image</a></li>
   <li><a href="#landscape">Making your own landscape</a></li>
   <li><a href="#method">How the work was done</a></li>
@@ -496,7 +497,47 @@ haze  = 1 − e^(−w · depth / HazeDist)    colour = mix(surface, HazeCol, haz
 </div>
 
 <!-- ===================================================================== -->
-<h2 id="render">12. Writing the image</h2>
+<h2 id="water">12. Water</h2>
+
+<p><code>lib/fc_water.ps</code> is one water surface for every piece: a level plane (<code>WaterY</code>, or <code>WaterRise</code> above the ground under the camera), the lakes of a terrain map (<code>MapWater</code>, each plane cut to its polygon) and rivers (<code>Rivers</code>). It wraps the landscape's hit and surface hooks, so the dry scene underneath doesn't know it is there, and it is the base #38's sea builds on: the normal (<code>fc-water-normal</code>) and the water's own colour (<code>fc-water-colour</code>) are hooks of their own.</p>
+
+<h3>Where the water is</h3>
+
+<p>The hit hook marches the dry scene first, then looks for water in front of it. A plane at level <i>L</i> is hit at <code>t = (L − CamY) / My</code> if that comes before the ground (or the ground was missed). A river surface is not a plane, so it is found from behind: if the ground the ray hit lies below the river's level there, the ray went into the water on the way, so it steps back half a texel at a time until it is above the level again and bisects to the crossing. Both leave the ground's distance (<code>AqBedT</code>) for the shallows.</p>
+
+<h3>Rivers from the erosion map</h3>
+
+<p>The erosion droplets themselves are poor rivers: they die after 48 steps and in the first pit, so the water they carry adds up to short dashes, not a network. Instead, when rivers are on, the bake also works out each texel's <em>catchment</em> on the finished map. A priority flood (Barnes, Lehman and Mulla 2014) takes texels from a binary heap lowest first, starting from the map's edge; each newly reached neighbour drains to the texel that reached it and is raised, if need be, to that texel's height plus a hair, which fills every pit to its spill point and gives flats a direction toward their outlet. Read in reverse, the visiting order runs downstream last, so one pass adds every texel's count to the one it drains to. At <code>ErN</code> 512 that is about 4 s, against about 25 s for the erosion itself.</p>
+
+<p>Channels start where the catchment passes <code>RiverLo</code> (10000 square units, 1 km²) and are full size from <code>RiverHi</code>, on a log scale. Every channel texel presses a rounded groove, <code>1 − (d/r)²</code>, into the erosion map, with its width and depth growing with the square root of that strength, so a young stream is a narrow nick and a river a broad bed; grooves combine by taking the deepest. Because the groove goes into the erosion map, the terrain's own height, normals, shadows and the forest all see it, and nothing in <code>fc_terrain.ps</code> changes. The water level is then flat across each channel: the lowest bed (at full detail) within a texel, plus <code>RiverFill</code> of the deepest groove there. It is carried two texels out past the channel, so the bilinear lookup stays smooth over the banks, which stand above it.</p>
+
+<figure>
+  <img src="techniques/water_flow.png" alt="A dark map with a branching network of bright lines: the drainage of the eroded terrain." loading="lazy">
+  <figcaption>Catchment over a 256² erosion map (log scale): the priority flood joins every slope into one network that leaves the map at its edges. Straight runs cross pits filled to their spill height.</figcaption>
+</figure>
+
+<figure>
+  <img src="techniques/water_river.png" alt="A river running away from the camera between forested banks, reflecting the sky and the far mountains." loading="lazy">
+  <figcaption><code>docs/prs/28-water/river_valley.ps</code>: the valley of <em>alpine forest</em> seen from a river bank (18 min at 320×200 on one core, on a loaded machine; the water is 11% of the render).</figcaption>
+</figure>
+
+<h3>The surface</h3>
+
+<p>Ripples are two octaves of noise stretched across the wind, used as a slope, so the normal comes from the noise's analytic gradient rather than a tilt of the mirror. Each octave fades out as its wavelength approaches three pixels, measured along the view, where the water is foreshortened by <code>1/|dy|</code>. The slope an octave loses doesn't vanish: it tilts the mean normal toward the camera, because at grazing angles the facets that face the viewer are the ones seen, and they reflect higher sky. That is why far rough water reads lighter than calm water, and it makes wind streaks (bands of more and less roughness along the wind, from a long noise) visible at any distance.</p>
+
+<div class="formula">F = 0.02 + 0.98 (1 − cos θ)⁵      colour = F · reflection + (1 − F) · (T · bed + (1 − T) · water)
+T = exp(−(t_bed − t_water) / WaterClear)</div>
+
+<p>Under the surface, the bed shows through shallow water: it is shaded as dry ground and faded by the path length through the water, so the waterline is a gradient rather than a hard edge, and the antialiasing sees water as 20% farther than it is, so it treats the shoreline as an edge. Above it, the shore is a material: wet ground (darker and smoother) up to <code>ShoreWet</code> above the waterline, a lighter band of sand and pebbles at the edge, and stones in the band and the shallows, all moved a little by noise. Height alone would spread the stones over a flat meadow that sits just above the water, so they and the band also fade with an estimate of the distance from the water across the ground (height over slope, <code>ShoreReach</code>). The bed is shaded only where it shows, (1 − F)·T above 2%, and a ripple octave's noise is skipped once it has faded to 5%.</p>
+
+<h3>The reflection, exactly</h3>
+
+<p>Every renderer ray starts above the origin (<code>(0, CamY, 0)</code>), so a reflected ray is marched from a virtual camera: the point straight above the origin on the line through the water point with the view ray's heading and the reflected ray's slope. Started at the water point (<code>MarchT0</code>), it marches and shades the dry scene exactly. Its haze is counted from the water point, and so is the haze on the clouds it passes: <code>fc-clouds</code> calls <code>fc-haze</code> by name, so it is swapped for one that starts at the water while they are marched. The first lake (<code>gallery/evening_lake.ps</code>, #11) mirrored the camera below the water and hazed the reflected clouds from there, where the exponential haze is densest, so its reflected clouds came out too hazy.</p>
+
+<p>Two approximations remain. A ripple's sideways tilt is dropped from the reflected ray (only its slope is kept), since a ray with another heading wouldn't pass above the origin; the sky, which needs no march, is looked up along the full reflected direction. And the cloud march can't be told to start at the water, so it also crosses the stretch from the virtual camera up to the water point; that stretch lies below the water, so this only matters for water above a cloud base.</p>
+
+<!-- ===================================================================== -->
+<h2 id="render">13. Writing the image</h2>
 
 <p><code>fc-render</code> (<code>lib/fc_render.ps</code>) sizes the image from the page and the requested DPI. <code>matrix defaultmatrix</code> reveals device pixels per point, so <code>--dpi 144</code> doubles the detail without changing the program. It then calls <code>colorimage</code> with a procedure that computes and returns one row of RGB bytes per call. Rows are produced top first, so a seeded random sequence gives the same picture every time.</p>
 
@@ -515,7 +556,7 @@ haze  = 1 − e^(−w · depth / HazeDist)    colour = mix(surface, HazeCol, haz
 <p>Every band repeats the setup (bakes included), so the seeded scene is identical; only the cloud-march jitter differs, and it is statistically the same.</p>
 
 <!-- ===================================================================== -->
-<h2 id="landscape">13. Making your own landscape</h2>
+<h2 id="landscape">14. Making your own landscape</h2>
 
 <p><code>lib/fc_landscape.ps</code> wraps everything above into a scene a new piece can use with settings and a few lines of PostScript. A piece sets its options, loads that one file, and asks for the page:</p>
 
@@ -561,10 +602,10 @@ showpage</code></pre>
 <tr><td><code>fc-landscape-sky</code></td><td>dx dy dz → r g b</td><td>the sky above the horizon, the horizon haze colour below it</td></tr>
 <tr><td><code>fc-landscape-grade</code></td><td>r g b → r g b</td><td>nothing; the last change before the tone curve</td></tr>
 </table></div>
-<p>While a hook runs, <code>Mx My Mz</code> is the pixel's ray. After the surface or sky, <code>LnT</code> is the hit distance and <code>LnR LnG LnB</code> the colour before clouds. A new kind of surface, a lake for instance, is a hit hook that also tests a plane and a surface hook that shades it; <code>gallery/evening_lake.ps</code> does this. A piece can also write its own <code>fc-pixel</code> from the same parts.</p>
+<p>While a hook runs, <code>Mx My Mz</code> is the pixel's ray. After the surface or sky, <code>LnT</code> is the hit distance and <code>LnR LnG LnB</code> the colour before clouds. A new kind of surface is a hit hook that also tests it and a surface hook that shades it; <code>lib/fc_water.ps</code> adds water this way (section 12). A piece can also write its own <code>fc-pixel</code> from the same parts.</p>
 
 <!-- ===================================================================== -->
-<h2 id="method">14. How the work was done</h2>
+<h2 id="method">15. How the work was done</h2>
 
 <ul>
   <li><strong>Render, then look.</strong> Every change was rendered and the PNG inspected; numbers alone missed most problems.</li>
@@ -585,7 +626,7 @@ showpage</code></pre>
 </figure>
 
 <!-- ===================================================================== -->
-<h2 id="perf">15. Speed</h2>
+<h2 id="perf">16. Speed</h2>
 <p>All on an Apple-silicon Mac with pscat 0.6.2, one thread per process:</p>
 <div class="tablewrap"><table>
 <tr><th>Render</th><th>Time</th></tr>
@@ -609,10 +650,10 @@ showpage</code></pre>
   <li><strong>The profiler costs time.</strong> Each wrapped call pays for a counter, two <code>usertime</code> readings and one more procedure call: about 0.8 µs measured on an Apple-silicon Mac (the footer measures it on every run, with an empty procedure). That is a few percent when the wrapped procedures take tens of µs, and most of the time when they don't: wrapping a noise function turns it into a table of overhead. A callee's wrapper cost is also inside its caller's row.</li>
   <li>The wrapper leaves the stack and the random stream alone, so a profiled render is the same picture (checked pixel for pixel).</li>
 </ul>
-<p>It wraps by redefining the name, so it sees procedures a piece redefines as hooks, provided they're defined when <code>fc-landscape-setup</code> starts or before <code>fc-render</code> runs. A piece that redefines one afterwards calls <code>fc-bench-wrap</code> again. A procedure that was already wrapped and is then redefined gets a fresh wrapper and a fresh row; the old row stays as <code>name#1</code>. (The lake's <code>fc-landscape-hit</code> calls the original as <code>fc-dry-hit</code>, so the two rows are the hook and the procedure under it; one shared row would count every call twice.) Only procedures defined in <code>userdict</code> are wrapped, and rows that never ran are listed as "never called" instead of shown.</p>
+<p>It wraps by redefining the name, so it sees procedures a piece redefines as hooks, provided they're defined when <code>fc-landscape-setup</code> starts or before <code>fc-render</code> runs. A piece that redefines one afterwards calls <code>fc-bench-wrap</code> again. A procedure that was already wrapped and is then redefined gets a fresh wrapper and a fresh row; the old row stays as <code>name#1</code>. (The water's <code>fc-landscape-hit</code> calls the original as <code>fc-water-dry-hit</code>, so the two rows are the hook and the procedure under it; one shared row would count every call twice.) Only procedures defined in <code>userdict</code> are wrapped, and rows that never ran are listed as "never called" instead of shown.</p>
 
 <!-- ===================================================================== -->
-<h2 id="limits">16. Known limits</h2>
+<h2 id="limits">17. Known limits</h2>
 <ul>
   <li><strong>Snow is a colour, not geometry:</strong> it doesn't fill channels, and the forest map doesn't know where it lies.</li>
   <li><strong>Rock still reads as folded rather than fractured</strong> at a distance: the strongest remaining critique of the mountains.</li>
@@ -623,7 +664,7 @@ showpage</code></pre>
 </ul>
 
 <!-- ===================================================================== -->
-<h2 id="refs">17. References</h2>
+<h2 id="refs">18. References</h2>
 <ol class="refs">
   <li>Ken Perlin. "An image synthesizer." <em>SIGGRAPH '85, Computer Graphics</em> 19(3), 1985. <a href="https://doi.org/10.1145/325165.325247">doi:10.1145/325165.325247</a>. Lattice noise and solid texture.</li>
   <li>Ken Perlin. "Improving noise." <em>ACM Transactions on Graphics</em> 21(3), 2002. <a href="https://doi.org/10.1145/566654.566636">doi:10.1145/566654.566636</a>. Gradient noise and the smoother interpolant.</li>
