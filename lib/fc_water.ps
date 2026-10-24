@@ -3,8 +3,8 @@
 % carved along the erosion's flow, shores, ripples and reflections
 % (fractal_clouds#28).
 %
-% fc_landscape.ps loads this file when WaterY, WaterRise or Rivers is set
-% (all off by default), after its own hooks, and wraps them:
+% fc_landscape.ps loads this file when WaterY, WaterRise, Rivers or
+% MapWater is set (all off by default), after its own hooks, and wraps them:
 %
 %   fc-landscape-hit      the dry hit, or the water surface in front of it
 %   fc-landscape-surface  the dry surface, or fc-water-shade
@@ -13,12 +13,18 @@
 % water's edge, stones) and, with trees, fc-forest-dens (no trees in the
 % water or on its very edge).
 %
-%   x z fc-water-level y        water surface height there: the higher of
-%                               WaterY and a river's level (-1000: none)
+%   x z fc-water-level y        water surface height there: the highest of
+%                               WaterY, a map lake and a river (-1000: none)
 %   x z t fc-water-normal nx ny nz   the surface normal (ripples); a hook:
 %                               #38's sea replaces it with waves
-%   t fc-water-colour r g b     the water's own colour (light scattered back
-%                               from inside it) at the hit; a hook too
+%   t depth fc-water-colour r g b    the water's own colour (light scattered
+%                               back from inside it) at the hit; depth is
+%                               the bed's depth under the surface (1000 if
+%                               the ray never meets a bed); a hook too
+%
+% Waves for a sea (#38) change only the normal: the hit is still the flat
+% plane, so near-field wave geometry (crests hiding what's behind them)
+% would need a height hook in fc-water-plane.
 %   t fc-water-shade r g b      the whole surface: reflection, Fresnel,
 %                               the bed seen through shallow water
 %   fc-water-rivers -           after fc-erode-bake: carve the strongest
@@ -48,6 +54,7 @@
 /ShoreCol [ 0.60 0.56 0.48 ] fc-colour   % its colour (sand, pebbles), sRGB
 /ShoreStones 0.5 fc-default          % stone cover along the shore, 0..1
 /StoneScale 1.6 fc-default           % 1 / stone size
+/ShoreReach 3 fc-default             % stones and the light band keep this close to the water
 /RiverLo 10000 fc-default            % catchment (square units) where a channel starts
 /RiverHi 400000 fc-default           % ... and where it is full size
 /RiverWidth 14 fc-default            % full-size channel width, world units
@@ -75,13 +82,25 @@
     RvBaked { AqWx AqWz fc-river-level } { -1000 } ifelse
     WaterY null ne { WaterY fc-max } if
     AqLakes { /AqLf2 exch def
-        AqLf2 1 get 1 index gt { AqWx AqWz AqLf2 fc-water-in-lake { pop AqLf2 1 get } if } if
+        AqLf2 0 get 1 index gt { AqWx AqWz AqLf2 fc-water-in-lake { pop AqLf2 0 get } if } if
     } forall
 } bind def
 
 % the map's lakes (MapWater): fc_map.ps /lake features, each a plane at its
 % level over its polygon
-/AqLakes [ MapWater MapOn and { MapFeatures { dup 0 get /lake eq not { pop } if } forall } if ] def
+% each entry: [ level feature x0 z0 x1 z1 ], the box (map coordinates)
+% around the polygon and its shore band, tested before the polygon
+/AqLakes [ MapWater MapOn and { MapFeatures { /AqLf exch def
+    AqLf 0 get /lake eq {
+        /AqBx0 1e9 def /AqBz0 1e9 def /AqBx1 -1e9 def /AqBz1 -1e9 def
+        4 2 AqLf length 1 sub { /AqI exch def
+            AqLf AqI get dup AqBx0 fc-min /AqBx0 exch def AqBx1 fc-max /AqBx1 exch def
+            AqLf AqI 1 add get dup AqBz0 fc-min /AqBz0 exch def AqBz1 fc-max /AqBz1 exch def
+        } for
+        /AqI AqLf 3 get def
+        [ AqLf 1 get AqLf AqBx0 AqI sub AqBz0 AqI sub AqBx1 AqI add AqBz1 AqI add ]
+    } if
+} forall } if ] def
 
 % --- rivers --------------------------------------------------------------------
 % fc-erode-bake leaves each texel's catchment in ErFlow (how many texels
@@ -204,7 +223,7 @@
     /AqOf RippleScale def /AqOa 1 def
     2 {
         1 AqOf div AqFp 3 mul div 1 fc-min /AqFade exch def
-        AqFade 0 gt {
+        AqFade 0.05 gt {
             AqNa AqOf mul 5.3 add AqNb AqOf mul 0.35 mul 1.9 add fc-noise2d
             0.35 mul AqAmp mul AqOa mul AqFade mul AqGb add /AqGb exch def
             AqAmp mul AqOa mul AqFade mul AqGa add /AqGa exch def
@@ -227,8 +246,8 @@
     AqNnx AqNn div AqNny AqNn div AqNnz AqNn div
 } bind def
 
-/fc-water-colour {                               % t -> r g b
-    pop
+/fc-water-colour {                               % t depth -> r g b
+    pop pop
     WaterCol 0 get SkyAmb 0 get mul 0.5 mul
     WaterCol 1 get SkyAmb 1 get mul 0.5 mul
     WaterCol 2 get SkyAmb 2 get mul 0.5 mul
@@ -245,36 +264,41 @@
     /AqRn AqRx dup mul AqRy dup mul add AqRz dup mul add sqrt def
     /AqRx AqRx AqRn div def /AqRy AqRy AqRn div def /AqRz AqRz AqRn div def
     /AqDh Mx dup mul Mz dup mul add sqrt def
-    /AqRh 1 AqRy dup mul sub 0 fc-max sqrt 0.000001 fc-max def
+    % (at least 0.02: a steeper ray would put the virtual camera's start,
+    % t·Dh/Rh, past TMax)
+    /AqRh 1 AqRy dup mul sub 0 fc-max sqrt 0.02 fc-max def
     % the view's heading (any one straight down, where the point is above the origin)
     AqDh 0.000001 lt { /AqHx 0 def /AqHz 1 def } { /AqHx Mx AqDh div def /AqHz Mz AqDh div def } ifelse
-    {
-        % the virtual camera: straight above the origin, on the line through
-        % the water point along (heading of D, slope of R)
-        /AqS AqSurfT AqDh mul AqRh div def
-        /AqSvX Mx def /AqSvY My def /AqSvZ Mz def /AqSvC CamY def /AqSvM MarchT0 def
-        /Mx AqHx AqRh mul def /Mz AqHz AqRh mul def /My AqRy def
-        /AqOy AqLev AqS AqRy mul sub def
-        /CamY AqOy def /MarchT0 AqS def
-        fc-water-dry-hit /AqH exch def
-        AqH 0 gt {
-            AqH fc-water-dry-surface
-            % haze from the water to what it reflects
-            /CamY AqLev def AqH AqS sub fc-haze /CamY AqOy def
-        } {
-            /AqH TMax def
-            AqRx AqRy AqRz fc-landscape-sky
-        } ifelse
-        /AqB exch def /AqG exch def /AqR exch def
-        % clouds along the reflected ray, hazed from the water point too
-        /AqHazeOrig /fc-haze load def
-        /fc-haze { /AqHt exch AqS sub 0 fc-max def /AqHc CamY def /CamY AqLev def
-                   AqHt AqHazeOrig /CamY AqHc def } bind def
-        AqH fc-clouds
-        /fc-haze /AqHazeOrig load def
-        /Mx AqSvX def /My AqSvY def /Mz AqSvZ def /CamY AqSvC def /MarchT0 AqSvM def
-        Cr AqR Tr mul add Cg AqG Tr mul add Cb AqB Tr mul add
-    } exec
+    % the virtual camera: straight above the origin, on the line through
+    % the water point along (heading of D, slope of R)
+    /AqS AqSurfT AqDh mul AqRh div def
+    /AqSvX Mx def /AqSvY My def /AqSvZ Mz def /AqSvC CamY def /AqSvM MarchT0 def
+    /Mx AqHx AqRh mul def /Mz AqHz AqRh mul def /My AqRy def
+    /AqOy AqLev AqS AqRy mul sub def
+    /CamY AqOy def /MarchT0 AqS def
+    fc-water-dry-hit /AqH exch def
+    AqH 0 gt {
+        AqH fc-water-dry-surface
+        % haze from the water to what it reflects
+        /CamY AqLev def AqH AqS sub fc-haze /CamY AqOy def
+    } {
+        /AqH TMax def
+        AqRx AqRy AqRz fc-landscape-sky
+    } ifelse
+    /AqB exch def /AqG exch def /AqR exch def
+    % clouds along the reflected ray, hazed from the water point too
+    /AqHazeOrig /fc-haze load def
+    /fc-haze /fc-water-haze load def
+    AqH fc-clouds
+    /fc-haze /AqHazeOrig load def
+    /Mx AqSvX def /My AqSvY def /Mz AqSvZ def /CamY AqSvC def /MarchT0 AqSvM def
+    Cr AqR Tr mul add Cg AqG Tr mul add Cb AqB Tr mul add
+} bind def
+
+% fc-haze while the reflected clouds are marched: from the water point
+/fc-water-haze {                                 % r g b t -> r g b
+    AqS sub 0 fc-max /AqHt exch def /AqHc CamY def /CamY AqLev def
+    AqHt AqHazeOrig /CamY AqHc def
 } bind def
 
 /fc-water-shade {                                % t -> r g b
@@ -288,10 +312,12 @@
     Mx AqNrx mul My AqNry mul add Mz AqNrz mul add neg 0 fc-max
     1 exch sub 5 exp 0.98 mul 0.02 add /AqFr exch def
     % below the surface: the water's colour, and the bed through shallows
-    AqSurfT fc-water-colour /AqUb exch def /AqUg exch def /AqUr exch def
+    AqSurfT  AqBedT 0 gt { AqBedT AqSurfT sub My neg mul } { 1000 } ifelse
+    fc-water-colour /AqUb exch def /AqUg exch def /AqUr exch def
     AqBedT 0 gt WaterClear 0 gt and {
         2.71828 AqBedT AqSurfT sub WaterClear div neg exp /AqTb exch def
-        AqTb 0.01 gt {
+        % (only where it shows: the Fresnel term hides it at grazing angles)
+        1 AqFr sub AqTb mul 0.02 gt {
             AqBedT fc-water-dry-surface
             AqUb sub AqTb mul AqUb add /AqUb exch def
             AqUg sub AqTb mul AqUg add /AqUg exch def
@@ -314,7 +340,7 @@
     /AqWet false def /AqRiv false def /AqBest AqBedT def
     % the plane, and the map's lakes
     WaterY null ne { WaterY true fc-water-plane } if
-    AqLakes { dup 1 get exch fc-water-plane } forall
+    AqLakes { dup 0 get exch fc-water-plane } forall
     % a river: the dry hit is under its surface; step back to where the ray
     % went in, then bisect
     % (the nearest hit so far: the ground, or a lake the river runs into)
@@ -330,14 +356,14 @@
             } repeat
             % no way out found (in the water from the start): leave it dry
             AqOut {
-            8 {
-                /AqM AqA AqB add 2 div def
-                Mx AqM mul Mz AqM mul fc-river-level My AqM mul CamY add le
-                { /AqA AqM def } { /AqB AqM def } ifelse
-            } repeat
-            /AqBest AqA AqB add 2 div def
-            Mx AqBest mul Mz AqBest mul fc-river-level /AqLev exch def
-            /AqWet true def /AqRiv true def
+                8 {
+                    /AqM AqA AqB add 2 div def
+                    Mx AqM mul Mz AqM mul fc-river-level My AqM mul CamY add le
+                    { /AqA AqM def } { /AqB AqM def } ifelse
+                } repeat
+                /AqBest AqA AqB add 2 div def
+                Mx AqBest mul Mz AqBest mul fc-river-level /AqLev exch def
+                /AqWet true def /AqRiv true def
             } if
         } if
     } if
@@ -345,7 +371,7 @@
 } bind def
 
 % a level plane in front of the best hit so far? region: true (everywhere)
-% or a map /lake feature (its polygon, out to its shore band)
+% or an AqLakes entry (its polygon, out to its shore band)
 /fc-water-plane {                                % level region -> -
     /AqPr exch def /AqPl exch def
     My 0 lt AqPl CamY lt and {
@@ -360,9 +386,12 @@
 
 % is (x, z) inside a map lake, or within its shore band? (fc_map.ps's
 % fc-map-dist reads the point, in map coordinates, from MpX MpZ)
-/fc-water-in-lake {                              % x z feature -> bool
-    /AqLf exch def TerrOZ add /MpZ exch def TerrOX add /MpX exch def
-    AqLf 4 true fc-map-dist exch AqLf 3 get lt or
+/fc-water-in-lake {                              % x z entry -> bool
+    /AqLe exch def TerrOZ add /MpZ exch def TerrOX add /MpX exch def
+    MpX AqLe 2 get ge MpX AqLe 4 get le and MpZ AqLe 3 get ge and MpZ AqLe 5 get le and {
+        /AqLf AqLe 1 get def
+        AqLf 4 true fc-map-dist exch AqLf 3 get lt or
+    } { false } ifelse
 } bind def
 
 /fc-landscape-surface {                          % t -> r g b
@@ -376,11 +405,17 @@
 /fc-terrain-material {
     AqMatPrev
     Kx Kz fc-water-level /AqL exch def
-    AqL -999 gt {
+    AqL -999 gt { Kh AqL sub ShoreWet 2.3 mul lt } { false } ifelse {
         % height above the water, its line wandering a little
         Kh AqL sub
         Kx 0.31 mul 2.7 add Kz 0.31 mul 6.1 add fc-noise2 0.5 sub ShoreWet mul 0.6 mul add
         /AqE exch def
+        % and roughly how far from it across the ground (height / slope): on
+        % a flat meadow a height band would reach far inland, so the stones
+        % and the light band keep within ShoreReach of the water
+        1 Ny dup mul sub 0 fc-max sqrt Ny 0.05 fc-max div 0.02 fc-max
+        AqE 0 fc-max exch div /AqHd exch def
+        1 ShoreReach 0.4 mul ShoreReach AqHd fc-smooth sub /AqNear exch def
         AqE ShoreWet 2 mul lt {
             % stones on the shore and in the shallows
             ShoreStones 0 gt {
@@ -389,7 +424,7 @@
                 1.0 ShoreStones 0.35 mul sub dup 0.06 add 3 -1 roll fc-smooth
                 ShoreWet neg ShoreWet 0.3 mul AqE fc-smooth
                 ShoreWet ShoreWet 2 mul AqE fc-smooth 1 exch sub mul mul
-                /AqSt exch def
+                AqNear mul /AqSt exch def
                 AqSt 0 gt {
                     Kx 1.7 mul Kz 1.7 mul fc-noise2 0.6 mul 0.6 add /AqSm exch def
                     Alb [ Rock2 { AqSm mul } forall ] AqSt mix3v /Alb exch def
@@ -398,7 +433,7 @@
             % the light band at the edge
             ShoreEdge 0 gt {
                 ShoreEdge -0.5 mul 0 AqE fc-smooth  ShoreEdge ShoreEdge 2 mul AqE fc-smooth sub
-                1 AqSt sub mul 0.8 mul /AqBand exch def
+                1 AqSt sub mul 0.8 mul AqNear mul /AqBand exch def
                 Alb ShoreCol AqBand mix3v /Alb exch def
             } if
             % wet ground: darker, and smooth (less of the rock bump)
