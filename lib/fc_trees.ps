@@ -392,7 +392,9 @@ FsSpecies {
             % what stands over this point: its top and its base over the ground
             FcKind 0 eq {
                 /FcEnv FcSp /env get def /FcDroop FcSp /droop get def /FcTiers FcSp /tiers get def
-                /FcRag FcSp /rag get def /FcLobes FcSp /lobes get def
+                % (the species' outline only near, where trunks show: far off it
+                % has faded into the envelope anyway)
+                FcL 0 gt { FcSp /rag get FcSp /lobes get } { 1 1 } ifelse /FcLobes exch def /FcRag exch def
                 Fcdx Fcdz fc-tree-prof
                 dup 0 ge FcB 0 gt and {
                     % lifted: the crown from the base up, the trunk below it
@@ -664,13 +666,18 @@ FsSpecies {
     % whorls: each one's branch tops catch the light, its underside and
     % the next whorl's shadow below it don't
     Fwq FcTiers mul FsR 5 get FcK get 0.3 mul add dup floor sub /Fwf exch def
-    % and between the branch clumps, gaps into the dark inside of the crown;
-    % fewer at the stand's edge, where the light has kept the foliage full
-    FsTrunks { 0.35 0.8 Fwd fc-smooth 0.6 mul 0.4 add 0.75 mul } { 0.75 } ifelse /Fwgap exch def
-    0.36 0.56 Fwg 2.3 mul 5.7 add Fwh 1.3 mul 2.9 add fc-noise2 fc-smooth Fwgap mul 1 Fwgap sub add
+    % and between the branch clumps, gaps into the dark inside of the crown
+    0.36 0.56 Fwg 2.3 mul 5.7 add Fwh 1.3 mul 2.9 add fc-noise2 fc-smooth 0.75 mul 0.25 add
     Fwf 0.6 mul 0.4 add mul
     FcR FcPx div 4 sub 8 div 0 fc-max 1 fc-min /Fwlod exch def
     Fwlod mul 1 Fwlod sub 0.7 mul add /Fwwh exch def
+    % close up (trunks on): sprays of needles with dark gaps between them,
+    % about two pixels across whatever the distance, so they can't alias
+    FsTrunks Fwlod 0 gt and {
+        0.5 FcPx div 25 fc-min /Fwff exch def
+        0.3 0.62 Fwx Fwff mul 3.7 add Fwz Fwff mul add Fwy Fwff mul 1.3 mul 5.1 add fc-noise2 fc-smooth
+        0.6 mul 0.4 add Fwlod mul 1 Fwlod sub add Fwwh mul /Fwwh exch def
+    } if
     % needles: the species' colour, per tree, and clumps of foliage
     FcSp /alb get FcSp /alb2 get FsR 1 get FcK get mix3v
     FcSp /autumn get null ne FsAutumn 0 gt and {

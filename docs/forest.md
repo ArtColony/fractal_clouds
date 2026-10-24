@@ -40,6 +40,7 @@ trees would have been a pixel or two. So this piece moves the camera
 | iteration 2 | darker floor, treeline by curvature, canopy texture band-limited, haze back | **beat iteration 1 in blind pairwise, both orders, realism and aesthetics** |
 | iteration 3 | crowns 0.28 × height on 1.5-unit cells, groves, two-tone needles | beat iteration 2 on aesthetics in both orders; realism split (position bias) |
 | iteration 4 | 1.3-unit cells, gentler grove thinning | tied with iteration 3 (each order preferred the image shown second); kept, as the closed stand reads more like a valley forest |
+| #25 | trunks under lifted crowns, fuller edge crowns, snags and logs, species table; bisection keeps the inside end (no ground speckle in the skirts) | close forest-edge crop beat iteration 4 in blind pairwise, both orders, realism and aesthetics (`docs/prs/25-trees-species/`) |
 
 Codex's absolute score for the trees was 4/10 at both critiques
 (`docs/forest/iter01-320.critique.md`, and for iteration 2), as its absolute
