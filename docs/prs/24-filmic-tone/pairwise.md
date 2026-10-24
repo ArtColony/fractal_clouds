@@ -5,8 +5,8 @@ under neutral names, in both orders. "old" is `ToneCurve /Exp`, "new" is
 `ToneCurve /ACES`. The full reasons are in `verdicts/`.
 
 Bar set before reading any verdict: ACES becomes the default only if it wins
-realism in both orders on mountains and alpine_forest, and loses both orders
-on no other piece.
+realism in both orders on mountains and alpine_forest, and loses no other
+piece in both orders.
 
 | Pair | Order 1 (old first) | Order 2 (new first) |
 |---|---|---|

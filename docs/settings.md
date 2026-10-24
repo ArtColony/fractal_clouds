@@ -147,7 +147,7 @@ time of day, weather, terrain, and (optionally) season.
 | `/Matte` | `GradeLift` 0.02, `GradeSat` 0.9 | Milky, lifted blacks |
 | `/SplitTone` | `GradeSplit` 0.5 | Teal shadows, warm highlights |
 | `/CoolMuted` | `GradeTemp` −0.3, `GradeSat` 0.72, `GradeLift` 0.006, `GradeSplit` 0.3 | Muted and cool, for an overcast Pacific Northwest look (#40) |
-| `/Vignette` | `Vignette` 0.3 | Darker edges and corners |
+| `/Vignette` | `Vignette` 0.3 | Darker edges and corners; deliberately subtle (edges at 70%), raise `Vignette` for more |
 
 Grade presets combine with each other (list the one whose values should win
 first: `[ /CoolMuted /Vignette ]`) and with the other groups. See the colour
@@ -268,7 +268,7 @@ saturation, vignette, lift. The grade presets below set these.
 | `GradeHighlights` | [0.62 0.52 0.40] | Highlight tint, sRGB, the same way. Warm by default. | |
 | `GradePivot` | 0.25 | Linear luminance at which a pixel is half shadow, half highlight. | |
 | `GradeLift` | 0 | Light added to every channel (a veil, like lens flare): lifted, milky blacks. 0.01 is gentle. | 0.006, 0.02 |
-| `Vignette` | 0 | Darkening toward the frame's edge, following the ray's angle off the view axis as cos⁴: the left and right edges get 1 − `Vignette`, the corners a little less. Independent of resolution and crop. | 0.3 |
+| `Vignette` | 0 | Darkening toward the frame's edge, following the ray's angle off the view axis as cos⁴: the left and right edges get 1 − `Vignette`, the corners a little darker. Independent of resolution and crop. | 0.3 |
 
 The vignette's view axis is taken as `fc_grade.ps` loads; a piece that
 changes `Pitch`, `Yaw` or `HFov` afterwards calls `fc-camera-update` and then

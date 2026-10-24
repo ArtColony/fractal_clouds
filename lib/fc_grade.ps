@@ -83,5 +83,7 @@ fc-grade-update
         /GdV exch def
         /GdR GdR GdV mul def /GdG GdG GdV mul def /GdB GdB GdV mul def
     } if
-    GdR GradeLift add GdG GradeLift add GdB GradeLift add
+    GdR GradeLift add 0 2 copy lt { exch } if pop
+    GdG GradeLift add 0 2 copy lt { exch } if pop
+    GdB GradeLift add 0 2 copy lt { exch } if pop      % never below 0 (a negative breaks the /Exp curve)
 } bind def
