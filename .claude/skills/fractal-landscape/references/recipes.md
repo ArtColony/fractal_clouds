@@ -11,7 +11,7 @@ Presets are in `lib/fc_presets.ps`.
 %%BoundingBox: 0 0 320 200
 %%Title: Misty valley
 % Status: draft
-% Preview: DPI=36 scripts/render.sh gallery/misty_valley.ps
+% Preview: DPI=36 scripts/render.sh <path of this file>
 
 % 1. the piece's own settings (-D can still override each)
 /Seed where { pop } { /Seed 7 def } ifelse
@@ -42,11 +42,12 @@ the presets you list.
 
 | Request says | Try |
 |---|---|
-| dusk, sunset, golden hour | `/Evening`, or `SunElev` 3 to 8 (sky model) |
+| dusk, sunset, golden hour | `/Evening` (sun behind the camera, front-lit), or `SunElev` 3 to 8 with `SunAzim` for a backlit sky |
 | dawn, sunrise | `/Dawn` |
 | midday | `/Noon` |
 | night, moonlit | `/Night` (moon and stars, `Exposure` 4) |
-| misty, foggy, hazy | `HazeDist` 150 to 300, `HazeH` 45 to 80, `Turbidity` 2 to 4 |
+| misty, foggy, hazy | `HazeDist` 300 (220 hides the land), `HazeH` 30 to 60; `Turbidity` 2 to 4 only with the sky model (not `/Evening`) |
+| valley | `/Alpine` from `TerrOX 180 TerrOZ 400`, low camera (`CamAbove` 5 to 9), `Yaw` -20 to -33 |
 | overcast, grey | `/Overcast` |
 | stormy, rain | `/Storm` |
 | high clouds, wispy | `CloudLayers [/Cumulus /Cirrus]` (layers must not overlap in height) |
@@ -64,7 +65,7 @@ the presets you list.
 
 ## Costs (one core)
 
-320x200 takes about 5 minutes and 160x100 (`DPI=36`) about a quarter of that.
+320x200 takes about 5 minutes and 160x100 (`DPI=36`) 1.5 to 3 minutes (much of it the bakes).
 1280x800 with `ErN` 1024 is about an hour of core time, so split it with
 `render_bands.sh`; the erosion and forest bakes run before the first pixel and
 are repeated in every band. Measure with `-D Profile=true`.

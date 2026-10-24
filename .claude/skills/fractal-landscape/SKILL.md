@@ -50,7 +50,10 @@ table in `references/recipes.md`:
   `SunElev` 2 to 5 with the sky model. Do not combine `/Dawn /Noon /Night`
   with `/Evening` or any `Zenith`/`Horizon`.
 - **Weather:** `/Clear /Overcast /Storm`. Mist or fog: a small `HazeDist`
-  (150 to 300) and a higher `Turbidity`, not a cloud layer.
+  (300 is a good mist; 220 hides the terrain) and `HazeH` 30 to 60, not a
+  cloud layer. `Turbidity` only acts with the sky model, so it does nothing
+  under `/Evening`. Keep relief (distant ridges) in view or the frame is a
+  flat wash, and remember haze also hides the forest.
 - **Terrain:** `/Alpine /Foothills /Mesa`, or a drawn map (`MapOn`,
   `lib/fc_map.ps`) for a particular geography: `gallery/charted_range.ps`.
 - **Season** (list before the terrain): `/Spring /Summer /Autumn /Winter`.
@@ -58,8 +61,11 @@ table in `references/recipes.md`:
   (lake), `Rivers`, `MapWater` (map lakes), `Ocean` (sea; needs `WaterY`;
   `spikes/ocean_shore.ps`), `CloudLayers` (e.g. `[/Cumulus /Cirrus]`).
 - **Camera:** `Yaw`, `Pitch`, `HFov`, `CamAbove` or `CamLift`, and where you
-  stand: `TerrOX`/`TerrOZ`. Moving these is how you find a composition; a new
-  `Seed` is a new range.
+  stand: `TerrOX`/`TerrOZ`. Moving these is how you find a composition (a
+  valley is a camera low in the range, looking along it; `TerrOX 180 TerrOZ 400`
+  with `/Alpine` is a known valley, while `/Foothills` from it is a flat
+  plain); a new `Seed` is a new range. To get forest large in frame, put the
+  camera among the trees (lower `CamAbove`, a nearer slope), not in settings.
 
 ### 2. Write the piece
 
@@ -73,7 +79,7 @@ A misspelt preset stops with `fc_presets: no preset called ...`.
 ### 3. Framing pass (cheap)
 
 ```sh
-DPI=36 scripts/render.sh gallery/<name>.ps       # 160x100, minutes
+DPI=36 scripts/render.sh gallery/<name>.ps       # 160x100, 1.5 to 3 minutes
 ```
 
 `-D Res=0.25` and a lower `-D ErN=256 -D ErDrops=20000` are cheaper still.
@@ -91,8 +97,10 @@ forest edge, the water, the cloud base) as small crops at that DPI:
 DPI=288 scripts/render.sh -D "Crop=[0.3 0.6 0.5 0.8]" -D ErN=1024 -D ErDrops=240000 gallery/<name>.ps
 ```
 
-Look at them. Trees, water and clouds change character at full detail, and a
-crop is the only cheap check. Fix, repeat, and note the exact final settings.
+The PNG is full frame size and white outside the crop, which sits at its
+place in the frame (a 0.2 x 0.2 crop is a small patch: open it, or cut it out
+with an image tool, to see it). Look at them. Trees, water and clouds change
+character at full detail, and a crop is the only cheap check. Fix, repeat, and note the exact final settings.
 
 ### 5. Final render
 
