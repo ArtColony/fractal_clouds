@@ -44,13 +44,13 @@
 ] def } ifelse
 /MapPlanN where { pop } { /MapPlanN 240 def } ifelse
 
-% --- the camera: on the beach at the back of the cove ----------------------------
-/TerrOX where { pop } { /TerrOX -10 def } ifelse
-/TerrOZ where { pop } { /TerrOZ -95 def } ifelse
-/Yaw where { pop } { /Yaw 22 def } ifelse
-/HFov where { pop } { /HFov 62 def } ifelse
-/CamHeight where { pop } { /CamHeight 2.5 def } ifelse
-/Pitch where { pop } { /Pitch 2 def } ifelse
+% --- the camera: above the western cliffs, looking across the cove ----------------------------
+/TerrOX where { pop } { /TerrOX -176 def } ifelse
+/TerrOZ where { pop } { /TerrOZ -62 def } ifelse
+/Yaw where { pop } { /Yaw 80 def } ifelse
+/HFov where { pop } { /HFov 66 def } ifelse
+/CamAbove where { pop } { /CamAbove 8 def } ifelse
+/Pitch where { pop } { /Pitch -9 def } ifelse
 /TMax where { pop } { /TMax 1200 def } ifelse
 /SunAzim where { pop } { /SunAzim -40 def } ifelse
 Plan { /Erode where { pop } { /Erode false def } ifelse } if
