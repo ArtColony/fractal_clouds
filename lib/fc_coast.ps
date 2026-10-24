@@ -178,24 +178,24 @@
 } bind def
 
 % --- driftwood (#40) -----------------------------------------------------------
-% x z -> height of a log there (0 if none): one candidate log per 4-unit
-% cell, kept by noise where CoastDrift says, lying at any angle, 0.5 to 1.1
+% x z -> height of a log there (0 if none): one candidate log per 2.5-unit
+% cell, kept by noise where CoastDrift says, lying at any angle, 0.4 to 0.9
 % units each way from its centre and 0.05 to 0.11 in radius, sunk a
 % third of that into the sand. Each log stays inside its own cell, so one
 % cell is enough. Noise, not rand: the random stream is untouched.
 /fc-coast-drift {
     /XdZ exch def /XdX exch def
-    /XdI XdX 4 div floor def /XdJ XdZ 4 div floor def
+    /XdI XdX 2.5 div floor def /XdJ XdZ 2.5 div floor def
     XdI 0.731 mul 0.17 add XdJ 0.913 mul 0.29 add fc-noise2
-    0.72 CoastDrift 0.14 mul sub gt {
+    0.72 CoastDrift 0.22 mul sub gt {
         XdI 1.37 mul 5.3 add XdJ 0.71 mul 2.9 add fc-noise2 /XdA exch def
         XdI 0.53 mul 9.1 add XdJ 1.21 mul 4.4 add fc-noise2 /XdB exch def
-        % the centre (within 0.8 of the cell's middle), heading, length, radius
-        XdX XdI 0.5 add XdA 0.5 sub 0.4 mul add 4 mul sub
-        XdZ XdJ 0.5 add XdB 0.5 sub 0.4 mul add 4 mul sub
+        % the centre (within 0.25 of the cell's middle), heading, length, radius
+        XdX XdI 0.5 add XdA 0.5 sub 0.2 mul add 2.5 mul sub
+        XdZ XdJ 0.5 add XdB 0.5 sub 0.2 mul add 2.5 mul sub
         /XdDz exch def /XdDx exch def
         XdA XdB add 900 mul /XdT exch def
-        /XdL XdB 0.6 mul 0.35 add 0.5 fc-max 1.1 fc-min def
+        /XdL XdB 0.6 mul 0.3 add 0.4 fc-max 0.9 fc-min def
         /XdR XdA 0.06 mul 0.05 add def
         XdDx XdT cos mul XdDz XdT sin mul add abs /XdU exch def
         XdDz XdT cos mul XdDx XdT sin mul sub abs /XdV exch def

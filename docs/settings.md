@@ -538,7 +538,7 @@ sea (their load is lost).
 | `CoastCobbles` | 0.3 | How much of the beaches is cobble, 0–1. | |
 | `CoastSandW` | 40 | How far inland the beach material reaches. | |
 | `CoastCobbleK` | 0 | More cobble under cliffs: added to `CoastCobbles` in proportion to how cliffed the shore is (#40), so coves under cliffs are cobble and open beaches sand. | 1.2 (`/PNWCoast`) |
-| `CoastDrift` | 0 | Driftwood along the top of the beach, 0–1 (#40): logs 1–2.2 units long and 0.1–0.2 across, lying at any angle, half sunk in the sand, one candidate per 4-unit cell kept by noise (more with a higher value; the random stream is untouched). A heightfield bump, so near detail only (more than five terrain octaves), on low shores only (cliffedness under 0.5). | 1 (`/PNWCoast`) |
+| `CoastDrift` | 0 | Driftwood along the top of the beach, 0–1 (#40): logs 0.8–1.8 units long and 0.1–0.2 across, lying at any angle, a third sunk in the sand, one candidate per 2.5-unit cell kept by noise (half of them at 1) (more with a higher value; the random stream is untouched). A heightfield bump, so near detail only (more than five terrain octaves), on low shores only (cliffedness under 0.5). | 1 (`/PNWCoast`) |
 | `CoastDriftBand` | [8 24] | `lo hi`: the band of (wobbled) distance from the water the logs lie in: the high-tide line at the back of the beach. | |
 | `CoastDriftCol` | [0.60 0.57 0.52] | Bleached wood, sRGB, darker along the grain. | |
 | `CoastFog` | [1.2 40] | `add reach` for `fc-coast-fog` (below). | |
