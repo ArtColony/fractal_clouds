@@ -301,7 +301,7 @@ single layer, `CloudLayers` null, keeps its old cut-off).
 | `Shape` | null | A procedure `x y z oct → dd` (`oct`: the octaves the sample wants, fewer with distance) added to the density before the gain: a positive value adds cloud, a negative one cuts it. Only called inside the band (`Lo < y < Hi`), so a placed object needs a band tall enough to hold it. For placed objects such as a cumulonimbus (#15). Costs a call per sample. It is called before the noise: a value of −1 or less means nothing is there, and the noise is skipped (keep the threshold and coverage such that the noise can't lift −1 above 0). |
 | `RainShafts` | 0 | Above 0: the rain is broken into shafts by 2-D noise with this many cells per unit (the storm uses 0.06); 0 is the old solid curtain. |
 | `Bounds` | null | `[x0 z0 x1 z1]`, world x and z (the camera stands at x = z = 0): the layer is empty outside this box, and each ray marches only the part of the band inside it, with all its `Steps`. For a placed object, so a tall band doesn't make every sky ray march its whole height. Rays that miss the box draw no jitter, so setting it changes that layer's grain. |
-| `Probes` | 1 | Density probes per layer for the ground's cloud shadow and `fc-cloud-sky`, spread evenly over the band above the point. 1 keeps the old single probe at the middle; a tall object needs more (the storm uses 3) or its anvil casts no shadow. |
+| `Probes` | 1 | A whole number, at least 1: density probes per layer for the ground's cloud shadow and `fc-cloud-sky`, spread evenly over the band above the point. 1 keeps the old single probe at the middle; a tall object needs more (the storm uses 3) or its anvil casts no shadow. |
 | `LightDepth` | null | A procedure `x y z → od`: optical depth toward the sun added to the two short sun probes', for a placed object's shadow on itself at a larger scale than the probes reach (#15). Called once per lit sample. |
 
 The Base column is where every preset starts (the gallery pieces' layer,
@@ -309,7 +309,7 @@ value noise); each preset's own values are in `FcClPresets` in
 `lib/fc_clouds.ps`.
 
 `x y z fc-cloud-shadow` gives the sunlight that reaches a point through
-every layer above it (one density probe per layer, no march), for ground
+every layer above it (`Probes` density probes per layer, one by default; no march), for ground
 shadows and sun shafts. `fc_terrain`'s `CloudShadowsOn` uses it with a
 layer list; with `CloudLayers` null it keeps its old single probe at the
 middle of `CloudLo`–`CloudHi`. Only the direct sun is shaded there.

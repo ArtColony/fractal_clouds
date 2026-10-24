@@ -86,8 +86,8 @@
 /fc-storm-shape {                                % x y z oct -> dd
     pop fc-storm-env StormEdge mul
     % virga: streaks under the anvil, fading down to VirgaLen below it
-    Virga 0 gt { SmY AnvilBot VirgaLen sub gt { dup 0.2 lt {
-        SmU SmW SmY VirgaLen add fc-storm-anvil dup 0 gt {
+    Virga 0 gt { SmY AnvilBot VirgaLen sub gt SmY StormTop lt and { dup 0.2 lt {
+        SmU SmW SmY VirgaLen add StormTop fc-min fc-storm-anvil dup 0 gt {
             SmX 0.11 mul 3.1 add SmZ 0.11 mul 8.7 add fc-noise2 0.5 sub 3 mul
             dup 0 lt { pop pop } { mul Virga mul 0.25 sub fc-max } ifelse
         } { pop } ifelse

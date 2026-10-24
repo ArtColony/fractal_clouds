@@ -224,8 +224,9 @@
     } forall
     % a band with no height, or nothing to march, would divide by zero later
     ClNew /Hi get ClNew /Lo get le
-    ClNew /Steps get 1 lt or ClNew /DensOct get 1 lt or ClNew /ShadOct get 1 lt or {
-        (fc_clouds: a layer needs Hi above Lo, and Steps, DensOct and ShadOct of at least 1\n) print
+    ClNew /Steps get 1 lt or ClNew /DensOct get 1 lt or ClNew /ShadOct get 1 lt or
+    ClNew /Probes get dup type /integertype ne exch 1 lt or or {
+        (fc_clouds: a layer needs Hi above Lo, Steps, DensOct and ShadOct of at least 1, and Probes a whole number of at least 1\n) print
         CloudLayers-bad-layer                    % undefined: stops the job
     } if
     ClNew
