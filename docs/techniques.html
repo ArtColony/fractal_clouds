@@ -549,12 +549,12 @@ showpage</code></pre>
 <p>How to read it:</p>
 <ul>
   <li><strong>Time is inclusive.</strong> <code>fc-terrain-shade</code>'s row contains <code>fc-height</code> and <code>fc-terrain-shadow</code> inside it, so rows overlap and the percentages add to far more than 100. Subtract a callee's row from its caller's to get the caller's own time.</li>
-  <li><strong>Calls per pixel</strong> divides by the pixels rendered. Antialiased pixels cost extra samples, so a value above the number of calls per sample is expected near edges.</li>
+  <li><strong>Calls per pixel</strong> is the calls made during <code>fc-render</code> (the bakes' calls are left out) divided by the pixels rendered. Antialiased pixels cost extra samples, so even one call per ray gives slightly more than 1.</li>
   <li><strong>The clock ticks in whole milliseconds</strong> (<code>usertime</code>). Each call adds the difference of two readings, which averages out over many calls but is noise for rows of a few ms or few calls.</li>
   <li><strong>The profiler costs time.</strong> Each wrapped call pays for a counter, two <code>usertime</code> readings and one more procedure call: about 0.8 µs measured on an Apple-silicon Mac (the footer measures it on every run, with an empty procedure). That is a few percent when the wrapped procedures take tens of µs, and most of the time when they don't: wrapping a noise function turns it into a table of overhead. A callee's wrapper cost is also inside its caller's row.</li>
   <li>The wrapper leaves the stack and the random stream alone, so a profiled render is the same picture (checked pixel for pixel).</li>
 </ul>
-<p>It wraps by redefining the name, so it sees procedures a piece redefines as hooks, provided they're defined when <code>fc-landscape-setup</code> starts or before <code>fc-render</code> runs. A piece that redefines one afterwards calls <code>fc-bench-wrap</code> again; the counters carry on.</p>
+<p>It wraps by redefining the name, so it sees procedures a piece redefines as hooks, provided they're defined when <code>fc-landscape-setup</code> starts or before <code>fc-render</code> runs. A piece that redefines one afterwards calls <code>fc-bench-wrap</code> again. A procedure that was already wrapped and is then redefined gets a fresh wrapper and a fresh row; the old row stays as <code>name#1</code>. (The lake's <code>fc-landscape-hit</code> calls the original as <code>fc-dry-hit</code>, so the two rows are the hook and the procedure under it; one shared row would count every call twice.) Only procedures defined in <code>userdict</code> are wrapped, and rows that never ran are listed as "never called" instead of shown.</p>
 
 <!-- ===================================================================== -->
 <h2 id="limits">16. Known limits</h2>

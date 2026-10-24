@@ -13,16 +13,31 @@
 % is wrapped, and the picture is the same pixel for pixel: the wrapper
 % touches neither the operand stack nor the random stream.
 %
-%   fc-bench-wrap     -   wrap every procedure in /ProfileProcs that is
-%                         defined now and isn't wrapped yet (safe to call
-%                         again; a procedure a piece redefined since gets
-%                         wrapped afresh and keeps its counters)
+%   fc-bench-wrap     -   wrap every procedure in ProfileProcs that is
+%                         defined (in userdict) now and isn't wrapped yet.
+%                         Safe to call again. A procedure that was wrapped
+%                         and has since been redefined by a piece gets a
+%                         fresh wrapper and a fresh record; the old
+%                         record stays in the table as name#1 (#2, ...),
+%                         because a piece's hook usually calls the
+%                         procedure it replaced (gallery/evening_lake.ps
+%                         saves fc-landscape-hit as fc-dry-hit), and
+%                         sharing one record would count those calls twice
+%   fc-bench-mark     -   remember the call counts now, so the table's
+%                         calls/px counts the render alone, not the bakes
+%                         (fc-landscape calls it after the last wrap)
 %   fc-bench-report   -   print the table
 %
 % fc-landscape-setup and fc-landscape call fc-bench-wrap before they run
 % anything, so wrapping happens after every library is loaded and sees
 % the piece's own hooks. A piece that redefines a procedure *after*
-% fc-landscape-setup has started must call fc-bench-wrap again.
+% fc-landscape-setup has started needs fc-landscape (or a call of
+% fc-bench-wrap) to come after it.
+%
+% Only procedures defined in userdict are wrapped. A wrapped procedure that
+% leaves by exit, stop or an error doesn't run its leave step, so the
+% stopwatch of its record stays open (depth above 0) and later calls to it
+% add nothing to its ms. The procedures in ProfileProcs return normally.
 %
 % What the table means:
 %   * time is INCLUSIVE: a procedure's row contains the time of everything
@@ -58,6 +73,7 @@
 
 /BnStats null def                                % name -> [calls ms t0 depth]
 /BnWraps null def                                % name -> the wrapper we installed
+/BnBase null def                                 % name -> calls when fc-bench-mark ran
 /BnT0 null def                                   % usertime at the first wrap
 
 % stat -> -    count a call; start the stopwatch on the outermost one
@@ -82,6 +98,16 @@
     6 array astore cvx
 } bind def
 
+% name n -> name#n
+/BnKB 256 string def  /BnKC 16 string def
+/fc-bench-key {
+    exch BnKB cvs length /BnKl exch def
+    BnKB BnKl (#) putinterval
+    BnKC cvs dup length BnKl 1 add add /BnKt exch def
+    BnKB BnKl 1 add 3 -1 roll putinterval
+    BnKB 0 BnKt getinterval cvn
+} bind def
+
 % name -> -    wrap that procedure unless it is missing or already wrapped
 /fc-bench-one {
     dup userdict exch known not { pop } {
@@ -90,7 +116,13 @@
             BnWraps 2 index known { BnWraps 2 index get 1 index eq } { false } ifelse {
                 pop pop                               % our wrapper is current
             } {
-                BnStats 2 index known not { BnStats 2 index [ 0 0 0 0 ] put } if
+                BnStats 2 index known {                     % wrapped before, now redefined:
+                    /BnK 1 def                              % park the old record as name#k
+                    { BnStats 2 index BnK fc-bench-key known not { exit } if
+                      /BnK BnK 1 add def } loop
+                    BnStats 2 index BnK fc-bench-key BnStats 4 index get put
+                } if
+                BnStats 2 index [ 0 0 0 0 ] put
                 BnStats 2 index get exch fc-bench-make      % name wrapper
                 BnWraps 2 index 2 index put
                 userdict 3 1 roll put
@@ -101,11 +133,18 @@
 
 /fc-bench-wrap {
     BnStats null eq {
-        /BnStats ProfileProcs length 8 add dict def
-        /BnWraps ProfileProcs length 8 add dict def
+        /BnStats ProfileProcs length 2 mul 16 add dict def
+        /BnWraps ProfileProcs length 2 mul 16 add dict def
         /BnT0 usertime def
     } if
     ProfileProcs { fc-bench-one } forall
+} def
+
+/fc-bench-mark {
+    BnStats null ne {
+        /BnBase BnStats length 8 add dict def
+        BnStats { 0 get BnBase 3 1 roll put } forall
+    } if
 } def
 
 % --- the report ----------------------------------------------------------
@@ -158,17 +197,25 @@
     BnKeys {
         /BnName exch def  BnStats BnName get /BnS exch def
         BnS 0 get /BnC exch def  BnS 1 get /BnMs exch def
+        BnBase null ne { BnBase BnName known { BnBase BnName get } { 0 } ifelse } { 0 } ifelse
+        BnC exch sub /BnRc exch def                  % calls during the render
         /BnSum BnSum BnC add def
+        BnC 0 gt {
         (  ) print  BnName BnBuf cvs dup length 24 gt { 0 24 getinterval } if dup print
         length 24 exch sub { ( ) print } repeat
         BnC 11 0 BnNum
-        BnPx 0 gt { BnC BnPx div 10 2 BnNum } { (         -) print } ifelse
+        BnPx 0 gt BnRc 0 gt and { BnRc BnPx div 10 2 BnNum } { (         -) print } ifelse
         BnMs 10 0 BnNum
         BnMs 100 mul BnTot div 7 1 BnNum
         BnC 1 gt { BnMs 1000 mul BnC div 11 2 BnNum } { (          -) print } ifelse
         () =
+        } if
+    } forall
+    BnKeys {                                         % rows that never ran
+        dup BnStats exch get 0 get 0 eq { (  never called: ) print BnBuf cvs = } { pop } ifelse
     } forall
     fc-bench-overhead /BnOv exch def
+    BnBase null ne { (  calls/px counts the render only, not setup) = } if
     (  total ms, first wrap to here: ) print BnTot 0 0 BnNum () =
     (  profiling overhead: ) print BnOv 0 2 BnNum
     ( us per wrapped call; ) print BnSum 0 0 BnNum ( calls, about ) print

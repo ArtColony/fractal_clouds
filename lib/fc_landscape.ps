@@ -114,7 +114,7 @@ Profile { (lib/fc_bench.ps) run } if
 
 /fc-landscape {                                  % pw ph -> -
     LnSetUp not { fc-landscape-setup } if
-    Profile { fc-bench-wrap } if                 % again: the piece's hooks are in by now
+    Profile { fc-bench-wrap fc-bench-mark } if      % again: the piece's hooks are in by now
     fc-render
     Profile { fc-bench-report } if
 } bind def
