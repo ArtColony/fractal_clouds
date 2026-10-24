@@ -60,7 +60,16 @@
 % MapRect, and wherever nothing is painted, the map is MapBackground
 % [lift mask]; the table feathers to it over MapFeather units past the
 % rectangle's edge. A new kind of feature is one more branch in the passes
-% of fc-map-bake (a coastline for #39 would be a /lake inside out).
+% of fc-map-bake.
+%
+% The coast (#39): MapLiftGrid paints ground height (rows like MapGrid,
+% 0..1 over MapLiftRange); /volcano, /atoll, /cliff and /stack features
+% (docs/settings.md); MapSea, a sea level, makes the bake also measure the
+% signed distance to the coastline (fc-map-coast; near a /cliff the land
+% must stand that much above the sea, so the coast is cut back into high
+% ground) and loads fc_coast.ps.
+%   x z fc-map-water y | -1000    the water level at a map point: MapSea
+%                                 or a /lake's level, the higher
 
 /MapRect [ -900 -900 900 900 ] fc-default     % x0 z0 x1 z1, map coordinates
 /MapN 128 fc-default                          % table resolution
@@ -72,6 +81,10 @@
 /MapPlanRect null fc-default                  % the plan's x0 z0 x1 z1 (null: MapRect)
 /MapPlanN 150 fc-default                      % plan hillshade samples across
 /MapPlanOct 5 fc-default                      % its terrain octaves
+/MapLiftGrid null fc-default                  % a painted ground height (#39), rows like MapGrid
+/MapLiftRange [ -10 30 ] fc-default           % the world y its 0 and 1 stand for
+/MapVolcMask 0.22 fc-default                  % a /volcano's ridged mask (gullies on its flanks)
+/MapSea null fc-default                       % sea level (#39): a number loads lib/fc_coast.ps
 
 % d r -> b    a smooth bump, 1 at d = 0 and 0 from d = r on
 /fc-map-bump {
@@ -155,6 +168,25 @@
     dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if
 } bind def
 
+% grid -> rows nx nz    a painted grid as rows of numbers 0..1
+/fc-map-grid-parse {
+    /MpGg exch def
+    /MpGnz MpGg length def /MpGnx MpGg 0 get length def
+    MpGg { length MpGnx ne {
+        (fc-map: a painted grid's rows must all be the same length) =
+        /fc-map-bake errordict /rangecheck get exec
+    } if } forall
+    [ MpGg { /MpGrow exch def
+        [ MpGrow {
+            MpGrow type /stringtype eq {
+                /MpGc exch def 0
+                0 1 MapChars length 1 sub { dup MapChars exch get MpGc eq { exch pop } { pop } ifelse } for
+                MapChars length 1 sub div
+            } if
+        } forall ]
+    } forall ] MpGnx MpGnz
+} bind def
+
 /fc-map-bake {
     /MpT0 usertime def
     /MpX0 MapRect 0 get def /MpZ0 MapRect 1 get def
@@ -162,23 +194,17 @@
     /MpTx MpX1 MpX0 sub MapN 1 sub div def       % world units per texel
     /MpTz MpZ1 MpZ0 sub MapN 1 sub div def
     /MpFloor TerrBase TerrH 0.06 mul add def     % the valley floor's base height
-    % the painted grid as numbers 0..1
-    MapGrid null ne {
-        /MpGnz MapGrid length def /MpGnx MapGrid 0 get length def
-        MapGrid { length MpGnx ne {
-            (fc-map: MapGrid rows must all be the same length) =
-            /fc-map-bake errordict /rangecheck get exec
-        } if } forall
-        /MpGn [ MapGrid { /MpGrow exch def
-            [ MpGrow {
-                MpGrow type /stringtype eq {
-                    /MpGc exch def 0
-                    0 1 MapChars length 1 sub { dup MapChars exch get MpGc eq { exch pop } { pop } ifelse } for
-                    MapChars length 1 sub div
-                } if
-            } forall ]
-        } forall ] def
-    } if
+    % the painted grids as numbers 0..1
+    MapGrid null ne { MapGrid fc-map-grid-parse /MpMnz exch def /MpMnx exch def /MpMn exch def } if
+    MapLiftGrid null ne { MapLiftGrid fc-map-grid-parse /MpLnz exch def /MpLnx exch def /MpLn exch def } if
+    % the coast's extras (#39): any of them raises TerrTop over the tallest
+    % lift, and stacks are kept for fc_coast.ps to draw
+    /MpNew MapSea null ne MapLiftGrid null ne or def
+    /MapStacks [ MapFeatures { dup 0 get /stack eq { } { pop } ifelse } forall ] def
+    MapFeatures { 0 get dup /volcano eq exch /atoll eq or { /MpNew true def } if } forall
+    MapStacks length 0 gt { /MpNew true def } if
+    /MpLmax -1e30 def
+    MapSea null ne { /MpCutT MapN 2 add dup mul array def } if
     % lift mask pin per texel, with one texel of margin all round (sampled
     % past the rectangle) so lookups at its edge have all four neighbours
     /MpW2 MapN 2 add def
@@ -188,12 +214,36 @@
         -1 1 MapN { /MpI exch def
             /MpX MpX0 MpI MpTx mul add def
             /MpL MapBackground 0 get def /MpM MapBackground 1 get def /MpP 0 def
-            MapGrid null ne { MpX MpZ fc-map-grid-at /MpM exch def } if
+            MapGrid null ne {
+                /MpGn MpMn def /MpGnx MpMnx def /MpGnz MpMnz def
+                MpX MpZ fc-map-grid-at /MpM exch def
+            } if
+            MapLiftGrid null ne {
+                /MpGn MpLn def /MpGnx MpLnx def /MpGnz MpLnz def
+                MpX MpZ fc-map-grid-at MapLiftRange 1 get MapLiftRange 0 get sub mul
+                MapLiftRange 0 get add MpFloor sub /MpL exch def
+            } if
             % 1. peaks and ridges raise the mask; the tallest wins
             MapFeatures { /MpF exch def
                 MpF 0 get dup /peak eq exch /ridge eq or {
                     MpF 3 false fc-map-dist pop MpF 2 get fc-map-bump /MpB exch def
                     MpF 1 get MpL sub fc-map-mask-for MpB mul dup MpM gt { /MpM exch def } { pop } ifelse
+                    MpB MpP gt { /MpP MpB def } if
+                } if
+                % island presets (#39): lift toward a ground height
+                MpF 0 get /volcano eq {
+                    MpF 3 false fc-map-dist pop /MpVd exch def
+                    1 MpVd MpF 2 get div sub dup 0 lt { pop 0 } if 1.5 exp
+                    MpVd MpF 2 get 0.1 mul fc-map-bump 0.25 mul sub /MpB exch def
+                    MpF 1 get MpFloor sub TerrH MapVolcMask mul 0.64 mul sub MpL sub MpB mul
+                    dup 0 gt { MpL add /MpL exch def } { pop } ifelse
+                    MpVd MpF 2 get 0.9 mul fc-map-bump MapVolcMask mul dup MpM gt { /MpM exch def } { pop } ifelse
+                    MpVd MpF 2 get fc-map-bump dup MpP gt { /MpP exch def } { pop } ifelse
+                } if
+                MpF 0 get /atoll eq {
+                    MpF 4 false fc-map-dist pop MpF 2 get sub abs MpF 3 get fc-map-bump /MpB exch def
+                    MpF 1 get MpFloor sub MpL sub MpB mul
+                    dup 0 gt { MpL add /MpL exch def } { pop } ifelse
                     MpB MpP gt { /MpP MpB def } if
                 } if
             } forall
@@ -219,10 +269,31 @@
                     MpB MpP gt { /MpP MpB def } if
                 } if
             } forall
+            MpL MpLmax gt { /MpLmax MpL def } if
             /MpGk MpJ 1 add MpW2 mul MpI add 1 add 3 mul def
+            % 4. with a sea, how high the sea has cut the coast back (/cliff)
+            MapSea null ne {
+                /MpCut 0 def
+                MapFeatures { /MpF exch def
+                    MpF 0 get /cliff eq {
+                        MpF 3 false fc-map-dist pop MpF 2 get fc-map-bump MpF 1 get mul
+                        dup MpCut gt { /MpCut exch def } { pop } ifelse
+                    } if
+                } forall
+                MpCutT MpGk 3 idiv MpCut put
+            } if
             MapTab MpGk MpL put  MapTab MpGk 1 add MpM put  MapTab MpGk 2 add MpP put
         } for
     } for
+    % the ceiling the march stops at: the tallest lift on top of the
+    % tallest relief, and the stacks (only for maps that use the coast's
+    % extras, so older pieces keep their pixels)
+    MpNew {
+        TerrH 1.25 mul TerrBase add MpLmax dup 0 lt { pop 0 } if add
+        MapStacks { 1 get 1 add 2 copy lt { exch } if pop } forall
+        dup TerrTop gt { /TerrTop exch def } { pop } ifelse
+    } if
+    MapSea null ne { fc-map-coast } if
     (fc-map: ) print MapN 9 string cvs print (^2 table, ) print MapFeatures length 9 string cvs print
     ( features, ms ) print usertime MpT0 sub =
 } bind def
@@ -270,6 +341,126 @@
             MpP MpW mul
         } { MpL MpM MpP } ifelse
     } ifelse
+} bind def
+
+% --- the coast (#39) ---------------------------------------------------------
+% With MapSea set, the bake also measures every texel's signed distance to
+% the coastline (land positive) into MapCoastD, and keeps in MapCoastC the
+% ground height of the land nearest each sea texel (its own for land), so
+% fc_coast.ps can tell a cliffed shore from a low one. A texel is land when
+% its noise-free height, the base floor plus its lift plus the relief its
+% mask grows on an average ridge (0.64 TerrH per unit of mask), stands at
+% or above MapSea. The waterline between two texels is placed where that
+% height crosses MapSea, then a two-pass chamfer (8 neighbours) carries
+% the distance across each side. No noise here: the bake runs before
+% fc-landscape-setup seeds it, so fc_coast.ps adds the wobble per point.
+/fc-map-coast {
+    /MpT1 usertime def
+    /MpSea MapSea def
+    /MpCn MpW2 MpW2 mul def
+    /MpCe MpCn array def /MpCa MpCn array def
+    0 1 MpCn 1 sub { /MpK exch def
+        MpCa MpK  MapTab MpK 3 mul get  MapTab MpK 3 mul 1 add get TerrH mul 0.64 mul add MpFloor add  put
+        MpCe MpK  MpCa MpK get MpCutT MpK get sub  put
+    } for
+    /MapCoastD MpCn array def /MapCoastC MpCn array def
+    /MpTd MpTx dup mul MpTz dup mul add sqrt def
+    % 1. texels next to the waterline: the distance to the crossing
+    0 1 MpW2 1 sub { /MpJ exch def
+        0 1 MpW2 1 sub { /MpI exch def
+            /MpK MpJ MpW2 mul MpI add def
+            /MpE MpCe MpK get def /MpLd MpE MpSea ge def
+            /MpCd 1e6 def /MpCc MpLd { MpCa MpK get } { MpSea } ifelse def
+            [ -1 0 MpTx  1 0 MpTx  0 -1 MpTz  0 1 MpTz ] /MpNb exch def
+            0 3 9 { /MpQ exch def
+                MpI MpNb MpQ get add /MpI2 exch def MpJ MpNb MpQ 1 add get add /MpJ2 exch def
+                MpI2 0 ge MpI2 MpW2 lt and MpJ2 0 ge and MpJ2 MpW2 lt and {
+                    MpCe MpJ2 MpW2 mul MpI2 add get /MpE2 exch def
+                    MpE2 MpSea ge MpLd ne {
+                        MpE MpSea sub MpE MpE2 sub div MpNb MpQ 2 add get mul
+                        dup MpCd lt { /MpCd exch def MpLd not { /MpCc MpCa MpJ2 MpW2 mul MpI2 add get def } if } { pop } ifelse
+                    } if
+                } if
+            } for
+            MapCoastD MpK MpCd put MapCoastC MpK MpCc put
+        } for
+    } for
+    % 2. chamfer, forward then back, within each side
+    [ [ -1 0 MpTx  -1 -1 MpTd  0 -1 MpTz  1 -1 MpTd ] [ 1 0 MpTx  1 1 MpTd  0 1 MpTz  -1 1 MpTd ] ]
+    /MpNbs exch def
+    0 1 1 { /MpPass exch def
+        /MpNb MpNbs MpPass get def
+        0 1 MpCn 1 sub { MpPass 1 eq { MpCn 1 sub exch sub } if /MpK exch def
+            /MpI MpK MpW2 mod def /MpJ MpK MpW2 idiv def
+            /MpLd MpCe MpK get MpSea ge def
+            0 3 9 { /MpQ exch def
+                MpI MpNb MpQ get add /MpI2 exch def MpJ MpNb MpQ 1 add get add /MpJ2 exch def
+                MpI2 0 ge MpI2 MpW2 lt and MpJ2 0 ge and MpJ2 MpW2 lt and {
+                    /MpK2 MpJ2 MpW2 mul MpI2 add def
+                    MpCe MpK2 get MpSea ge MpLd eq {
+                        MapCoastD MpK2 get MpNb MpQ 2 add get add
+                        dup MapCoastD MpK get lt {
+                            MapCoastD exch MpK exch put
+                            MpLd not { MapCoastC MpK MapCoastC MpK2 get put } if
+                        } { pop } ifelse
+                    } if
+                } if
+            } for
+        } for
+    } for
+    % 3. signed: land positive
+    0 1 MpCn 1 sub { /MpK exch def
+        MpCe MpK get MpSea lt { MapCoastD MpK 2 copy get neg put } if
+    } for
+    /MpCe null def /MpCa null def
+    (fc-map: coast ms ) print usertime MpT1 sub =
+} bind def
+
+% x z -> d c    the coast table at a map point: signed distance to the
+% coastline (Catmull-Rom) and the nearest land's height (bilinear); past
+% MapRect the edge texels carry on
+/fc-map-coast-at {
+    % how far past the rectangle: there the terrain feathers to
+    % MapBackground, so the coast is put mid-feather (#39 review)
+    /MpCoz exch def /MpCox exch def
+    MpX0 MpCox sub  MpCox MpX1 sub  2 copy lt { exch } if pop
+    MpZ0 MpCoz sub  2 copy lt { exch } if pop  MpCoz MpZ1 sub  2 copy lt { exch } if pop
+    /MpCo exch def
+    MpCox MpCoz
+    MpZ0 sub MpTz div dup 0 lt { pop 0 } if dup MapN 1.0001 sub gt { pop MapN 1.0001 sub } if 1 add /MpCz exch def
+    MpX0 sub MpTx div dup 0 lt { pop 0 } if dup MapN 1.0001 sub gt { pop MapN 1.0001 sub } if 1 add /MpCx exch def
+    /MpCi MpCx floor cvi def /MpCj MpCz floor cvi def
+    /MpCu MpCx MpCi sub def /MpCv MpCz MpCj sub def
+    MpCu fc-map-cw /MpCw3 exch def /MpCw2 exch def /MpCw1 exch def /MpCw0 exch def
+    /MpCk MpCj 1 sub MpW2 mul MpCi add 1 sub def
+    0
+    MpCv fc-map-cw 4 array astore {
+        MapCoastD MpCk get MpCw0 mul  MapCoastD MpCk 1 add get MpCw1 mul add
+        MapCoastD MpCk 2 add get MpCw2 mul add  MapCoastD MpCk 3 add get MpCw3 mul add
+        mul add
+        /MpCk MpCk MpW2 add def
+    } forall
+    /MpCk MpCj MpW2 mul MpCi add def
+    MpCo 0 gt {
+        MapFeather 0.5 mul MpCo sub
+        MapBackground 0 get MapBackground 1 get TerrH mul 0.64 mul add MpFloor add MapSea lt
+        { 2 copy gt { exch } if pop } { neg 2 copy lt { exch } if pop } ifelse
+    } if
+    MapCoastC MpCk get 1 MpCu sub mul MapCoastC MpCk 1 add get MpCu mul add 1 MpCv sub mul
+    MapCoastC MpCk MpW2 add get 1 MpCu sub mul MapCoastC MpCk MpW2 add 1 add get MpCu mul add MpCv mul add
+} bind def
+
+% x z -> y | -1000    the water level the map gives a point (map
+% coordinates): the higher of MapSea and the level of any /lake whose
+% polygon, or shore band, holds it; so a piece needn't repeat its levels
+/fc-map-water {
+    /MpZ exch def /MpX exch def
+    MapSea null ne { MapSea } { -1000 } ifelse
+    MapFeatures { /MpF exch def
+        MpF 0 get /lake eq { MpF 1 get 1 index gt } { false } ifelse {
+            MpF 4 true fc-map-dist exch MpF 3 get lt or { pop MpF 1 get } if
+        } if
+    } forall
 } bind def
 
 % --- the plan -------------------------------------------------------------
@@ -325,6 +516,7 @@
                     } if
                 } if
             } forall
+            MapSea null ne { MapSea MpPh sub dup MpPw gt { /MpPw exch def } { pop } ifelse } if
             MpPw 0 ge {
                 MpPw 4 div 1 fc-min 0.35 mul 1 exch sub MpPv 0.15 mul 0.85 add mul /MpPv exch def
                 [ 0.42 0.58 0.82 ]
@@ -380,3 +572,5 @@
 } bind def
 
 fc-map-bake
+% the coast's shaping and materials
+MapSea null ne { (lib/fc_coast.ps) run } if
