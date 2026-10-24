@@ -61,6 +61,18 @@
 /JointW 0.06 fc-default              % joint width, in joint-noise units
 /JointTilt 0.35 fc-default           % how far each block's face turns
 /JointDir [ 0.8 0.6 ] fc-default     % strike of the beds (x z), unit length
+% Terraces (#21), in the geometry: steep ground in outcrop patches is cut
+% into dipping beds, each a ledge (tread) and a cliff (riser), so the march,
+% the normals and the sun shadows all see them. 0 turns it off.
+/TerraceAmp 0 fc-default             % 0..1: how fully steep outcrops step
+/TerraceStep 4 fc-default            % mean bed thickness, world units
+/TerraceTread 0.55 fc-default        % mean fraction of a bed that is ledge
+/TerraceDip [ 0.40 0.20 ] fc-default % the beds fall this much per unit x, z (0.45: about 24 degrees)
+/TerraceIrreg 0.45 fc-default        % 0..0.6: how much bed thickness varies
+/TerraceSlope [ 0.45 0.9 ] fc-default % coarse slope where terraces start, and where they are full
+/TerracePatch 0.6 fc-default         % share of the ground in outcrop patches (1 = everywhere)
+/TerraceFault 70 fc-default          % spacing of the faults, world units (0: none)
+/TerraceThrow 0.7 fc-default         % how far a fault shifts the beds, in beds
 
 % TerrFn: 0 ridged only, 1 erosion fBm only, 3 the massif hierarchy
 /TerrFn 3 fc-default
@@ -146,7 +158,54 @@
     } ifelse
     } ifelse } ifelse
     TerrH mul TerrBase add
+    TerraceAmp 0 gt { TerrFn 3 eq ErBaking not and { fc-terrace } if } if  % terraces (#21)
     TerrCoast { fc-coast } if                  % the coast (fc_coast.ps, with MapSea)
+} bind def
+
+% Terraces (#21): h -> h', called from fc-height-proc (massif terrain, not
+% while erosion bakes) with Hmx Hmz, Hwx Hwz and Hm set. The bed coordinate
+% u = (h + dip . (x, z)) / step, shifted across faults and warped so beds
+% thicken and thin, is put through a soft staircase T(u): flat for the
+% first tread fraction of each bed, then a smoothstep riser; h' = h + w step
+% (T(u) - u), so treads dip and risers steepen. The weight w is the outcrop
+% patch times a slope gate from two ridged octaves (three
+% samples), so it depends only on (x, z): the march, the
+% normals, the shadow march and the bakes all see the same ledges.
+/fc-terrace {                                    % h -> h'
+    /Tqh exch def
+    % outcrop patches
+    TerracePatch 1 lt {
+        0.9 TerracePatch sub  1.1 TerracePatch sub
+        Hmx 0.012 mul 17.3 add Hmz 0.012 mul 41.9 add fc-noise2 fc-smooth
+    } { 1 } ifelse /Tqw exch def
+    Tqw 0 gt {
+        % coarse slope: two ridged octaves at the warped point, by forward
+        % differences, scaled to world units (massif mask, TerrH, TerrScale;
+        % 1.25 fitted against the 3-octave terrain's slope, r = 0.7)
+        Hwx Hwz 2 fc-ridged /Tq0 exch def
+        Hwx 0.05 add Hwz 2 fc-ridged Tq0 sub
+        Hwx Hwz 0.05 add 2 fc-ridged Tq0 sub
+        dup mul exch dup mul add sqrt 20 mul Hm mul 1.25 mul TerrH mul TerrScale mul
+        TerraceSlope 0 get TerraceSlope 1 get 0.001 add 3 -1 roll fc-smooth
+        Tqw mul TerraceAmp 1 fc-min mul /Tqw exch def
+    } if
+    Tqw 0 gt {
+        Tqh Hmx TerraceDip 0 get mul add Hmz TerraceDip 1 get mul add
+        TerraceStep 0.05 fc-max div /Tqu exch def
+        % faults: blocks across a wandering line family, each shifting the beds
+        TerraceFault 0 gt {
+            Hmx 0.8 mul Hmz 0.6 mul sub TerraceFault div
+            Hmx 0.02 mul 5.1 add Hmz 0.02 mul 9.7 add fc-noise2 0.8 mul add floor
+            137.508 mul sin TerraceThrow mul Tqu add /Tqu exch def
+        } if
+        % beds thicken and thin, and pinch out along the strike
+        Tqu 0.43 mul 3.7 add  Hmx 0.6 mul Hmz 0.8 mul add 0.01 mul 1.3 add  fc-noise2
+        0.5 sub 2 mul TerraceIrreg 0.6 fc-min mul Tqu add /Tqu exch def
+        /Tqk Tqu floor def /Tqf Tqu Tqk sub def
+        % every bed has its own share of ledge
+        Tqk 73.1 mul sin 0.15 mul TerraceTread add 0.05 fc-max 0.9 fc-min /Tqt exch def
+        Tqt 1 Tqf fc-smooth Tqf sub Tqw mul TerraceStep mul Tqh add
+    } { Tqh } ifelse
 } bind def
 
 % massif: two smooth octaves at the warped point (Hwx Hwz), pushed toward 0
