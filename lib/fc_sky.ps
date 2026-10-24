@@ -273,7 +273,7 @@ fc-camera-update
                     SkSi SkSh SkSj 1 fc-sky-hash add SkCell mul SkSa sub SkSc mul
                     SkSj SkSh SkSj 2 fc-sky-hash add SkCell mul SkSe sub
                     dup mul exch dup mul add SkSsg SkSsg mul 2 mul div neg 2.71828 exch exp
-                    SkSh SkSj 3 fc-sky-hash dup mul dup mul dup mul 0.9 mul 0.1 add mul
+                    SkSh SkSj 3 fc-sky-hash dup mul dup mul dup mul 0.97 mul 0.03 add mul
                     Stars mul SkSv mul /SkSw exch def
                     SkSh SkSj 4 fc-sky-hash /SkSt exch def
                     SkSw 0.75 SkSt 0.25 mul add mul SkStr add /SkStr exch def
@@ -323,9 +323,10 @@ fc-camera-update
     fc-sky-light
     % the discs, the sun and moon seen through the air, and the stars,
     % which fade under a bright sky
-    % (gone by civil twilight: e^-200L is 0.03 at the twilight zenith's
-    % 0.017, and about 0.1 in a moonlit sky away from the moon)
-    SkVx SkVy SkVz 2.71828 SkL SkyGain mul 200 mul neg exp fc-sky-stars
+    % (a gaussian in the sky's luminance, width 0.002: the civil-twilight
+    % zenith (0.003) keeps a tenth, only its brightest stars show; a moonlit
+    % sky (0.005 and up) hides them, as a full moon does)
+    SkVx SkVy SkVz 2.71828 SkL SkyGain mul 0.002 div dup mul neg exp fc-sky-stars
     /SkStb exch def /SkStg exch def /SkStr exch def
     SkDiscCol 2 get SkD mul add SkMoonCol 2 get SkDm mul add SkStb add 3 1 roll
     SkDiscCol 1 get SkD mul add SkMoonCol 1 get SkDm mul add SkStg add 3 1 roll
