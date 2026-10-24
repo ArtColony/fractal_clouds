@@ -25,12 +25,15 @@ copy: every setting is in `docs/settings.md`, every method in
    fractions from the top left) before any long render.
 4. **Render with `scripts/render.sh`**, never bare `pscat`, and **look at every
    PNG** (Read it). Pieces say `% Status: draft`.
-5. **Cores:** the machine may be shared; use at most 3 at once (bands, regress
-   jobs), and run long renders in the background.
+5. **Cores:** the machine may be shared; use at most 3 at once. `render_bands.sh`
+   starts one process per band (N cuts, N+1 bands), so use 2 cuts; give
+   `regress.sh` `JOBS=3`. Run long renders in the background.
+   Use the released pscat in `.pscat-version`, never a source checkout.
 6. **Never edit `lib/`** to make one piece. A library change must keep the
-   gallery pixel-identical: check with `scripts/regress.sh --ref main` on a
-   Mac (plain `scripts/regress.sh` on Linux); `--docker --update` only for an
-   intended look change. Per-piece changes go in settings, or in hooks the
+   gallery pixel-identical: check with `JOBS=3 scripts/regress.sh --ref main` on
+   a Mac (plain `scripts/regress.sh` on Linux); `--docker --update` only for an
+   intended look change or a new gallery piece's references. A new library
+   file is `lib/fc_*.ps`, with its own name prefix; run `scripts/check_names.sh`. Per-piece changes go in settings, or in hooks the
    piece redefines *after* loading the landscape (`docs/settings.md`, "Hooks").
 7. A piece in `gallery/` needs regress references (`regress.sh` renders every
    gallery piece). A trial or example goes elsewhere (e.g. `docs/examples/`)
@@ -94,11 +97,11 @@ crop is the only cheap check. Fix, repeat, and note the exact final settings.
 ### 5. Final render
 
 ```sh
-DPI=288 scripts/render_bands.sh gallery/<name>.ps 0.55 0.66 0.81 -- -D ErN=1024 -D ErDrops=240000
+DPI=288 scripts/render_bands.sh gallery/<name>.ps 0.6 0.8 -- -D ErN=1024 -D ErDrops=240000
 ```
 
-The cuts are fractions from the top; put more bands where rows cost more
-(forest, water: lower in the frame). Each band repeats the bakes. Run it in
+The cuts are fractions from the top (two cuts, three bands); put the cuts so
+the expensive rows (forest, water: lower in the frame) get narrower bands. Each band repeats the bakes. Run it in
 the background (tens of minutes to an hour); the result is
 `renders/<name>.png`. Check the seams along the cuts. Copy the chosen render
 to `gallery/previews/` (or the example's `docs/` directory) by hand:
@@ -118,16 +121,19 @@ to `gallery/previews/` (or the example's `docs/` directory) by hand:
 
 ### 7. Finish
 
-Branch `<kind>/<issue#>-<slug>`, PR into `main`, as `CLAUDE.md` says. Log a
-pscat bug or skill-doc error in `docs/pscat-issues.md` with a repro.
+Branch `<kind>/<issue#>-<slug>`, PR into `main`; `CLAUDE.md` says when to
+merge, close and write an HTML page (epics). Log a pscat bug or skill-doc
+error in `docs/pscat-issues.md` with a repro; don't file upstream until asked.
 
 ## When something looks wrong
 
 - Default look, setting ignored: it came after the `run` line.
-- `undefined` error naming a key: a misspelt setting or preset, or a
-  `CloudLayers` entry with `Hi` not above `Lo`.
+- `undefined` error naming a preset, or a `CloudLayers` key or layer with `Hi`
+  not above `Lo`: fix the name. A misspelt ordinary setting is not an error;
+  it is silently ignored, so grep `docs/settings.md` for every name.
 - Black or flat sky at night: raise `Exposure` (`/Night` does).
 - Clouds hide the peaks: `TerrTop` is 59 by default; with a taller `TerrH`,
-  raise `CloudLo`/`CloudHi`.
+  raise `CloudLo`/`CloudHi`, or each layer's `/Lo` and `/Hi` if the piece or a
+  weather preset (`/Overcast`, `/Storm`) sets `CloudLayers`.
 - Trees missing: `TreesOn` false, ground above `FsLine`, or `/Mesa`.
 - Compare with `gs` before calling it a pscat bug.

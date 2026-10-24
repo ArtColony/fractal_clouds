@@ -33,8 +33,8 @@ showpage
 ```
 
 Examples to copy from: `gallery/evening_lake.ps` (presets, lake),
-`gallery/alpine_forest.ps` (forest), `gallery/charted_range.ps` (map, river,
-lake), `scenes/evening_lake.ps` (scene file), `spikes/ocean_shore.ps` (sea).
+`gallery/alpine_forest.ps` (forest), `gallery/charted_range.ps` (map, river
+valley, lake), `scenes/evening_lake.ps` (scene file), `spikes/ocean_shore.ps` (sea).
 A piece's own setting beats a preset's, so write only what differs from
 the presets you list.
 
@@ -54,13 +54,13 @@ the presets you list.
 | autumn colours | `/Autumn` plus an `FsMix` with larch and broadleaf weights |
 | snow, winter | `/Winter`, or a low `SnowLine` |
 | lake | `WaterRise` 1.4 (the surface this far above the ground under the camera), or `WaterY` |
-| river | `Rivers true` (needs `Erode`) |
+| river | `Rivers true` (needs `Erode`; `docs/prs/28-water/river_valley.ps`) |
 | sea, coast, beach | `Ocean true` with `WaterY`; raise `RippleAmp`, set `WindDir` |
 | a particular geography | `MapOn true`, `MapFeatures` (peak, ridge, valley, lake), `MapWater` |
 | desert, canyon, red rock | `/Mesa` |
 | high viewpoint | `CamLift` 0.72 |
 | low and moody | `Pitch` 0 to 2, `CamAbove` 5 |
-| wide view | `HFov` 64 to 75; a narrower 50 compresses distance |
+| wide view | `HFov` 64 to 75; 50 frames tighter |
 
 ## Costs (one core)
 
