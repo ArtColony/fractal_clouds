@@ -501,6 +501,17 @@ sea (their load is lost).
 | `SkyLight` | 1.15 | Strength of that sky light. | 1.15 |
 | `Bounce` | [0.40 0.36 0.30] | Warm light reflected up from the ground below. | |
 | `BumpAmp` | 0.55 | How strongly steep rock breaks into lit and shaded facets. | 0, 0.55 |
+| `StrataAmp` | 0 | Rock strata on cliffs (#21), 0–1: steep bare rock is shaded as a staircase of ledges and steep faces, with a dark recess at the foot of each face and vertical joints that split each bed into blocks. Shading only (the geometry and the bakes don't change); fades out where a bed is under about 3 pixels high, and takes over half of `BumpAmp` on cliffs. 0 is off. | 0 |
+| `StrataStep` | 2.5 | Height of one bed, world units. | |
+| `StrataTread` | 0.55 | Fraction of each bed that is ledge; the rest is the face. | |
+| `StrataDip` | [0.18 0.08] | The beds' tilt: their rise per unit x and z. | |
+| `StrataSteep` | [0.45 0.8] | Beds show fully where the ground's normal `Ny` is below the first value, not at all above the second. | |
+| `StrataPatch` | 0.5 | About what share of the cliffs shows bedding, in broad patches (1: all of them). | |
+| `CrackAmp` | 0.5 | How dark the recess under each ledge is. | |
+| `JointAmp`, `JointW` | 0.45, 0.06 | How dark and how wide (in joint-noise units) the vertical joints are. | |
+| `JointFreq`, `JointN` | 0.3, 4 | Joint spacing: a noise at `JointFreq` along the strike, with `JointN` joints per unit of it. | |
+| `JointTilt` | 0.35 | How far each block's face turns its own way. | |
+| `JointDir` | [0.8 0.6] | Strike of the beds (unit x z). | |
 | `ShadowsOn` | true | Terrain casts shadows (a march toward the sun per lit pixel). | true |
 | `CloudShadowsOn` | true | Clouds shade the ground. | true |
 | `CloudSkyDim` | 0 | Above 0: clouds overhead (`fc-cloud-sky`) dim the ground's sky light and warm bounce, by this fraction of what they block, so the ground under a storm is darker and cooler. Costs `Probes` density probes per layer per ground pixel. | 0.75 (storm) |

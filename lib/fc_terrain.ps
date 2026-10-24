@@ -47,6 +47,10 @@
 /StrataStep 2.5 fc-default           % height of one bed, world units
 /StrataTread 0.55 fc-default         % fraction of a bed that is ledge
 /StrataDip [ 0.18 0.08 ] fc-default  % the beds' tilt: rise per unit x, z
+/StrataSteep [ 0.45 0.8 ] fc-default % beds show fully below the first Ny, none above the second
+/StrataWarp 0.35 fc-default          % how much the beds pinch and swell
+/LedgeSnow 0 fc-default              % snow on the ledges near and above the snowline
+/StrataPatch 0.5 fc-default          % share of the cliffs that show bedding (1 = all of them)
 /CrackAmp 0.5 fc-default             % darkening in the recess under a ledge
 /JointAmp 0.45 fc-default            % darkening along the joints
 /JointFreq 0.3 fc-default            % joint noise frequency along the strike
@@ -240,7 +244,7 @@
     % StrataDip, wandering a little with the material noises
     StrataAmp 0 gt {
         /Ku Kh Kx StrataDip 0 get mul add Kz StrataDip 1 get mul add StrataStep div
-            Kv 1.5 mul add Kv2 0.35 mul add def
+            Kv 1.5 mul add Kv2 StrataWarp mul add def
         /Kul Ku floor def /Kuf Ku Kul sub def
         Rock Rock2 Kv 0.6 mul Kul 137 mul sin 0.15 mul add Kuf 360 mul sin 0.06 mul add 0.2 add mix3v
     } {
@@ -319,13 +323,20 @@
 % turns a little its own way. Leaves Ksn, the 0..1 strata weight.
 /fc-terrain-strata {
     % weight: steep, bare rock, beds at least a few pixels high
-    1 0.62 0.9 Ny fc-smooth sub  1 Ksnow sub mul  1 Kfor sub mul  KbMul mul
+    1 StrataSteep 0 get StrataSteep 1 get Ny fc-smooth sub  1 Ksnow sub mul  1 Kfor sub mul  KbMul mul
     2 5 StrataStep Kt PixAng mul div fc-smooth mul /Ksn exch def
+    % only in outcrops: broad patches of the rock show bedding
+    Ksn 0.001 gt StrataPatch 1 lt and {
+        0.9 StrataPatch sub  1.1 StrataPatch sub
+        Kx 0.06 mul 21.7 add Kz 0.06 mul 3.9 add fc-noise2 fc-smooth Ksn mul /Ksn exch def
+    } if
     Ksn 0.001 gt {
         /Ksw Ksn StrataAmp mul def
+        % every bed has its own share of ledge
+        /Ktr Kul 73.1 mul sin 0.2 mul StrataTread add def
         % T'(u) - 1: -1 on the tread, up to 1.5 / (1 - tread) - 1 on the riser
-        Kuf StrataTread sub 1 StrataTread sub div dup 0 lt { pop 0 } if
-        dup 1 exch sub mul 6 mul 1 StrataTread sub div 1 sub Ksw mul /Kst exch def
+        Kuf Ktr sub 1 Ktr sub div dup 0 lt { pop 0 } if
+        dup 1 exch sub mul 6 mul 1 Ktr sub div 1 sub Ksw mul /Kst exch def
         /Kgx Nx Ny div neg def /Kgz Nz Ny div neg def
         /Kgx Kgx StrataDip 0 get add Kst mul Kgx add def
         /Kgz Kgz StrataDip 1 get add Kst mul Kgz add def
@@ -341,10 +352,16 @@
         /Nn Kgx Kgx mul Kgz Kgz mul add 1 add sqrt def
         /Nx Kgx neg Nn div def /Ny 1 Nn div def /Nz Kgz neg Nn div def
         % dark recess at the foot of each riser, and along the joints
-        0 0.08 Kuf StrataTread sub 0.02 add abs fc-smooth 1 exch sub CrackAmp mul
+        0 0.08 Kuf Ktr sub 0.02 add abs fc-smooth 1 exch sub CrackAmp mul
         0 JointW Kjf 1 Kjf sub 2 copy gt { exch } if pop fc-smooth 1 exch sub JointAmp mul
         2 copy lt { exch } if pop Ksn mul 1 exch sub /Kcr exch def
         /Alb [ Alb { Kcr mul } forall ] def
+        % snow lies on the ledges, from a little below the snowline
+        LedgeSnow 0 gt {
+            SnowLine 14 sub Kv 16 mul add  SnowLine Kv 16 mul add  Kh fc-smooth
+            Kst Ksw div neg 0 fc-max mul Ksn mul LedgeSnow mul
+            dup 0 gt { Snow exch Alb 3 1 roll mix3v /Alb exch def } { pop } ifelse
+        } if
     } if
 } bind def
 
