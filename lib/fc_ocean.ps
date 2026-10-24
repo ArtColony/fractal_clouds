@@ -277,7 +277,9 @@
 /fc-terrain-material {
     SandHeight 0 gt {
         Kx Kz fc-water-level /OcMl exch def
-        WaterY null ne { OcMl WaterY sub abs 0.0001 lt } { false } ifelse {
+        WaterY null ne { OcMl WaterY sub abs 0.0001 lt } { false } ifelse
+        % with lib/fc_coast.ps (#39) the beach is the coast's: sand only under water
+        { /fc-coast-material where { pop Kh OcMl lt } { true } ifelse } { false } ifelse {
             Kh OcMl sub
             Kx 0.05 mul 1.1 add Kz 0.05 mul 5.6 add fc-noise2 0.5 sub SandHeight mul add
             SandHeight SandHeight 0.6 mul 3 -1 roll fc-smooth
