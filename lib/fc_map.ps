@@ -1,0 +1,352 @@
+%!PS-Adobe-3.0
+% fc_map.ps -- terrain from a map: a painted grid and a feature list, baked
+% into a table that fc-terrain-base reads (fractal_clouds#13).
+%
+% fc_terrain.ps loads this file when MapOn is true. Everything here is in
+% map coordinates, which are the terrain's own: a view's camera stands at
+% (TerrOX, TerrOZ) looking along +z turned by Yaw, so several views share
+% one map by moving only the camera.
+%
+%   fc-map-bake -                    sample the grid and the features into
+%                                    an MapN x MapN table over MapRect (done
+%                                    at load; call again after changing them)
+%   x z fc-terrain-base lift mask pin
+%                                    the hook fc-height-proc calls:
+%                                      lift  world units added to the ground
+%                                      mask  0..1, where ridged mountains grow
+%                                            (the massif mask the noise made)
+%                                      pin   0..1, how firmly the map holds
+%                                            the ground: the domain warp and
+%                                            the noise massif fade out by it
+%   pw ph fc-map-plan -              the map from above on a pw x ph page:
+%                                    a hillshade of the procedural terrain
+%                                    over MapPlanRect (or MapRect), with
+%                                    the features drawn on it (ridges and
+%                                    peaks yellow, valleys and lakes blue)
+%   (label) x z yaw fc-map-plan-camera -
+%                                    mark a viewpoint on the plan (the
+%                                    current one is TerrOX TerrOZ Yaw)
+%
+% The map is MapGrid (a painted mask, or null) with MapFeatures on top:
+%
+%   MapGrid      an array of rows, the far (high z) row first, each a string
+%                of MapChars (` .:-=+*#%@` runs 0..1) or an array of numbers
+%                0..1; it is stretched over MapRect and gives the mask
+%   MapFeatures  an array of features, each an array with a kind and its
+%                numbers; heights and levels are world y:
+%     [ /peak   height spread x z ]                raise the mask in a round
+%                                                  bump, spread units wide,
+%                                                  so a peak about `height`
+%                                                  high stands where a ridge
+%                                                  crest crosses it
+%     [ /ridge  height spread x0 z0 x1 z1 ... ]    the same along a polyline
+%     [ /valley depth width x0 z0 x1 z1 ... ]      carve: the mask falls to
+%                                                  0 along the polyline and
+%                                                  the ground drops `depth`
+%     [ /lake   level depth shore x0 z0 ... ]      a closed polygon (3 or more
+%                                                  points): inside, the mask
+%                                                  is 0 and the ground sits
+%                                                  flat `depth` below `level`,
+%                                                  the water surface a piece
+%                                                  should put there; the bed
+%                                                  blends to the surroundings
+%                                                  over `shore` units inside
+%                                                  the edge
+%
+% Peaks and ridges are applied first (the tallest wins), then valleys, then
+% lakes, whatever their order in the list. Each raises pin to its bump, so
+% near features the ridges keep to the noise's own, unwarped network and
+% land within about a ridge wavelength of where they were put. Outside
+% MapRect, and wherever nothing is painted, the map is MapBackground
+% [lift mask]; the table feathers to it over MapFeather units past the
+% rectangle's edge. A new kind of feature is one more branch in the passes
+% of fc-map-bake (a coastline for #39 would be a /lake inside out).
+
+/MapRect [ -900 -900 900 900 ] fc-default     % x0 z0 x1 z1, map coordinates
+/MapN 128 fc-default                          % table resolution
+/MapGrid null fc-default
+/MapChars ( .:-=+*#%@) fc-default
+/MapFeatures [ ] fc-default
+/MapBackground [ 0 0 ] fc-default             % lift mask where nothing is painted
+/MapFeather 120 fc-default                    % blend to the background past MapRect
+/MapPlanRect null fc-default                  % the plan's x0 z0 x1 z1 (null: MapRect)
+/MapPlanN 150 fc-default                      % plan hillshade samples across
+/MapPlanOct 5 fc-default                      % its terrain octaves
+
+% d r -> b    a smooth bump, 1 at d = 0 and 0 from d = r on
+/fc-map-bump {
+    2 copy ge { pop pop 0 } { div dup mul 1 exch sub dup mul } ifelse
+} bind def
+
+% y -> mask    the massif mask that puts a ridge crest at height y
+% (fc-terrain-relief: h = TerrH (mask (0.92 ridges + 0.18) + 0.06) + TerrBase,
+% with ridges about 1 on a crest)
+/fc-map-mask-for {
+    TerrBase sub TerrH div 0.06 sub 1.1 div dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if
+} bind def
+
+% Distance from (MpX, MpZ) to the polyline in array MpA from index i0
+% (x z pairs), and whether the point is inside it taken as a polygon.
+%   arr i0 closed fc-map-dist d inside
+/fc-map-dist {
+    /MpCl exch def /MpI0 exch def /MpA exch def
+    /MpNp MpA length MpI0 sub 2 idiv def
+    /MpD2 1e30 def /MpIn false def
+    MpNp 1 eq {
+        MpX MpA MpI0 get sub dup mul MpZ MpA MpI0 1 add get sub dup mul add /MpD2 exch def
+    } {
+        0 1 MpCl { MpNp 1 sub } { MpNp 2 sub } ifelse { /MpK exch def
+            /MpAx MpA MpI0 MpK 2 mul add get def  /MpAz MpA MpI0 MpK 2 mul add 1 add get def
+            MpK 1 add MpNp mod 2 mul MpI0 add /MpKb exch def
+            /MpBx MpA MpKb get def  /MpBz MpA MpKb 1 add get def
+            /MpEx MpBx MpAx sub def /MpEz MpBz MpAz sub def
+            /MpEl MpEx dup mul MpEz dup mul add def
+            MpEl 0 eq { 0 } {
+                MpX MpAx sub MpEx mul MpZ MpAz sub MpEz mul add MpEl div
+                dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if
+            } ifelse /MpT exch def
+            MpX MpAx MpEx MpT mul add sub dup mul
+            MpZ MpAz MpEz MpT mul add sub dup mul add
+            dup MpD2 lt { /MpD2 exch def } { pop } ifelse
+            % crossing test for the inside
+            MpCl MpAz MpZ gt MpBz MpZ gt ne and {
+                MpX  MpZ MpAz sub MpEx mul MpEz div MpAx add  lt { /MpIn MpIn not def } if
+            } if
+        } for
+    } ifelse
+    MpD2 sqrt MpIn
+} bind def
+
+% t -> w0 w1 w2 w3    Catmull-Rom weights (the curve passes through the texels)
+/fc-map-cw {
+    /MpCt exch def /MpCt2 MpCt MpCt mul def /MpCt3 MpCt2 MpCt mul def
+    MpCt3 neg MpCt2 2 mul add MpCt sub 0.5 mul
+    MpCt3 3 mul MpCt2 5 mul sub 2 add 0.5 mul
+    MpCt3 -3 mul MpCt2 4 mul add MpCt add 0.5 mul
+    MpCt3 MpCt2 sub 0.5 mul
+} bind def
+
+% i j -> v    one painted texel (from MpGn, the grid as numbers), indices
+% clamped to the grid
+/fc-map-grid-get {
+    dup 0 lt { pop 0 } if dup MpGnz 1 sub gt { pop MpGnz 1 sub } if MpGn exch get
+    exch dup 0 lt { pop 0 } if dup MpGnx 1 sub gt { pop MpGnx 1 sub } if get
+} bind def
+
+% x z -> v    the painted grid at a map point, Catmull-Rom over 4x4 texels
+/fc-map-grid-at {
+    MpZ1 exch sub MpZ1 MpZ0 sub div MpGnz 1 sub mul /MpGz exch def     % far row first
+    MpX0 sub MpX1 MpX0 sub div MpGnx 1 sub mul /MpGx exch def
+    /MpGi MpGx floor cvi def /MpGj MpGz floor cvi def
+    MpGx MpGi sub fc-map-cw /MpGw3 exch def /MpGw2 exch def /MpGw1 exch def /MpGw0 exch def
+    MpGz MpGj sub fc-map-cw /MpGv3 exch def /MpGv2 exch def /MpGv1 exch def /MpGv0 exch def
+    0
+    /MpGr -2 def
+    [ MpGv0 MpGv1 MpGv2 MpGv3 ] {
+        /MpGr MpGr 1 add def
+        MpGi 1 sub MpGj MpGr add fc-map-grid-get MpGw0 mul
+        MpGi MpGj MpGr add fc-map-grid-get MpGw1 mul add
+        MpGi 1 add MpGj MpGr add fc-map-grid-get MpGw2 mul add
+        MpGi 2 add MpGj MpGr add fc-map-grid-get MpGw3 mul add
+        mul add
+    } forall
+    dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if
+} bind def
+
+/fc-map-bake {
+    /MpT0 usertime def
+    /MpX0 MapRect 0 get def /MpZ0 MapRect 1 get def
+    /MpX1 MapRect 2 get def /MpZ1 MapRect 3 get def
+    /MpTx MpX1 MpX0 sub MapN 1 sub div def       % world units per texel
+    /MpTz MpZ1 MpZ0 sub MapN 1 sub div def
+    /MpFloor TerrBase TerrH 0.06 mul add def     % the valley floor's base height
+    % the painted grid as numbers 0..1
+    MapGrid null ne {
+        /MpGnz MapGrid length def /MpGnx MapGrid 0 get length def
+        /MpGn [ MapGrid { /MpGrow exch def
+            [ MpGrow {
+                MpGrow type /stringtype eq {
+                    /MpGc exch def 0
+                    0 1 MapChars length 1 sub { dup MapChars exch get MpGc eq { exch pop } { pop } ifelse } for
+                    MapChars length 1 sub div
+                } if
+            } forall ]
+        } forall ] def
+    } if
+    /MapTab MapN MapN mul 3 mul array def        % lift mask pin per texel
+    0 1 MapN 1 sub { /MpJ exch def
+        /MpZ MpZ0 MpJ MpTz mul add def
+        0 1 MapN 1 sub { /MpI exch def
+            /MpX MpX0 MpI MpTx mul add def
+            /MpL MapBackground 0 get def /MpM MapBackground 1 get def /MpP 0 def
+            MapGrid null ne { MpX MpZ fc-map-grid-at /MpM exch def } if
+            % 1. peaks and ridges raise the mask; the tallest wins
+            MapFeatures { /MpF exch def
+                MpF 0 get dup /peak eq exch /ridge eq or {
+                    MpF 3 false fc-map-dist pop MpF 2 get fc-map-bump /MpB exch def
+                    MpF 1 get fc-map-mask-for MpB mul dup MpM gt { /MpM exch def } { pop } ifelse
+                    MpB MpP gt { /MpP MpB def } if
+                } if
+            } forall
+            % 2. valleys carve
+            MapFeatures { /MpF exch def
+                MpF 0 get /valley eq {
+                    MpF 3 false fc-map-dist pop MpF 2 get fc-map-bump /MpB exch def
+                    /MpM MpM 1 MpB sub mul def
+                    /MpL MpL MpF 1 get MpB mul sub def
+                    MpB MpP gt { /MpP MpB def } if
+                } if
+            } forall
+            % 3. lakes flatten
+            MapFeatures { /MpF exch def
+                MpF 0 get /lake eq {
+                    MpF 4 true fc-map-dist { neg } if            % signed: negative inside
+                    MpF 3 get neg 0 3 -1 roll fc-smooth 1 exch sub /MpB exch def
+                    /MpM MpM 1 MpB sub mul def
+                    MpF 1 get MpF 2 get sub MpFloor sub MpL sub MpB mul MpL add /MpL exch def
+                    MpB MpP gt { /MpP MpB def } if
+                } if
+            } forall
+            MapTab MpJ MapN mul MpI add 3 mul  MpL put
+            MapTab MpJ MapN mul MpI add 3 mul 1 add  MpM put
+            MapTab MpJ MapN mul MpI add 3 mul 2 add  MpP put
+        } for
+    } for
+    (fc-map: ) print MapN 9 string cvs print (^2 table, ) print MapFeatures length 9 string cvs print
+    ( features, ms ) print usertime MpT0 sub =
+} bind def
+
+% w -> -    add one table row (four texels from MpGk, weights MpGw0..3)
+% times w into MpL MpM MpP, and step MpGk to the next row
+/fc-map-tab-row {
+    /MpGv exch def
+    MapTab MpGk get MpGw0 mul  MapTab MpGk 3 add get MpGw1 mul add
+    MapTab MpGk 6 add get MpGw2 mul add  MapTab MpGk 9 add get MpGw3 mul add
+    MpGv mul MpL add /MpL exch def
+    MapTab MpGk 1 add get MpGw0 mul  MapTab MpGk 4 add get MpGw1 mul add
+    MapTab MpGk 7 add get MpGw2 mul add  MapTab MpGk 10 add get MpGw3 mul add
+    MpGv mul MpM add /MpM exch def
+    MapTab MpGk 2 add get MpGw0 mul  MapTab MpGk 5 add get MpGw1 mul add
+    MapTab MpGk 8 add get MpGw2 mul add  MapTab MpGk 11 add get MpGw3 mul add
+    MpGv mul MpP add /MpP exch def
+    /MpGk MpGk MapN 3 mul add def
+} bind def
+
+% x z -> lift mask pin
+/fc-terrain-base {
+    /MpLz exch def /MpLx exch def
+    % how far outside the rectangle, for the feather to the background
+    MpX0 MpLx sub  MpLx MpX1 sub  2 copy lt { exch } if pop
+    MpZ0 MpLz sub  2 copy lt { exch } if pop  MpLz MpZ1 sub  2 copy lt { exch } if pop
+    dup 0 le { pop 1 } { MapFeather div 1 exch sub dup 0 lt { pop 0 } if } ifelse /MpW exch def
+    MpW 0 le { MapBackground 0 get MapBackground 1 get 0 } {
+        MpLx MpX0 sub MpTx div dup 1 lt { pop 1 } if dup MapN 2.001 sub gt { pop MapN 2.001 sub } if /MpGx exch def
+        MpLz MpZ0 sub MpTz div dup 1 lt { pop 1 } if dup MapN 2.001 sub gt { pop MapN 2.001 sub } if /MpGz exch def
+        /MpGi MpGx floor cvi def /MpGj MpGz floor cvi def
+        MpGx MpGi sub fc-map-cw /MpGw3 exch def /MpGw2 exch def /MpGw1 exch def /MpGw0 exch def
+        MpGz MpGj sub fc-map-cw
+        /MpL 0 def /MpM 0 def /MpP 0 def
+        /MpGk MpGj 1 sub MapN mul MpGi add 1 sub 3 mul def       % texel (i-1, j-1)
+        4 -1 roll fc-map-tab-row 3 -1 roll fc-map-tab-row exch fc-map-tab-row fc-map-tab-row
+        MpM 0 lt { /MpM 0 def } if
+        MpP 0 lt { /MpP 0 def } if MpP 1 gt { /MpP 1 def } if
+        MpW 1 lt {
+            MapBackground 0 get dup MpL exch sub MpW mul add
+            MapBackground 1 get dup MpM exch sub MpW mul add
+            MpP MpW mul
+        } { MpL MpM MpP } ifelse
+    } ifelse
+} bind def
+
+% --- the plan -------------------------------------------------------------
+% x z -> px py    map point to page point (after fc-map-plan set the fit)
+/fc-map-plan-pt {
+    MqZ0 sub MpS mul MpOz add exch MqX0 sub MpS mul MpOx add exch
+} bind def
+
+% arr i0 fc-map-plan-path -    moveto the first point, lineto the rest
+/fc-map-plan-path {
+    /MpPp exch def /MpPa exch def
+    MpPa MpPp get MpPa MpPp 1 add get fc-map-plan-pt moveto
+    MpPp 2 add 2 MpPa length 1 sub { dup MpPa exch get exch 1 add MpPa exch get fc-map-plan-pt lineto } for
+} bind def
+
+/fc-map-plan {                                   % pw ph -> -
+    /MpPgH exch def /MpPgW exch def
+    /fc-landscape-setup where { pop LnSetUp not { fc-landscape-setup } if } if
+    MapPlanRect null eq { MapRect } { MapPlanRect } ifelse
+    dup 0 get /MqX0 exch def dup 1 get /MqZ0 exch def
+    dup 2 get /MqX1 exch def 3 get /MqZ1 exch def
+    % fit the rectangle into the page, centred
+    MpPgW MqX1 MqX0 sub div  MpPgH MqZ1 MqZ0 sub div  2 copy gt { exch } if pop 0.96 mul /MpS exch def
+    /MpOx MpPgW MqX1 MqX0 sub MpS mul sub 2 div def
+    /MpOz MpPgH MqZ1 MqZ0 sub MpS mul sub 2 div def
+    % hillshade of the procedural terrain, lit from the south-west, mixed
+    % with height: black at TerrBase, white at TerrTop
+    /MpNx MapPlanN def /MpNz MapPlanN MqZ1 MqZ0 sub mul MqX1 MqX0 sub div round cvi 1 fc-max def
+    /MpRow MpNx string def /MpPj 0 def
+    /MpLo 1e9 def /MpHi -1e9 def
+    /MpDd MqX1 MqX0 sub MpNx div 0.5 mul def     % the difference step, half a sample
+    gsave
+    MqX0 MqZ0 fc-map-plan-pt translate
+    MqX1 MqX0 sub MpS mul MqZ1 MqZ0 sub MpS mul scale
+    MpNx MpNz 8 [ MpNx 0 0 MpNz neg 0 MpNz ] {
+        /MpPz MqZ1 MpPj 0.5 add MpNz div MqZ1 MqZ0 sub mul sub def
+        0 1 MpNx 1 sub { /MpPi exch def
+            /MpPx MqX0 MpPi 0.5 add MpNx div MqX1 MqX0 sub mul add def
+            MpPx TerrOX sub MpPz TerrOZ sub MapPlanOct fc-height-proc /MpPh exch def
+            MpPh MpLo lt { /MpLo MpPh def } if MpPh MpHi gt { /MpHi MpPh def } if
+            MpPx MpDd add TerrOX sub MpPz TerrOZ sub MapPlanOct fc-height-proc MpPh sub
+            MpPx TerrOX sub MpPz MpDd add TerrOZ sub MapPlanOct fc-height-proc MpPh sub
+            add MpDd div neg 0.2 mul 0.5 add
+            MpPh TerrBase sub TerrTop TerrBase sub div 0.5 mul add
+            255 mul cvi dup 0 lt { pop 0 } if dup 255 gt { pop 255 } if
+            MpRow MpPi 3 -1 roll put
+        } for
+        /MpPj MpPj 1 add def MpRow
+    } image
+    grestore
+    % the features
+    0.8 setlinewidth 1 setlinecap 1 setlinejoin
+    MapFeatures { /MpF exch def
+        MpF 0 get /lake eq {
+            0.45 0.62 0.85 setrgbcolor
+            MpF 4 fc-map-plan-path closepath gsave fill grestore
+            0.25 0.40 0.70 setrgbcolor stroke
+        } if
+        MpF 0 get /valley eq {
+            0.30 0.50 0.85 setrgbcolor MpF 3 fc-map-plan-path stroke
+        } if
+        MpF 0 get dup /ridge eq exch /peak eq or {
+            1 0.92 0.55 setrgbcolor
+            MpF length 5 gt { MpF 3 fc-map-plan-path stroke } if
+            % a small triangle at every vertex
+            3 2 MpF length 1 sub { dup MpF exch get exch 1 add MpF exch get fc-map-plan-pt
+                /MpVy exch def /MpVx exch def
+                MpVx MpVy 2.4 add moveto MpVx 2.2 sub MpVy 1.4 sub lineto MpVx 2.2 add MpVy 1.4 sub lineto
+                closepath fill
+            } for
+        } if
+    } forall
+    (fc-map-plan: heights min ) print MpLo 20 string cvs print ( max ) print MpHi 20 string cvs print
+    ( over ) print [ MqX0 MqZ0 MqX1 MqZ1 ] { 9 string cvs print ( ) print } forall ( ) =
+} bind def
+
+% (label) x z yaw fc-map-plan-camera -    a red dot, the field of view, a label
+/fc-map-plan-camera {
+    /MpCy exch def fc-map-plan-pt /MpCpy exch def /MpCpx exch def
+    gsave
+    1 0.15 0.1 setrgbcolor 0.7 setlinewidth
+    MpCpx MpCpy 2.5 0 360 arc fill
+    [ HFov 2 div neg HFov 2 div ] {
+        MpCy add /MpCa exch def
+        MpCpx MpCpy moveto
+        MpCa sin MqX1 MqX0 sub 0.3 mul MpS mul mul MpCpx add
+        MpCa cos MqX1 MqX0 sub 0.3 mul MpS mul mul MpCpy add lineto stroke
+    } forall
+    /Helvetica findfont 7 scalefont setfont
+    MpCpx 4 add MpCpy 4 sub moveto show
+    grestore
+} bind def
+
+fc-map-bake

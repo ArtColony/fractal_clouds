@@ -43,6 +43,14 @@
 % TerrFn: 0 ridged only, 1 erosion fBm only, 3 the massif hierarchy
 /TerrFn 3 fc-default
 
+% Terrain from a map (fc_map.ps, loaded at the end of this file when MapOn
+% is true): a procedure fc-terrain-base, x z -> lift mask pin, takes the
+% place of the noise massif mask wherever it is defined. A piece can also
+% define its own after loading.
+/MapOn false fc-default
+/MapNoise 0 fc-default               % how much noise massif shows through, away from pinned ground
+/MapPin 1 fc-default                 % how fully pinned ground loses the domain warp
+
 % fc-height: the eroded map where fc_erode.ps has baked one (plus fine
 % procedural detail), the procedural terrain elsewhere
 /ErBaked where { pop } { /ErBaked false def /ErBaking false def } ifelse  % fc_erode.ps defines ErDelta
@@ -70,7 +78,8 @@
 
 /fc-height-proc {                                % x z oct -> h
     /Ho exch def
-    TerrOZ add TerrScale mul exch TerrOX add TerrScale mul exch /Hz2 exch def /Hx2 exch def
+    TerrOZ add /Hmz exch def TerrOX add /Hmx exch def      % terrain (map) coordinates
+    /Hz2 Hmz TerrScale mul def /Hx2 Hmx TerrScale mul def  % in ridge wavelengths
     TerrFn 0 eq {
         Hx2 Hz2 Ho fc-ridged
         dup 1.35 exp exch 0.15 mul add
@@ -79,24 +88,50 @@
         Hx2 Hz2 Ho fc-eroded 0.25 sub 0.55 div
         dup 0 lt { pop 0 } if 1.5 exp 1.1 mul
     } {
+    /fc-terrain-base where {
+        pop
+        % the map says where the mountains are: its lift, massif mask and how
+        % firmly it pins the ground; the warp fades out on pinned ground, so
+        % the ridges there keep to the noise's own network
+        Hmx Hmz fc-terrain-base /Hpin exch def /Hmk exch def /Hlift exch def
+        /Hwa WarpAmp 2 mul 1 Hpin MapPin mul sub mul def
+        /Hwx Hx2 0.5 mul 11.3 add Hz2 0.5 mul 2.1 add fc-noise2 0.5 sub Hwa mul Hx2 add def
+        /Hwz Hx2 0.5 mul 4.7 add Hz2 0.5 mul 17.9 add fc-noise2 0.5 sub Hwa mul Hz2 add def
+        MapNoise 0 gt {
+            fc-terrain-massif MapNoise mul 1 Hpin sub mul Hmk 2 copy lt { exch } if pop /Hmk exch def
+        } if
+        Hmk fc-terrain-relief Hlift TerrH div add
+    } {
         % warp the domain with two smooth noises, so ridges wander
         /Hwx Hx2 0.5 mul 11.3 add Hz2 0.5 mul 2.1 add fc-noise2 0.5 sub WarpAmp 2 mul mul Hx2 add def
         /Hwz Hx2 0.5 mul 4.7 add Hz2 0.5 mul 17.9 add fc-noise2 0.5 sub WarpAmp 2 mul mul Hz2 add def
-        % massif: two smooth octaves, pushed toward 0 (valleys) or 1 (ranges)
-        Hwx MassifScale mul 31.1 add Hwz MassifScale mul 8.3 add fc-noise2 0.65 mul
-        Hwx MassifScale mul 2 mul 5.9 add Hwz MassifScale mul 2 mul 23.7 add fc-noise2 0.35 mul add
-        MassifLo sub MassifHi MassifLo sub div dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if
-        dup dup mul exch 2 mul 3 exch sub mul /Hm exch def
-        % ridges, capped at 5 octaves so peaks don't sprout needles
-        Hwx Hwz Ho 5 2 copy gt { exch } if pop fc-ridged 1.15 exp /Hrd exch def
-        % gullies and texture: erosion fBm on the remaining octaves
-        Ho 2 gt {
-            Hwx 2.6 mul 1.9 add Hwz 2.6 mul 6.1 add Ho 1.5 sub fc-eroded 0.5 sub DetailAmp mul
-        } { 0 } ifelse
-        Hm 0.6 mul 0.4 add mul
-        Hm Hrd 0.92 mul 0.18 add mul 0.06 add add
+        fc-terrain-massif fc-terrain-relief
+    } ifelse
     } ifelse } ifelse
     TerrH mul TerrBase add
+} bind def
+
+% massif: two smooth octaves at the warped point (Hwx Hwz), pushed toward 0
+% (valleys) or 1 (ranges)
+/fc-terrain-massif {                             % -> m
+    Hwx MassifScale mul 31.1 add Hwz MassifScale mul 8.3 add fc-noise2 0.65 mul
+    Hwx MassifScale mul 2 mul 5.9 add Hwz MassifScale mul 2 mul 23.7 add fc-noise2 0.35 mul add
+    MassifLo sub MassifHi MassifLo sub div dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if
+    dup dup mul exch 2 mul 3 exch sub mul
+} bind def
+
+% the ridges and gullies at (Hwx Hwz) under massif mask m, as a fraction of
+% TerrH: m (0.92 ridges + 0.18) + 0.06, plus the detail
+/fc-terrain-relief {                             % m -> h / TerrH
+    /Hm exch def
+    % ridges, capped at 5 octaves so peaks don't sprout needles
+    Hwx Hwz Ho 5 2 copy gt { exch } if pop fc-ridged 1.15 exp /Hrd exch def
+    % gullies and texture: erosion fBm on the remaining octaves
+    Ho 2 gt {
+        Hwx 2.6 mul 1.9 add Hwz 2.6 mul 6.1 add Ho 1.5 sub fc-eroded 0.5 sub DetailAmp mul
+    } { 0 } ifelse
+    Hm 0.6 mul 0.4 add mul
+    Hm Hrd 0.92 mul 0.18 add mul 0.06 add add
 } bind def
 
 /fc-terrain-oct {                                % t -> oct (real; fades the last in)
@@ -270,3 +305,6 @@
     /Mt exch def /Mb exch def /Ma exch def
     [ 0 1 2 { /Mi exch def Ma Mi get Mb Mi get Ma Mi get sub Mt mul add } for ]
 } bind def
+
+% terrain from a map: the hook, the painted grid and the feature list
+MapOn { (lib/fc_map.ps) run } if

@@ -1,0 +1,126 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+%%Title: Charted range
+% Status: draft
+% fractal_clouds#13: a range laid out on a map (lib/fc_map.ps) and filled in
+% by the fractals: a main ridge with two peaks, a spur, a river valley down
+% to a lake, and lower hills on either side. One geography, three outputs:
+%   -D View=1   from the lake's south shore, looking north at the twins (default)
+%   -D View=2   from the eastern hills, looking across the valley
+%   -D Plan=true the map from above, with both cameras marked
+% Preview: DPI=36 scripts/render.sh gallery/charted_range.ps.
+
+/View where { pop } { /View 1 def } ifelse
+/Plan where { pop } { /Plan false def } ifelse
+/Seed where { pop } { /Seed 7 def } ifelse
+/AA where { pop } { /AA true def } ifelse
+
+% --- the map (coordinates are the terrain's: x east, z north) ----------------
+/MapOn where { pop } { /MapOn true def } ifelse
+/MapRect where { pop } { /MapRect [ -800 -800 800 800 ] def } ifelse
+/MapBackground where { pop } { /MapBackground [ 5 0.04 ] def } ifelse   % the plain: 5 units above the base floor
+/MapNoise where { pop } { /MapNoise 0.25 def } ifelse               % low noise hills between the features
+/MapPlanRect where { pop } { /MapPlanRect [ -800 -560 800 440 ] def } ifelse  % the plan fills the page
+/MapPlanN where { pop } { /MapPlanN 320 def } ifelse
+/MapFeatures where { pop } { /MapFeatures [
+    [ /ridge  40 150  -600 220  -330 230  -170 180  0 150  190 185  360 230  620 200 ]  % the main ridge
+    [ /peak   56 130  -170 180 ]                                      % West Twin
+    [ /peak   52 120   190 185 ]                                      % East Twin
+    [ /ridge  24  90   -90 120  -170 20  -230 -80 ]                   % a spur toward the lake
+    [ /valley  3  50    60 120    90 60   50 0   20 -40 ]             % the river, col to lake
+    [ /lake  -0.5 4 50  -150 -40  -30 -15  110 -30  180 -100  140 -190  0 -215  -130 -185  -190 -110 ]
+    [ /ridge  24 140   400 20   560 -170  650 -400 ]                  % eastern hills
+    [ /ridge  30 150  -500 40  -620 -150  -680 -450 ]                 % western hills
+] def } ifelse
+
+% --- the viewpoints: x z yaw, in map coordinates -----------------------------
+/Views [ [ 0 -250 0 ] [ 430 0 -72 ] ] def
+View 2 eq {
+    /TerrOX where { pop } { /TerrOX 430 def /TerrOZ 0 def } ifelse
+    /Yaw where { pop } { /Yaw -72 def } ifelse
+    /Pitch where { pop } { /Pitch 2 def } ifelse
+    /CamLift where { pop } { /CamLift 0.55 def } ifelse
+    /TMax where { pop } { /TMax 1200 def } ifelse
+} {
+    /TerrOX where { pop } { /TerrOX 0 def /TerrOZ -250 def } ifelse
+    /Yaw where { pop } { /Yaw 0 def } ifelse
+    /Pitch where { pop } { /Pitch 5 def } ifelse
+    /CamAbove where { pop } { /CamAbove 7 def } ifelse
+} ifelse
+/HFov where { pop } { /HFov 60 def } ifelse
+Plan { /Erode where { pop } { /Erode false def } ifelse } if   % the plan is the procedural terrain
+
+% --- light and air (world-fixed, so both views share them) --------------------
+/SunDir where { pop } { /SunDir [ 0.60 0.45 0.30 ] def } ifelse   % morning, from the east
+/CloudLo where { pop } { /CloudLo 60 def /CloudHi 88 def } ifelse
+/CoverAmp where { pop } { /CoverAmp 0.45 def } ifelse
+/Threshold where { pop } { /Threshold 0.57 def } ifelse
+/HazeDist where { pop } { /HazeDist 900 def } ifelse
+/SnowLine where { pop } { /SnowLine 27 def } ifelse
+% the lake: its surface at the level the map gave it
+/WaterY where { pop } { /WaterY -0.5 def } ifelse
+/Water where { pop } { /Water [ 0.10 0.15 0.16 ] def } ifelse    % sRGB, seen straight down
+
+(lib/fc_landscape.ps) run
+
+% no trees on ground the lake covers, or on its very edge
+TreesOn {
+    /fc-dry-dens /fc-forest-dens load def
+    /fc-forest-dens {                            % x z h ny curv -> density height-scale
+        2 index /WkH exch def
+        fc-dry-dens exch WkH WaterY 0.3 add sub 0.8 div 0 fc-max 1 fc-min mul exch
+    } bind def
+} if
+fc-landscape-setup
+/Water [ Water { 2.2 exp } forall ] def
+
+% --- water (the hooks of gallery/evening_lake.ps) -----------------------------
+% A plane at WaterY. Its reflection is the same scene seen from the camera
+% mirrored through the plane, along the mirrored ray: march that from the
+% water point onwards (MarchT0) with the default hit and surface.
+/fc-dry-hit /fc-landscape-hit load def
+/fc-dry-surface /fc-landscape-surface load def
+
+/fc-landscape-hit {                              % -> t | -1
+    fc-dry-hit /WkT exch def /WkWet false def
+    My 0 lt {
+        WaterY CamY sub My div /WkW exch def
+        WkT 0 lt WkW WkT lt or WkW TMax le and { /WkWet true def /WkT WkW def } if
+    } if
+    WkT
+} bind def
+
+/fc-landscape-surface {                          % t -> r g b
+    WkWet not { fc-dry-surface } {
+        /WkW exch def
+        /WkMx Mx def /WkMy My def /WkMz Mz def /WkCam CamY def
+        % ripples: tilt the mirror a little, less where they'd be under a pixel
+        Mx WkW mul 0.7 mul Mz WkW mul 1.9 mul fc-noise2 0.5 sub
+        WkW PixAng mul 0.35 exch div 1 fc-min 0.03 mul mul /WkRip exch def
+        /CamY WaterY 2 mul CamY sub def /My My neg def
+        /Mx Mx WkRip add def
+        /WkT0 MarchT0 def /MarchT0 WkW def
+        fc-dry-hit /WkT exch def
+        /MarchT0 WkT0 def
+        WkT 0 gt {
+            WkT fc-dry-surface
+            % haze from the water to what it reflects
+            /CamY WaterY def WkT WkW sub fc-haze /CamY WaterY 2 mul WkCam sub def
+        } { /WkT TMax def Mx My Mz fc-landscape-sky } ifelse
+        /WkB exch def /WkG exch def /WkR exch def
+        WkT fc-clouds
+        % Fresnel (Schlick): the lake mirrors more at grazing angles
+        1 WkMy neg sub 5 exp 0.98 mul 0.02 add /WkF exch def
+        /Mx WkMx def /My WkMy def /Mz WkMz def /CamY WkCam def
+        Cr WkR Tr mul add WkF mul  Water 0 get SkyAmb 0 get mul 0.5 mul 1 WkF sub mul add
+        Cg WkG Tr mul add WkF mul  Water 1 get SkyAmb 1 get mul 0.5 mul 1 WkF sub mul add
+        Cb WkB Tr mul add WkF mul  Water 2 get SkyAmb 2 get mul 0.5 mul 1 WkF sub mul add
+    } ifelse
+} bind def
+
+Plan {
+    320 200 fc-map-plan
+    (1) Views 0 get aload pop fc-map-plan-camera
+    (2) Views 1 get aload pop fc-map-plan-camera
+} { 320 200 fc-landscape } ifelse
+showpage

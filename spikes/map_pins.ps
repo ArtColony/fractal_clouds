@@ -1,0 +1,31 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+% Where the pinned peaks of a map piece actually stand (fractal_clouds#13).
+% Runs a piece's plan (default gallery/charted_range.ps), then for every
+% /peak in MapFeatures finds the highest ground within twice its spread
+% (5-unit steps, procedural terrain at 6 octaves) and prints how far that
+% summit is from where the map put it, and its height against the one asked.
+%   scripts/render.sh -D "Piece=(gallery/charted_range.ps)" spikes/map_pins.ps
+/Piece where { pop } { /Piece (gallery/charted_range.ps) def } ifelse
+/Plan true def
+/Erode false def
+Piece run
+MapFeatures { /PnF exch def
+    PnF 0 get /peak eq {
+        /PnX PnF 3 get def /PnZ PnF 4 get def /PnR PnF 2 get 2 mul def
+        /PnBest -1e9 def
+        PnR neg 5 PnR { /PnDz exch def
+            PnR neg 5 PnR { /PnDx exch def
+                PnDx dup mul PnDz dup mul add PnR dup mul le {
+                    PnX PnDx add TerrOX sub PnZ PnDz add TerrOZ sub 6 fc-height-proc
+                    dup PnBest gt { /PnBest exch def /PnBx PnDx def /PnBz PnDz def } { pop } ifelse
+                } if
+            } for
+        } for
+        (peak at ) print PnX 9 string cvs print ( ) print PnZ 9 string cvs print
+        ( asked ) print PnF 1 get 9 string cvs print
+        ( : summit ) print PnBest 100 mul round 100 div 12 string cvs print
+        ( at offset ) print PnBx 9 string cvs print ( ) print PnBz 9 string cvs print
+        ( distance ) print PnBx dup mul PnBz dup mul add sqrt round 9 string cvs print () =
+    } if
+} forall
