@@ -19,7 +19,16 @@
 %
 % The covered area is a square ErSize units wide centred ErDist units in
 % front of the camera, along the view's yaw. Its outer 6% blends back into
-% the procedural terrain, so there's no seam at the edge.
+% the procedural terrain, so there's no seam at the edge, or into the far
+% map when ErFar is on (#30). With ErThermal > 0, thermal passes (scree
+% sliding off ground steeper than ErTalus) alternate with the droplets.
+%
+% The bake's inputs are the settings above, the terrain's (fc_terrain.ps,
+% MapSea), Yaw, and the random stream as fc_landscape seeds it (Seed + 202;
+% the far map seeds its own from Seed + 404). Its outputs are ErMap, ErN,
+% ErX0, ErZ0, ErTex (the main map and where it lies), ErFlow (with Rivers
+% or ErFlowOn) and ErFarD (a dictionary with the far map's ErMap, ErN, ErX0,
+% ErZ0, ErTex), which is what a cache of the bake (#18) has to keep.
 
 /ErN 512 fc-default                  % map resolution
 /ErSize 1150 fc-default              % world units covered
@@ -38,15 +47,42 @@
 /FineAmp 0.07 fc-default            % fine procedural detail added on top (replace mode)
 /FineScale 7 fc-default              % its frequency, in ridge frequencies
 /ErFlowOn false fc-default           % record the flow per texel in ErFlow (#28; fc_landscape's Rivers does too)
+% thermal erosion (#30): off by default
+/ErThermal 0 fc-default              % thermal passes after each round of droplets (0: none)
+/ErRounds 4 fc-default               % rounds of droplets the passes alternate with
+/ErTalus 33 fc-default               % angle of repose, degrees: steeper ground sheds material
+/ErThermalRate 0.5 fc-default        % share of the excess moved per pass
+/ErWeather 0.03 fc-default           % share of the excess weathered from rock into scree per pass
+% a coarser second map for the far distance (#30): off by default
+/ErFar false fc-default
+/ErFarN 384 fc-default
+/ErFarSize 2600 fc-default
+/ErFarDist 1100 fc-default
+/ErFarDrops 40000 fc-default
 
 /fc-erode-bake {
     /EbT0 usertime def
+    /fc-erode-lookup /fc-erode-lookup1 load def      % a rebake without ErFar drops the far map
     /ErX0 Yaw sin ErDist mul ErSize 2 div sub def
     /ErZ0 Yaw cos ErDist mul ErSize 2 div sub def
+    /ErBaking true def
+    fc-erode-grow
+    % 2b. flow, for rivers: trace water over the finished map
+    /Rivers where { pop Rivers } { false } ifelse ErFlowOn or { fc-erode-flow } if
+    fc-erode-keep-delta
+    /ErBaking false def
+    /ErBaked true def
+    (fc-erode: ) print ErN 9 string cvs print (^2 map, sample ms ) print EbT1 EbT0 sub 9 string cvs print
+    ( erode ms ) print usertime EbT1 sub =
+    ErFar { fc-erode-far-bake } if
+} bind def
+
+% Steps 1 and 2 over the map that ErX0, ErZ0, ErSize, ErN and ErDrops
+% describe (fc-erode-far-bake runs them again inside ErFarD)
+/fc-erode-grow {
     /ErTex ErSize ErN 1 sub div def              % world units per texel
     /ErMap ErN ErN mul array def
     % 1. sample the procedural terrain (the massif and ridges, no fine detail)
-    /ErBaking true def
     0 1 ErN 1 sub { /Eby exch def
         0 1 ErN 1 sub { /Ebx exch def
             ErMap Eby ErN mul Ebx add
@@ -57,77 +93,191 @@
     } for
     /EbT1 usertime def
     ErDelta { /ErOrig ErMap length array def ErOrig 0 ErMap putinterval } if
-    % 2. droplets
+    % 2. droplets, in ErRounds rounds with ErThermal thermal passes after
+    % each when thermal erosion is on (the droplets draw the same numbers
+    % either way)
     /ErSeaN /MapSea where { pop MapSea } { null } ifelse dup null eq { pop -1e30 } { TerrBase sub TerrH div } ifelse def
     /ErLim ErN 2 sub def
-    ErDrops {
-        /Epx fc-rnd ErLim mul def /Epy fc-rnd ErLim mul def
-        /Edx 0 def /Edy 0 def /Espd 1 def /Ewat 1 def /Esed 0 def
-        ErSteps {
-            /Eix Epx cvi def /Eiy Epy cvi def
-            /Efx Epx Eix sub def /Efy Epy Eiy sub def
-            /Ei Eiy ErN mul Eix add def
-            /Eh00 ErMap Ei get def /Eh10 ErMap Ei 1 add get def
-            /Eh01 ErMap Ei ErN add get def /Eh11 ErMap Ei ErN add 1 add get def
-            /Egx Eh10 Eh00 sub 1 Efy sub mul Eh11 Eh01 sub Efy mul add def
-            /Egy Eh01 Eh00 sub 1 Efx sub mul Eh11 Eh10 sub Efx mul add def
-            /Eh Eh00 1 Efx sub mul Eh10 Efx mul add 1 Efy sub mul
-                Eh01 1 Efx sub mul Eh11 Efx mul add Efy mul add def
-            Eh ErSeaN lt { exit } if             % into the sea (#39): its load is lost there
-            % new direction: inertia against the downhill gradient
-            /Edx Edx ErInertia mul Egx 1 ErInertia sub mul sub def
-            /Edy Edy ErInertia mul Egy 1 ErInertia sub mul sub def
-            /Elen Edx Edx mul Edy Edy mul add sqrt def
-            Elen 0.000001 lt { exit } if
-            /Edx Edx Elen div def /Edy Edy Elen div def
-            /Epx Epx Edx add def /Epy Epy Edy add def
-            Epx 0 lt Epx ErLim gt or Epy 0 lt or Epy ErLim gt or { exit } if
-            % height at the new position
-            /Enx Epx cvi def /Eny Epy cvi def
-            /Enfx Epx Enx sub def /Enfy Epy Eny sub def
-            /Enj Eny ErN mul Enx add def
-            ErMap Enj get 1 Enfx sub mul ErMap Enj 1 add get Enfx mul add 1 Enfy sub mul
-            ErMap Enj ErN add get 1 Enfx sub mul ErMap Enj ErN add 1 add get Enfx mul add Enfy mul add
-            Eh sub /Edh exch def
-            /Ecap Edh neg Espd mul Ewat mul ErCapacity mul ErMinCap fc-max def
-            Esed Ecap gt Edh 0 gt or {
-                % deposit: fill the pit it climbed out of, or drop the excess
-                Edh 0 gt { Edh Esed 2 copy gt { exch } if pop } { Esed Ecap sub ErDeposit mul } ifelse
-                /Eamt exch def
-                /Esed Esed Eamt sub def
-            } {
-                % erode, but never dig deeper than the drop just made
-                Ecap Esed sub ErErode mul Edh neg 2 copy gt { exch } if pop
-                neg /Eamt exch def
-                /Esed Esed Eamt sub def
-            } ifelse
-            % spread +amount (deposit) or -amount (erosion) over the 4 corners
-            ErMap Ei 2 copy get Eamt 1 Efx sub mul 1 Efy sub mul add put
-            ErMap Ei 1 add 2 copy get Eamt Efx mul 1 Efy sub mul add put
-            ErMap Ei ErN add 2 copy get Eamt 1 Efx sub mul Efy mul add put
-            ErMap Ei ErN add 1 add 2 copy get Eamt Efx mul Efy mul add put
-            /Espd Espd dup mul Edh ErGravity mul sub dup 0 lt { pop 0 } if sqrt def
-            /Ewat Ewat 1 ErEvap sub mul def
-        } repeat
+    /EtRev true def
+    /EbR ErThermal 0 gt { ErRounds } { 1 } ifelse def
+    /EdL ErThermal 0 gt def
+    EdL { /ErLoose ErN ErN mul array def 0 1 ErN ErN mul 1 sub { ErLoose exch 0 put } for } if
+    1 1 EbR { /Ebk exch def
+        ErDrops Ebk mul EbR idiv  ErDrops Ebk 1 sub mul EbR idiv sub
+        { fc-erode-drop } repeat
+        ErThermal 0 gt { ErThermal fc-erode-thermal } if
+    } for
+    /ErLoose null def
+} bind def
+
+/fc-erode-drop {                                 % one droplet
+    /Epx fc-rnd ErLim mul def /Epy fc-rnd ErLim mul def
+    /Edx 0 def /Edy 0 def /Espd 1 def /Ewat 1 def /Esed 0 def
+    ErSteps {
+        /Eix Epx cvi def /Eiy Epy cvi def
+        /Efx Epx Eix sub def /Efy Epy Eiy sub def
+        /Ei Eiy ErN mul Eix add def
+        /Eh00 ErMap Ei get def /Eh10 ErMap Ei 1 add get def
+        /Eh01 ErMap Ei ErN add get def /Eh11 ErMap Ei ErN add 1 add get def
+        /Egx Eh10 Eh00 sub 1 Efy sub mul Eh11 Eh01 sub Efy mul add def
+        /Egy Eh01 Eh00 sub 1 Efx sub mul Eh11 Eh10 sub Efx mul add def
+        /Eh Eh00 1 Efx sub mul Eh10 Efx mul add 1 Efy sub mul
+            Eh01 1 Efx sub mul Eh11 Efx mul add Efy mul add def
+        Eh ErSeaN lt { exit } if             % into the sea (#39): its load is lost there
+        % new direction: inertia against the downhill gradient
+        /Edx Edx ErInertia mul Egx 1 ErInertia sub mul sub def
+        /Edy Edy ErInertia mul Egy 1 ErInertia sub mul sub def
+        /Elen Edx Edx mul Edy Edy mul add sqrt def
+        Elen 0.000001 lt { exit } if
+        /Edx Edx Elen div def /Edy Edy Elen div def
+        /Epx Epx Edx add def /Epy Epy Edy add def
+        Epx 0 lt Epx ErLim gt or Epy 0 lt or Epy ErLim gt or { exit } if
+        % height at the new position
+        /Enx Epx cvi def /Eny Epy cvi def
+        /Enfx Epx Enx sub def /Enfy Epy Eny sub def
+        /Enj Eny ErN mul Enx add def
+        ErMap Enj get 1 Enfx sub mul ErMap Enj 1 add get Enfx mul add 1 Enfy sub mul
+        ErMap Enj ErN add get 1 Enfx sub mul ErMap Enj ErN add 1 add get Enfx mul add Enfy mul add
+        Eh sub /Edh exch def
+        /Ecap Edh neg Espd mul Ewat mul ErCapacity mul ErMinCap fc-max def
+        Esed Ecap gt Edh 0 gt or {
+            % deposit: fill the pit it climbed out of, or drop the excess
+            Edh 0 gt { Edh Esed 2 copy gt { exch } if pop } { Esed Ecap sub ErDeposit mul } ifelse
+            /Eamt exch def
+            /Esed Esed Eamt sub def
+        } {
+            % erode, but never dig deeper than the drop just made
+            Ecap Esed sub ErErode mul Edh neg 2 copy gt { exch } if pop
+            neg /Eamt exch def
+            /Esed Esed Eamt sub def
+        } ifelse
+        % spread +amount (deposit) or -amount (erosion) over the 4 corners
+        ErMap Ei 2 copy get Eamt 1 Efx sub mul 1 Efy sub mul add put
+        ErMap Ei 1 add 2 copy get Eamt Efx mul 1 Efy sub mul add put
+        ErMap Ei ErN add 2 copy get Eamt 1 Efx sub mul Efy mul add put
+        ErMap Ei ErN add 1 add 2 copy get Eamt Efx mul Efy mul add put
+        EdL { fc-erode-scree } if            % with thermal: deposits are scree, erosion takes scree first
+        /Espd Espd dup mul Edh ErGravity mul sub dup 0 lt { pop 0 } if sqrt def
+        /Ewat Ewat 1 ErEvap sub mul def
     } repeat
-    % 2b. flow, for rivers: trace water over the finished map
-    /Rivers where { pop Rivers } { false } ifelse ErFlowOn or { fc-erode-flow } if
-    % 3. in delta mode, keep only what erosion changed: fc-height then adds
-    % this smooth correction to the full procedural terrain, which keeps
-    % its crisp detail
+} bind def
+
+% 3. in delta mode, keep only what erosion changed: fc-height then adds
+% this smooth correction to the full procedural terrain, which keeps its
+% crisp detail
+/fc-erode-keep-delta {
     ErDelta {
         0 1 ErN ErN mul 1 sub { /Ebi exch def
             ErMap Ebi  ErMap Ebi get ErOrig Ebi get sub  put
         } for
         /ErOrig null def
     } if
-    /ErBaking false def
-    /ErBaked true def
-    (fc-erode: ) print ErN 9 string cvs print (^2 map, sample ms ) print EbT1 EbT0 sub 9 string cvs print
-    ( erode ms ) print usertime EbT1 sub =
 } bind def
 
 /ErBaked false def /ErBaking false def
+
+% Thermal erosion (fractal_clouds#30), with two layers: rock and scree
+% (ErLoose, the loose depth per texel). Wherever ground is steeper than the
+% angle of repose ErTalus, each pass weathers ErWeather of the excess
+% from rock into scree in place, then moves scree, up to ErThermalRate of
+% half the excess, to the lower 4-way neighbours in proportion to how far
+% each lies below (the rule of Musgrave, Kolb and Mace 1989, limited to
+% what is loose). Rock slopes stay steep while weathering slowly feeds
+% scree, which runs down and piles up below the cliffs as talus at the
+% angle of repose; with all ground loose (ErWeather large) it is the plain
+% rule, which flattens every steep slope. Passes alternate their scan
+% direction so material doesn't creep one way. Draws no random numbers.
+/fc-erode-scree {                                % the droplet's change, into the scree depth
+    ErLoose Ei 2 copy get Eamt 1 Efx sub mul 1 Efy sub mul add 0 fc-max put
+    ErLoose Ei 1 add 2 copy get Eamt Efx mul 1 Efy sub mul add 0 fc-max put
+    ErLoose Ei ErN add 2 copy get Eamt 1 Efx sub mul Efy mul add 0 fc-max put
+    ErLoose Ei ErN add 1 add 2 copy get Eamt Efx mul Efy mul add 0 fc-max put
+} bind def
+
+/fc-erode-thermal {                              % passes -> -
+    /EtT ErTalus sin ErTalus cos div ErTex mul TerrH div def   % normalised height step at the talus angle
+    /EtC ErThermalRate 0.5 mul def               % half the excess levels a pair
+    {
+        /EtRev EtRev not def
+        EtRev { ErN 2 sub -1 1 } { 1 1 ErN 2 sub } ifelse /EtB exch def /EtS exch def /EtA exch def
+        EtA EtS EtB { ErN mul /Etr exch def
+            EtA EtS EtB { Etr add /Eti exch def
+                /Eth ErMap Eti get def
+                /Ed0 Eth ErMap Eti 1 sub get sub def
+                /Ed1 Eth ErMap Eti 1 add get sub def
+                /Ed2 Eth ErMap Eti ErN sub get sub def
+                /Ed3 Eth ErMap Eti ErN add get sub def
+                Ed0 Ed1 2 copy lt { exch } if pop
+                Ed2 2 copy lt { exch } if pop
+                Ed3 2 copy lt { exch } if pop
+                EtT sub dup 0 gt {
+                    % weather some rock into scree, then move up to the
+                    % excess's share of the scree there
+                    /Ete exch def
+                    ErLoose Eti get Ete ErWeather mul add
+                    Ete EtC mul 2 copy gt { exch } if pop /Etm exch def    % amount leaving this texel
+                    ErLoose Eti 2 copy get Ete ErWeather mul add Etm sub put
+                    /Ets 0 def
+                    Ed0 EtT gt { /Ets Ets Ed0 add def } if
+                    Ed1 EtT gt { /Ets Ets Ed1 add def } if
+                    Ed2 EtT gt { /Ets Ets Ed2 add def } if
+                    Ed3 EtT gt { /Ets Ets Ed3 add def } if
+                    /Etq Etm Ets div def
+                    ErMap Eti Eth Etm sub put
+                    Ed0 EtT gt { /Etj Eti 1 sub def /Etv Ed0 Etq mul def
+                        ErMap Etj 2 copy get Etv add put ErLoose Etj 2 copy get Etv add put } if
+                    Ed1 EtT gt { /Etj Eti 1 add def /Etv Ed1 Etq mul def
+                        ErMap Etj 2 copy get Etv add put ErLoose Etj 2 copy get Etv add put } if
+                    Ed2 EtT gt { /Etj Eti ErN sub def /Etv Ed2 Etq mul def
+                        ErMap Etj 2 copy get Etv add put ErLoose Etj 2 copy get Etv add put } if
+                    Ed3 EtT gt { /Etj Eti ErN add def /Etv Ed3 Etq mul def
+                        ErMap Etj 2 copy get Etv add put ErLoose Etj 2 copy get Etv add put } if
+                } { pop } ifelse
+            } for
+        } for
+    } repeat
+} bind def
+
+% The far map (fractal_clouds#30): after the main bake, the same sampling,
+% droplets and thermal passes over a coarser ErFarN map, ErFarSize units
+% wide and centred ErFarDist ahead, kept in its own dictionary ErFarD so
+% the main map's names (and fc_water's use of them) stay untouched. It
+% draws its droplets from the random stream and then puts the stream back,
+% so the bakes after it see the same numbers as without it. Afterwards
+% fc-erode-lookup blends the main map into the far one over the main map's
+% edge, and the far one into the procedural terrain over its own.
+/fc-erode-far-bake {
+    /EbT0 usertime def
+    rrand /EfRs exch def                         % put back afterwards
+    /Seed where { pop Seed } { 0 } ifelse 404 add srand   % its own stream: it depends on its settings and Seed only
+    /ErFarD 64 dict def
+    ErFarD begin
+        /ErN ErFarN def /ErSize ErFarSize def /ErDrops ErFarDrops def
+        /ErX0 Yaw sin ErFarDist mul ErSize 2 div sub def
+        /ErZ0 Yaw cos ErFarDist mul ErSize 2 div sub def
+        fc-erode-grow
+        fc-erode-keep-delta
+    end
+    EfRs srand
+    /fc-erode-lookup /fc-erode-lookup2 load def
+    (fc-erode: far ) print ErFarN 9 string cvs print (^2 map, sample ms ) print
+    ErFarD /EbT1 get EbT0 sub 9 string cvs print
+    ( erode ms ) print usertime ErFarD /EbT1 get sub =
+} bind def
+
+% x z -> hn weight over both maps: the main one, then the far one where the
+% main one's weight falls short
+/fc-erode-lookup2 {
+    /Ecz exch def /Ecx exch def
+    Ecx Ecz fc-erode-lookup1 /Ecw exch def /Ech exch def
+    Ecw 1 lt {
+        Ecx Ecz ErFarD begin fc-erode-lookup1 end
+        1 Ecw sub mul /Ecv exch def /Ecf exch def
+        Ecw Ecv add dup 0 gt {
+            dup Ech Ecw mul Ecf Ecv mul add exch div exch
+        } { pop 0 0 } ifelse
+    } { Ech Ecw } ifelse
+} bind def
 
 % Flow (fractal_clouds#28): ErFlow holds, per texel, how many texels drain
 % through it (its catchment), over the finished map. A priority flood
@@ -242,6 +392,7 @@
         fc-min ErN 0.06 mul div dup 1 gt { pop 1 } if
     } ifelse
 } bind def
+/fc-erode-lookup1 /fc-erode-lookup load def      % one map; fc-erode-far-bake swaps in fc-erode-lookup2
 
 % t -> w0 w1 w2 w3, Catmull-Rom weights for fraction t: the curve passes
 % through the texel values (a B-spline smooths over ~2 texels and rounds

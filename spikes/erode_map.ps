@@ -1,0 +1,36 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 300 300
+% Top-down hillshade of the eroded terrain (fractal_clouds#30 diagnostics):
+% the window X0..X1 across, Z0..Z0+(X1-X0) up the page, sampled N x N with
+% fc-height at Oct octaves. Use it to see talus (ErThermal) and the far
+% map's drainage (ErFar) without a full render. Settings as in a piece,
+% Delta true draws the change erosion made, dark where it cut and light
+% where it filled, which shows the drainage at any scale. E.g. pscat -D ErThermal=5 -D X0=-150 -D X1=150 -D Z0=300 spikes/erode_map.ps
+/Seed where { pop } { /Seed 5 def } ifelse
+/Yaw where { pop } { /Yaw 10 def } ifelse
+/X0 where { pop } { /X0 -600 def } ifelse
+/X1 where { pop } { /X1 600 def } ifelse
+/Z0 where { pop } { /Z0 -200 def } ifelse
+/N where { pop } { /N 300 def } ifelse
+/Oct where { pop } { /Oct 5 def } ifelse
+/Delta where { pop } { /Delta false def } ifelse   % true: draw erosion's change (dark cut, light fill) instead
+(lib/fc_landscape.ps) run
+fc-landscape-setup
+/W X1 X0 sub def /Px W N div def
+/Row N string def /J 0 def
+gsave 300 300 scale
+N N 8 [N 0 0 N neg 0 N] {
+  /zz Z0 W add J 0.5 add Px mul sub def
+  0 1 N 1 sub { /I exch def
+    /xx I 0.5 add Px mul X0 add def
+    xx zz Oct fc-height /hc exch def
+    Delta { hc xx zz Oct fc-height-proc sub TerrH div 6 mul 0.5 add } {
+    % hillshade from the north-west, mixed with height
+    xx Px 0.5 mul add zz Oct fc-height hc sub  xx zz Px 0.5 mul add Oct fc-height hc sub
+    add neg Px 0.5 mul div 0.35 mul 0.5 add
+    hc TerrBase sub TerrTop TerrBase sub div 0.3 mul add } ifelse
+    255 mul cvi 0 fc-max 255 2 copy gt { exch } if pop
+    Row I 3 -1 roll put } for
+  /J J 1 add def Row } image
+grestore
+showpage
