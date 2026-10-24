@@ -103,7 +103,10 @@ The presets are `/Cumulus` (the gallery pieces' layer: 60–88, `Threshold`
 `/Nimbostratus`, and `/Default`, which is the single layer the `Cloud*`
 settings describe (so `[/Default /Cirrus]` keeps a piece's clouds and adds
 cirrus above them). A dict without `/Type` starts from `/Default`. A
-misspelt preset or key stops the job with an `undefined` error naming it.
+misspelt preset or key stops the job with an `undefined` error naming it,
+and so does a layer with `Hi` not above `Lo` or with `Steps`, `DensOct` or
+`ShadOct` below 1. The list is compiled the first time a ray needs it: a
+piece that changes `CloudLayers` after that calls `fc-clouds-compile`.
 Layers should not overlap in height: each is marched through its own band,
 and a ray's bands are taken in height order. The sun probes of a layer see
 only that layer, so a layer isn't shaded by another above it.
@@ -117,7 +120,7 @@ only that layer, so a layer isn't shaded by another above it.
 | `Scale` | 0.045 | 1 / billow size, like `NoiseScale`. |
 | `Stretch` | [1 1.6 1] | Multiplies the noise coordinates along the wind, up, and across the wind. Below 1 stretches: cirrus uses 0.1 along the wind. |
 | `Wind` | 0 | Degrees from +x (0 is across the default view, 90 is away from the camera): the direction streaks run. |
-| `Shear` | 0 | Streaks lean this far along the wind per unit of height above the base (cirrus fall streaks). |
+| `Shear` | 0 | Streaks lean with height: the pattern at height `h` above the base is the base's pattern moved `Shear·h` back against `Wind`, so a positive shear trails the tops upwind (cirrus fall streaks). |
 | `Threshold` | 0.57 | Density cut-off, like `Threshold`. |
 | `CoverAmp`, `CoverScale` | 0.45, 0.0045 | The coverage map, like `CoverAmp` and `CoverScale`. |
 | `Gain` | 14 | Density per unit of noise above the threshold. Lower is softer and more translucent. |
@@ -127,7 +130,7 @@ only that layer, so a layer isn't shaded by another above it.
 | `AmbTop`, `AmbBot` | as the settings | Ambient at the top and bottom (sRGB). |
 | `Rain` | 0 | If above 0, rain shafts reach this far below the base: the cloud a quarter of the way up the band, in vertical columns that thin toward the ground. Extends the march. |
 | `RainDens` | 0.15 | Their density, as a fraction of the cloud's. |
-| `Shape` | null | A procedure `x y z → dd` added to the density before the gain: a positive value adds cloud, a negative one cuts it. For placed objects such as a cumulonimbus (#15). Costs a call per sample. |
+| `Shape` | null | A procedure `x y z → dd` added to the density before the gain: a positive value adds cloud, a negative one cuts it. Only called inside the band (`Lo < y < Hi`), so a placed object needs a band tall enough to hold it. For placed objects such as a cumulonimbus (#15). Costs a call per sample. |
 
 Each preset's own values are in `FcClPresets` in `lib/fc_clouds.ps`; the
 ones not listed there come from `/Cumulus`.

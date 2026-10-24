@@ -188,6 +188,12 @@
             ClNew ClKey [ ClNew ClKey get { 2.2 exp } forall ] put
         } ifelse
     } forall
+    % a band with no height, or nothing to march, would divide by zero later
+    ClNew /Hi get ClNew /Lo get le
+    ClNew /Steps get 1 lt or ClNew /DensOct get 1 lt or ClNew /ShadOct get 1 lt or {
+        (fc_clouds: a layer needs Hi above Lo, and Steps, DensOct and ShadOct of at least 1\n) print
+        CloudLayers-bad-layer                    % undefined: stops the job
+    } if
     ClNew
 } bind def
 
