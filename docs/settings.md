@@ -35,7 +35,9 @@ A **preset** is a named dictionary of settings; a **scene file** is the same
 kind of dictionary in a `.ps` of its own. Applying either sets each setting
 only if nothing has defined it yet, so the order of precedence is: `-D` on
 the command line, then the piece's own settings, then presets (earlier in
-the list first), then the library's defaults. Apply them **before**
+the list first), then the library's defaults. So a piece's settings must come
+**before** the `fc-presets` line to win: written after it, they are skipped
+like any setting made after loading. Apply the presets **before**
 `(lib/fc_landscape.ps) run`, for the same reason every setting is:
 
 ```postscript
@@ -60,14 +62,23 @@ A new preset is one entry (`FcPresets` is an ordinary dictionary in
 FcPresets /Dusk << /SunElev 2 /SunAzim 70 /Exposure 2.4 >> put
 ```
 
-A few settings override each other when both exist (a number in `SunElev`
-beats `SunDir`), so a preset skips `SunDir`, `SunElev` and `SunAzim` when
-the piece defined `SunDir` (a `SunElev` of null does not count) or the other way round (the same for the moon's
-three). Another case a preset cannot see is a piece that set `CloudLo`,
-`Threshold` and the like while using a preset that sets `CloudLayers`
-(`/Overcast`, `/Storm`): the layer list wins. Set `/CloudLayers null` in the
-piece to keep its single layer. A preset that sets `Zenith` or `Horizon`
-(`/Evening`) turns `SkyModel` off, like any piece that sets them.
+A few settings override each other when both exist: a number in `SunElev`
+beats `SunDir`, and `CloudLayers` beats `CloudLo` and `CloudHi`. So a preset
+skips `SunDir`, `SunElev` and `SunAzim` when the piece set `SunDir` (a null
+`SunElev` does not count), and the other way round; the same for the moon's
+three; and `CloudLayers` when the piece set `CloudLo` or `CloudHi`, and the
+other way round. The piece wins, as with every other setting. `Threshold` and
+`CoverAmp` are not rivals (a layer list reads its own values), so they are
+set either way. `/CloudLayers null` in the piece keeps its single layer. Don't put rivals in one dictionary
+(`SunDir` and `SunElev` in a scene): the order a dictionary is read in is
+not defined, so only one of them survives.
+
+`/Dawn`, `/Noon` and `/Night` set only the sun (and moon) and rely on the sky
+model for the colours, so they need `SkyModel` on: don't combine them with
+`/Evening` or a piece's `Zenith` or `Horizon` (the sun would move but the
+blend sky stays). A preset that sets `Zenith` or `Horizon` (`/Evening`)
+turns `SkyModel` off, like any piece that sets them. Settings are made with
+`def` in the current dictionary, so apply presets outside any `begin`/`end`.
 
 ### Scene files
 
@@ -117,7 +128,7 @@ time of day, weather, terrain, and (optionally) season.
 |---|---|---|
 | `/Alpine` | `TreesOn` true, `SnowLine` 25 | The library's range (`TerrH` 52) with a forest and snow above 33 on average |
 | `/Foothills` | `TreesOn` true, `TerrH` 28, `TerrScale` 0.014, `SnowLine` 80, `FsLine` 40 | Lower, busier hills, forested to the top, no snow |
-| `/Mesa` | `TerrH` 34, `TerrScale` 0.016, `DetailAmp` 0.10, `SnowLine` 100, `Rock`, `Rock2`, `Scree` (reds), `TreeLine` −1000 | Smoother ground in red strata, no snow, no forest. It does not flatten the summits: the terrain function has no plateau term yet |
+| `/Mesa` | `TerrH` 34, `TerrScale` 0.016, `DetailAmp` 0.10, `SnowLine` 100, `Rock`, `Rock2`, `Scree` (reds), `TreeLine` −1000 | Smoother ground in red strata, no snow, and no forest unless a piece sets `TreesOn` (the preset only turns the painted forest off). It does not flatten the summits: the terrain function has no plateau term yet |
 
 | Season | Sets | Look |
 |---|---|---|

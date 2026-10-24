@@ -24,9 +24,19 @@
 % A new preset is one entry:  FcPresets /Name << /Setting value ... >> put
 % (docs/settings.md lists the built-in ones and what they set.)
 %
+% A preset cannot beat what is already defined, so a piece's own settings
+% must come BEFORE the fc-presets line to win (written after it, they are
+% silently ignored by the libraries, as always).
+%
 % A few settings override one another when both are set (a non-null SunElev
-% beats SunDir), so a preset skips a setting whose rival is already defined:
-% see FcPrRival. Loading the file twice keeps the presets already added.
+% beats SunDir; CloudLayers beats CloudLo and CloudHi), so a preset skips a
+% setting whose rival is already set to something other than null: see
+% FcPrRival. Do not put rivals in one dictionary (SunDir with SunElev): the
+% order the keys are read in is not defined, so only one of them is kept.
+% Settings are made with def in the current dictionary, so call fc-presets
+% outside any begin/end. Loading the file twice keeps the presets already
+% added. Dawn, Noon and Night set only the sun (and moon): they want the sky
+% model, so don't combine them with Evening or any Zenith or Horizon.
 
 /FcPresets where { pop } {
 
@@ -78,6 +88,7 @@
 /FcPrRival <<
     /SunDir [ /SunElev ]  /SunElev [ /SunDir ]  /SunAzim [ /SunDir ]
     /MoonDir [ /MoonElev ]  /MoonElev [ /MoonDir ]  /MoonAzim [ /MoonDir ]
+    /CloudLayers [ /CloudLo /CloudHi ]  /CloudLo [ /CloudLayers ]  /CloudHi [ /CloudLayers ]
 >> def
 
 /FcPrFree {                          % /Name -> bool: it and its rivals are unset (a null rival counts as unset)

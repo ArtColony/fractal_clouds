@@ -17,13 +17,14 @@
 /TerrOX where { pop } { /TerrOX 180 def /TerrOZ 400 def } ifelse
 /CamAbove where { pop } { /CamAbove 5 def } ifelse
 
-% the light, the clouds and the range: time of day, weather, terrain
-(lib/fc_presets.ps) run
-[ /Evening /Clear /Alpine ] fc-presets
-
 % the lake: its surface this far above the ground under the camera
 /WaterRise where { pop } { /WaterRise 1.4 def } ifelse
 /WaterCol where { pop } { /WaterCol [ 0.10 0.15 0.16 ] def } ifelse    % sRGB, seen straight down
+
+% the light, the clouds and the range: time of day, weather, terrain
+% (after the piece's own settings, which presets never override)
+(lib/fc_presets.ps) run
+[ /Evening /Clear /Alpine ] fc-presets
 
 (lib/fc_landscape.ps) run
 320 200 fc-landscape

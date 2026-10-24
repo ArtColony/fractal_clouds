@@ -6,6 +6,7 @@
 % Resolution and crop come from the command line (DPI=, -D Crop=), so one
 % scene file serves every size without editing a piece.
 
+/Scene where { pop } { (scene.ps: pass the scene, e.g. -D "Scene=(scenes/evening_lake.ps)"\n) print quit } ifelse
 (lib/fc_presets.ps) run
 Scene run
 (lib/fc_landscape.ps) run
