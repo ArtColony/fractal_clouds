@@ -71,9 +71,9 @@ between releases (see "Versions" in `docs/settings.md`), so a project that
 keeps reference renders refreshes them when it upgrades.
 
 The presets (`lib/fc_presets.ps`: time of day, weather, terrain, season, and
-the colour-grade presets once a release has them) and the scene-file format
-are part of the release and of the public interface. A project's own presets go into
-`FcPresets` from its own piece or scene file.
+the colour-grade presets `/Filmic`, `/Warm`, `/Cool`, ...)
+and the scene-file format are part of the release and of the public
+interface. A project's own presets go into `FcPresets` from its own piece or scene file.
 
 ## Cutting a release
 

@@ -44,11 +44,13 @@ means, is a breaking change):
 - the **entry points**: `fc-landscape`, `fc-landscape-setup`, `fc-presets`,
   `fc-preset`, `fc-settings` and the `FcPresets` dictionary (a project adds its
   own presets to it), the built-in **presets** and their names (Time of day,
-  Weather, Terrain, Season, and the colour-grade presets in releases that have
-  them), and **scene files**;
+  Weather, Terrain, Season, and Tone and grade, the colour-grade presets
+  `/Filmic`, `/Warm`, ...), and **scene files**;
 - the **hooks** (`fc-landscape-hit`, `-surface`, `-sky`, `-grade`,
   `fc-forest-dens`, `fc-terrain-material`, `fc-terrain-base`, `fc-pixel`) and
-  the procedures in the "Procedure" tables, with their stack effects;
+  the procedures in the "Procedure" tables and the colour-grade and camera
+  procedures (`fc-grade`, `fc-grade-update`, `fc-camera-update`), with their
+  stack effects;
 - the **state a hook may read**: `Mx My Mz`, `PixAng`, `LnT LnR LnG LnB`, and
   the material variables `Alb KlMul KskyMul KbMul`;
 - the **loading contract**: a project loads `lib/fc_presets.ps` (optional) and
