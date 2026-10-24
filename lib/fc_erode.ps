@@ -19,7 +19,16 @@
 %
 % The covered area is a square ErSize units wide centred ErDist units in
 % front of the camera, along the view's yaw. Its outer 6% blends back into
-% the procedural terrain, so there's no seam at the edge.
+% the procedural terrain, so there's no seam at the edge, or into the far
+% map when ErFar is on (#30). With ErThermal > 0, thermal passes (scree
+% sliding off ground steeper than ErTalus) alternate with the droplets.
+%
+% The bake's inputs are the settings above, the terrain's (fc_terrain.ps,
+% MapSea), Yaw, and the random stream as fc_landscape seeds it (Seed + 202;
+% the far map seeds its own from Seed + 404). Its outputs are ErMap, ErN,
+% ErX0, ErZ0, ErTex (the main map and where it lies), ErFlow (with Rivers
+% or ErFlowOn) and ErFarD (a dictionary with the far map's ErMap, ErN, ErX0,
+% ErZ0, ErTex), which is what a cache of the bake (#18) has to keep.
 
 /ErN 512 fc-default                  % map resolution
 /ErSize 1150 fc-default              % world units covered
