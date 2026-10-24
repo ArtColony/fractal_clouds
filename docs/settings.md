@@ -414,7 +414,7 @@ depth along the ray. With `Ocean` false nothing here loads.
 | `WetSand` | 0.1 | Height above the water of the wet band, where the ground mirrors the sky (Fresnel on a level film; one reflection march per pixel). 0: none. | 0.1 |
 | `WetMirror` | 0.75 | How mirror-like the wet band is, 0..1. | 0.75 |
 | `GlitterGain` | 1 | Sun glitter: a microfacet lobe (Beckmann) on the wave normal, its width `GlitterRough` plus the slope the waves lose with distance, so near glints break up and far ones merge into a smooth path. Shadowed by terrain and clouds. 0: none. | 1 |
-| `GlitterRough` | 0.06 | Slope spread the waves don't resolve. | 0.06 |
+| `GlitterRough` | 0.03 | Slope spread the waves don't resolve. | 0.03 |
 | `SandHeight` | 0.8 | Sand on the sea bed and up to this height above the water (on gentle ground), before `fc_water`'s wet ground. 0: none. | 0.8 |
 | `SandCol` | [0.74 0.67 0.52] | Its colour, sRGB. | default |
 

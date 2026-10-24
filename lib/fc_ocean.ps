@@ -177,7 +177,7 @@
         dup floor sub SurfTrail div neg 2.71828 exch exp mul SurfFoam mul
         fc-max
         % ... and the swash at the waterline
-        0 SurfDepth 0.15 mul OcDd fc-smooth 1 exch sub 0.9 mul fc-max
+        0 SurfDepth 0.15 mul OcDd fc-smooth 1 exch sub 0.9 mul SurfFoam mul fc-max
     } if
     fc-ocean-lace /OcF exch def
     OcF 0.002 gt {
