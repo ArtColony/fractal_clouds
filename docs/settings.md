@@ -351,6 +351,7 @@ and its own colour are hooks (`fc-water-normal`, `fc-water-colour`, below).
 | `ShoreCol` | [0.60 0.56 0.48] | Its colour: sand and pebbles (sRGB). | default |
 | `ShoreStones` | 0.5 | Stone cover along the shore and in the shallows, 0..1. | 0.5 |
 | `StoneScale` | 1.6 | 1 / stone size. | 1.6 |
+| `ShoreReach` | 3 | Stones and the light band keep within about this distance of the water across the ground (height above it over the slope), so they don't spread over flat meadows. | 3 |
 | `RiverLo` | 10000 | Catchment, in square world units, where a channel starts (10000 is 1 km²). | 10000 |
 | `RiverHi` | 400000 | Catchment where a channel is full size; strength grows on a log scale between the two. | 400000 |
 | `RiverWidth` | 14 | Width of a full-size channel (the groove; the water is narrower), world units. A young stream is 35% of it. | 14 |
@@ -361,8 +362,8 @@ and its own colour are hooks (`fc-water-normal`, `fc-water-colour`, below).
 | Procedure | Stack | What it does |
 |---|---|---|
 | `fc-water-level` | `x z → y` | The water surface height there: the highest of `WaterY`, a map lake around the point and a river's level; −1000 if none. |
-| `fc-water-normal` | `x z t → nx ny nz` | The surface normal at distance `t` (ripples, streaks). A hook: redefine it for waves. |
-| `fc-water-colour` | `t → r g b` | Light scattered back from inside the water, before the bed shows through. A hook: depth tint goes here. |
+| `fc-water-normal` | `x z t → nx ny nz` | The surface normal at distance `t` (ripples, streaks). A hook: redefine it for waves. Waves made this way change only the shading: the hit is still the flat plane, so crests that hide what's behind them would need a height hook in `fc-water-plane`. |
+| `fc-water-colour` | `t depth → r g b` | Light scattered back from inside the water, before the bed shows through. `depth` is the bed's depth under the surface point (1000 where the ray meets no bed). A hook: depth tint goes here. |
 | `fc-water-shade` | `t → r g b` | The whole surface: Fresnel mix of the reflection and the water (with the bed through shallows). Reads `AqLev` (the level hit) and `AqBedT` (the bed's distance). |
 | `fc-water-rivers` | `–` | After the bake: carve and fill the channels. Setup calls it. |
 

@@ -528,7 +528,7 @@ haze  = 1 − e^(−w · depth / HazeDist)    colour = mix(surface, HazeCol, haz
 <div class="formula">F = 0.02 + 0.98 (1 − cos θ)⁵      colour = F · reflection + (1 − F) · (T · bed + (1 − T) · water)
 T = exp(−(t_bed − t_water) / WaterClear)</div>
 
-<p>Under the surface, the bed shows through shallow water: it is shaded as dry ground and faded by the path length through the water, so the waterline is a gradient rather than a hard edge, and the antialiasing sees water as 20% farther than it is, so it treats the shoreline as an edge. Above it, the shore is a material: wet ground (darker and smoother) up to <code>ShoreWet</code> above the waterline, a lighter band of sand and pebbles at the edge, and stones in the band and the shallows, all moved a little by noise.</p>
+<p>Under the surface, the bed shows through shallow water: it is shaded as dry ground and faded by the path length through the water, so the waterline is a gradient rather than a hard edge, and the antialiasing sees water as 20% farther than it is, so it treats the shoreline as an edge. Above it, the shore is a material: wet ground (darker and smoother) up to <code>ShoreWet</code> above the waterline, a lighter band of sand and pebbles at the edge, and stones in the band and the shallows, all moved a little by noise. Height alone would spread the stones over a flat meadow that sits just above the water, so they and the band also fade with an estimate of the distance from the water across the ground (height over slope, <code>ShoreReach</code>). The bed is shaded only where it shows, (1 − F)·T above 2%, and a ripple octave's noise is skipped once it has faded to 5%.</p>
 
 <h3>The reflection, exactly</h3>
 
