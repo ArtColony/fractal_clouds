@@ -118,6 +118,16 @@ FsSpecies {
 /FsSpHi [ 0 1 FsNsp 1 sub { FsSpecies exch get /hi get } for ] def
 /FsSpBand false def FsSpHi { 999 lt { /FsSpBand true def } if } forall
 
+% FcSp -> -: its profile values in globals, which fc-tree-cell reads
+% (with one species they are set here once, not looked up per cell)
+/fc-tree-sp {
+    /FcSrad FcSp /rad get def /FcShmul FcSp /hmul get def /FcStrunk FcSp /trunk get def
+    /FcSbase FcSp /base get def /FcSbaseD FcSp /baseDense get def
+    /FcSenv FcSp /env get def /FcSdroop FcSp /droop get def /FcStiers FcSp /tiers get def
+    /FcSrag FcSp /rag get def /FcSlobes FcSp /lobes get def
+} bind def
+/FcSp FsSpecies 0 get def fc-tree-sp
+
 % --- hash: a permutation of 0..255, and random tables indexed by it -------
 % Tables 0..5 are the ones the first forest used (keep their order, or
 % every tree moves); 6..8 pick the species, the crown base and snag height,
@@ -346,9 +356,10 @@ FsSpecies {
         FsR 3 get FcK get dup 0.25 lt { 4 mul 0.2 mul 0.42 add FsHMin mul /FcSup true def } {
             0.25 sub 1.333 mul 0.7 exp FsHMax FsHMin sub mul FsHMin add /FcSup false def } ifelse
         FcHs mul /FcH exch def
-        FsMixed { fc-tree-species } { FsSpecies 0 get } ifelse /FcSp exch def
-        /FcH FcH FcSp /hmul get mul def
-        /FcRt FcH FcSp /trunk get mul def
+        % (with one species, FcSp and its values stay as loaded)
+        FsMixed { fc-tree-species /FcSp exch def fc-tree-sp } if
+        /FcH FcH FcShmul mul def
+        /FcRt FcH FcStrunk mul def
         % alive, a snag, or fallen
         FsR 8 get FcK get dup FsSnag lt { pop 1 } { FsSnag FsFallen add lt { 2 } { 0 } ifelse } ifelse
         /FcKind exch def
@@ -359,13 +370,13 @@ FsSpecies {
             FcL 0 le { /FcKind 0 def } if
         } if
         FcKind 0 eq {
-            /FcR FcH FcSp /rad get mul FsR 4 get FcK get 0.3 mul 0.85 add mul FsCell 0.55 mul fc-min def
+            /FcR FcH FcSrad mul FsR 4 get FcK get 0.3 mul 0.85 add mul FsCell 0.55 mul fc-min def
             % trunks, and the crown lifted off the ground, where the crown is
             % wide enough on screen; higher in a dense stand, where the
             % lower branches have died, lowest at the edge and in the open
             /FcL FsTrunks { FcR FcPx div 4 sub 8 div 0 fc-max 1 fc-min } { 0 } ifelse def
             /FcB FcL 0 gt {
-                FcSp /base get dup FcSp /baseDense get exch sub 0.35 0.8 FcD fc-smooth mul add
+                FcSbase dup FcSbaseD exch sub 0.35 0.8 FcD fc-smooth mul add
                 FsR 7 get FcK get 0.5 mul 0.75 add mul FcL mul FcSup { 0.5 mul } if
             } { 0 } ifelse def
             % a crown that has lost its lower whorls is slimmer too
@@ -391,10 +402,10 @@ FsSpecies {
         Fchd FcR lt {
             % what stands over this point: its top and its base over the ground
             FcKind 0 eq {
-                /FcEnv FcSp /env get def /FcDroop FcSp /droop get def /FcTiers FcSp /tiers get def
+                /FcEnv FcSenv def /FcDroop FcSdroop def /FcTiers FcStiers def
                 % (the species' outline only near, where trunks show: far off it
                 % has faded into the envelope anyway)
-                FcL 0 gt { FcSp /rag get FcSp /lobes get } { 1 1 } ifelse /FcLobes exch def /FcRag exch def
+                FcL 0 gt { FcSrag FcSlobes } { 1 1 } ifelse /FcLobes exch def /FcRag exch def
                 Fcdx Fcdz fc-tree-prof
                 dup 0 ge FcB 0 gt and {
                     % lifted: the crown from the base up, the trunk below it
