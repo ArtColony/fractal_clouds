@@ -40,6 +40,10 @@ See `docs/techniques.html` for how each part works.
 | `CamAbove` | 6 | Otherwise, the camera sits this far above the ground below it. | 5, 6, 8 |
 | `CamHeight` | null | A number puts the camera at exactly that height and overrides both of the above. | |
 | `Profile` | false | true loads `lib/fc_bench.ps`, wraps the main procedures with call counters and timers, and prints a table when `fc-render` finishes (see Profiling below). false wraps nothing and the picture is unchanged. | false, true |
+| `WaterY` | null | A number puts a lake (or sea) surface at that height everywhere the ground is lower (`lib/fc_water.ps`). | null, −0.5 |
+| `WaterRise` | null | A number sets `WaterY` this far above the ground under the camera (worked out during setup, from the terrain before erosion). | 1.4 |
+| `Rivers` | false | Carve rivers along the erosion map's drainage and fill them (needs `Erode`). Adds the flow pass to the bake and the river bake after it. | false, true |
+| `MapWater` | false | Fill the terrain map's `/lake` features (`MapOn`) with water at their levels, each over its polygon and shore band. | true |
 
 The camera always stands at x = z = 0, looking along +z before `Yaw`.
 To stand somewhere else in the terrain, move the terrain under it with
@@ -56,8 +60,8 @@ its callees'. A footer measures the cost of the profiling itself (about
 Wrapping happens when `fc-landscape-setup` starts and again before
 `fc-render`, so it sees the piece's own hooks; a piece that redefines a
 procedure after that must call `fc-bench-wrap` again. A procedure that was
-wrapped and then redefined (the lake's `fc-landscape-hit`, which calls the
-original as `fc-dry-hit`) gets a new row, and the old one stays as
+wrapped and then redefined (`fc_water`'s `fc-landscape-hit`, which calls the
+original as `fc-water-dry-hit`) gets a new row, and the old one stays as
 `fc-landscape-hit#1`, so a hook and what it calls aren't mixed. Only
 procedures defined in `userdict` are wrapped. How to read the
 table is in `docs/techniques.html`, section 15.
@@ -248,7 +252,7 @@ valleys, then lakes, whatever their order in the list):
 | `[ /peak height spread x z ]` | Raises the mask in a round bump of radius `spread`, aimed so the ridge crest it grows stands about `height` high (within about 15%: the ridges' own height varies). Measured with `spikes/map_pins.ps`, the summit lands 10–32 units from `x z` over four seeds. |
 | `[ /ridge height spread x0 z0 x1 z1 … ]` | The same along a polyline. |
 | `[ /valley depth width x0 z0 x1 z1 … ]` | Carves: the mask falls to 0 along the polyline and the ground drops `depth`. |
-| `[ /lake level depth shore x0 z0 x1 z1 x2 z2 … ]` | A closed polygon: inside it the mask is 0 and the bed sits `depth` below `level`, blending to the surroundings over `shore` units centred on the drawn edge, so the waterline lands near the line. The piece puts its water plane at `level` (`gallery/charted_range.ps` uses `evening_lake`'s water hooks). |
+| `[ /lake level depth shore x0 z0 x1 z1 x2 z2 … ]` | A closed polygon: inside it the mask is 0 and the bed sits `depth` below `level`, blending to the surroundings over `shore` units centred on the drawn edge, so the waterline lands near the line. `MapWater` true fills it with the library's water at `level` (`gallery/charted_range.ps`). |
 
 Heights have two ceilings. A peak or ridge asks for a mask of at most 1,
 so heights above about `lift + TerrBase + 1.02 TerrH` (47 with the
@@ -323,11 +327,49 @@ it, the forest is only a colour texture on the ground.
 | `FsFloor` | [0.17 0.15 0.11] | Needle litter under the trees. | |
 | `FsGrass`, `FsGrass2` | [0.36 0.41 0.20], [0.50 0.47 0.29] | Meadow colours, mixed by noise. | |
 
+## Water (`fc_water.ps`, with `WaterY`, `WaterRise`, `Rivers` or `MapWater`)
+
+`fc_landscape.ps` loads it after its hooks and wraps `fc-landscape-hit` and
+`fc-landscape-surface`; it also chains onto `fc-terrain-material` (the
+shore) and, with trees, `fc-forest-dens` (no trees in the water or within
+about 0.3 above it). With none of the four settings on, it isn't loaded and
+nothing changes. The surface is built for #38's sea to extend: its normal
+and its own colour are hooks (`fc-water-normal`, `fc-water-colour`, below).
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `WaterCol` | [0.10 0.15 0.16] | The water's own colour seen straight down (sRGB), lit by `SkyAmb`. | default |
+| `WaterClear` | 0.6 | Path length through the water over which the bed fades to `WaterCol` (1/e), world units. Shallows show the bed; 0 makes the water opaque. | 0.6 |
+| `RippleAmp` | 0.035 | Ripple slope. | 0.035 |
+| `RippleScale` | 2 | 1 / ripple wavelength (2 is 5 m). Two octaves; each fades out as it nears three pixels, and its slope then tilts the mean normal toward the camera, so far rough water shows more sky. | 2 |
+| `WindDir` | 20 | Degrees from +x toward +z: the wind's direction. Ripple crests run across it, streaks along it. | 20 |
+| `WindStreaks` | 0.7 | Contrast of calm and rough bands along the wind, 0..1. | 0.7 |
+| `StreakScale` | 0.012 | 1 / streak spacing across the wind. | 0.012 |
+| `RiverRough` | 1.8 | Rivers' ripples, against still water's. | 1.8 |
+| `ShoreWet` | 0.5 | How far above the waterline the ground is wet (darker, smoother). Noise moves the line a little. | 0.5 |
+| `ShoreEdge` | 0.15 | Width of the light band (`ShoreCol`) at the water's edge. | 0.15 |
+| `ShoreCol` | [0.60 0.56 0.48] | Its colour: sand and pebbles (sRGB). | default |
+| `ShoreStones` | 0.5 | Stone cover along the shore and in the shallows, 0..1. | 0.5 |
+| `StoneScale` | 1.6 | 1 / stone size. | 1.6 |
+| `RiverLo` | 20000 | Catchment, in square world units, where a channel starts (20000 is 2 km²). | 20000 |
+| `RiverHi` | 400000 | Catchment where a channel is full size; strength grows on a log scale between the two. | 400000 |
+| `RiverWidth` | 8 | Width of a full-size channel, world units; a young stream is 35% of it. | 8 |
+| `RiverDepth` | 1.6 | Depth carved into the erosion map at full size. | 1.6 |
+| `RiverFill` | 0.6 | How full of water the channels are, 0..1. | 0.6 |
+| `ErFlowOn` | false | (`fc_erode.ps`) Compute the flow map without rivers (`Rivers` turns it on). | |
+
+| Procedure | Stack | What it does |
+|---|---|---|
+| `fc-water-level` | `x z → y` | The water surface height there: the highest of `WaterY`, a map lake around the point and a river's level; −1000 if none. |
+| `fc-water-normal` | `x z t → nx ny nz` | The surface normal at distance `t` (ripples, streaks). A hook: redefine it for waves. |
+| `fc-water-colour` | `t → r g b` | Light scattered back from inside the water, before the bed shows through. A hook: depth tint goes here. |
+| `fc-water-shade` | `t → r g b` | The whole surface: Fresnel mix of the reflection and the water (with the bed through shallows). Reads `AqLev` (the level hit) and `AqBedT` (the bed's distance). |
+| `fc-water-rivers` | `–` | After the bake: carve and fill the channels. Setup calls it. |
+
 ## Hooks a piece can redefine
 
 These are procedures, not settings. Redefine them **after** loading
-`fc_landscape.ps`. `gallery/evening_lake.ps` uses three of them to add a
-lake.
+`fc_landscape.ps`. `lib/fc_water.ps` uses four of them (see Water above).
 
 | Hook | Stack | Default |
 |---|---|---|
@@ -335,7 +377,7 @@ lake.
 | `fc-landscape-surface` | `t → r g b` | `fc-tree-shade` on a crown, otherwise `fc-terrain-shade`. Linear light, before haze. |
 | `fc-landscape-sky` | `dx dy dz → r g b` | `fc-sky` above the horizon, the haze colour below it. |
 | `fc-landscape-grade` | `r g b → r g b` | Nothing. Linear light, just before the tone curve; a place for a colour grade or vignette. |
-| `fc-forest-dens` | `x z h ny curv → density height-scale` | `fc_trees`' rules. Wrap it to keep trees off some ground, as the lake does. Redefine it before `fc-landscape-setup`. |
+| `fc-forest-dens` | `x z h ny curv → density height-scale` | `fc_trees`' rules. Wrap it to keep trees off some ground, as `fc_water` does. Redefine it before `fc-landscape-setup`. |
 | `fc-terrain-material` | reads and changes `Alb KlMul KskyMul KbMul` | Defined by `fc_trees`. Without trees it doesn't exist, and a piece can define it to paint the ground. |
 | `fc-terrain-base` | `x z → lift mask pin` | Defined by `fc_map.ps` (`MapOn`); otherwise absent and the noise massif is used. Map coordinates in; the lift in world units, the massif mask 0–1 and the pin 0–1 out. A piece can define its own (an analytic island, say) before `fc-landscape-setup`. |
 | `fc-pixel` | `u v → r g b` | `fc-landscape-pixel`. Replace it entirely for a different scene. |
