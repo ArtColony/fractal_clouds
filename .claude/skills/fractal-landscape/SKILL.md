@@ -1,6 +1,6 @@
 ---
 name: fractal-landscape
-description: Make a new landscape piece in the fractal_clouds repo (PostScript ray-marched mountains, clouds, forests, lakes, rivers, sea, rendered with pscat) from a one-line request such as "a misty valley at dusk with a forest". Use when asked for a landscape, mountain, valley, lake, coast, sunset or cloudscape picture in this repo, to change a piece's look, or to pick settings, presets or a camera for one. Covers presets, the framing pass, full-detail crops, the final banded render and the Codex review loop.
+description: Make a new landscape piece in the fractal_clouds repo (PostScript ray-marched mountains, clouds, forests, lakes, rivers, sea, rendered with pscat) from a one-line request such as "a misty valley at dusk with a forest". Use when asked for a landscape, mountain, valley, lake, river, coast, beach, cliffs, island, sea, sunset or cloudscape picture in this repo, to write a scene file, to change a piece's look, or to pick settings, presets or a camera for one. Not for general PostScript art (use psart) or other pscat work (use pscat). Covers presets, the framing pass, full-detail crops, the final banded render and the Codex review loop.
 ---
 
 # fractal-landscape: request to piece
@@ -58,8 +58,9 @@ table in `references/recipes.md`:
   `lib/fc_map.ps`) for a particular geography: `gallery/charted_range.ps`.
 - **Season** (list before the terrain): `/Spring /Summer /Autumn /Winter`.
 - **Features:** `TreesOn` (forest; species mix `FsMix`), `WaterRise` or `WaterY`
-  (lake), `Rivers`, `MapWater` (map lakes), `Ocean` (sea; needs `WaterY`;
-  `spikes/ocean_shore.ps`), `CloudLayers` (e.g. `[/Cumulus /Cirrus]`).
+  (lake), `Rivers`, `MapWater` (map lakes), `Ocean` (sea; needs `WaterY` or
+  `WaterRise`; `spikes/ocean_shore.ps`), `MapOn` with `MapSea` for coasts and
+  islands (`spikes/coast.ps`), `CloudLayers` (e.g. `[/Cumulus /Cirrus]`).
 - **Camera:** `Yaw`, `Pitch`, `HFov`, `CamAbove` or `CamLift`, and where you
   stand: `TerrOX`/`TerrOZ`. Moving these is how you find a composition (a
   valley is a camera low in the range, looking along it; `TerrOX 180 TerrOZ 400`
@@ -82,7 +83,8 @@ A misspelt preset stops with `fc_presets: no preset called ...`.
 DPI=36 scripts/render.sh gallery/<name>.ps       # 160x100, 1.5 to 3 minutes
 ```
 
-`-D Res=0.25` and a lower `-D ErN=256 -D ErDrops=20000` are cheaper still.
+Cheaper still: `DPI=36 scripts/render.sh -D Res=0.25 -D ErN=256 -D ErDrops=20000 gallery/<name>.ps`
+(`-D` options go before the piece path).
 Check the composition: horizon height, where the light falls, what is in the
 foreground. Adjust camera, then seed, then settings. Two or three passes, not
 ten. `-D Profile=true` prints where the time goes if a render is slow.

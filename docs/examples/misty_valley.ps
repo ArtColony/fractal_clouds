@@ -3,7 +3,10 @@
 %%Title: Misty valley
 % Status: draft
 % A misty forested valley at dusk: the /Evening light, thick low haze,
-% forested foothills. Test of the fractal-landscape skill.
+% forested foothills. Test of the fractal-landscape skill (#32): a weak first
+% pass made from one line of request, kept as it came. The valley reads as
+% flat haze and the forest is a small slope at the lower right; a better
+% frame wants the camera among the trees and relief nearer than the far ridge.
 % Preview: DPI=36 scripts/render.sh docs/examples/misty_valley.ps
 
 /Seed where { pop } { /Seed 11 def } ifelse
@@ -11,11 +14,11 @@
 /Yaw where { pop } { /Yaw -33 def } ifelse
 /Pitch where { pop } { /Pitch 1 def } ifelse
 /HFov where { pop } { /HFov 55 def } ifelse
-/CamAbove where { pop } { /CamAbove 9 def } ifelse
-/TerrOX where { pop } { /TerrOX 180 def /TerrOZ 400 def } ifelse
+/CamAbove where { pop } { /CamAbove 5 def } ifelse
+/TerrOX where { pop } { /TerrOX 180 def } ifelse
+/TerrOZ where { pop } { /TerrOZ 400 def } ifelse
 /HazeDist where { pop } { /HazeDist 300 def } ifelse
 /HazeH where { pop } { /HazeH 30 def } ifelse
-/Turbidity where { pop } { /Turbidity 3 def } ifelse
 
 (lib/fc_presets.ps) run
 [ /Evening /Clear /Alpine ] fc-presets

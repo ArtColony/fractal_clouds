@@ -9,7 +9,7 @@ Presets are in `lib/fc_presets.ps`.
 ```postscript
 %!PS-Adobe-3.0
 %%BoundingBox: 0 0 320 200
-%%Title: Misty valley
+%%Title: My landscape
 % Status: draft
 % Preview: DPI=36 scripts/render.sh <path of this file>
 
@@ -19,12 +19,11 @@ Presets are in `lib/fc_presets.ps`.
 /Yaw where { pop } { /Yaw -20 def } ifelse
 /Pitch where { pop } { /Pitch 2 def } ifelse
 /HFov where { pop } { /HFov 55 def } ifelse
-/HazeDist where { pop } { /HazeDist 220 def } ifelse
 
 % 2. presets: after the piece's settings (presets never override them),
 %    before the landscape
 (lib/fc_presets.ps) run
-[ /Evening /Clear /Foothills ] fc-presets
+[ /Evening /Clear /Alpine ] fc-presets
 
 % 3. the landscape reads all of the above as it loads
 (lib/fc_landscape.ps) run
@@ -56,7 +55,8 @@ the presets you list.
 | snow, winter | `/Winter`, or a low `SnowLine` |
 | lake | `WaterRise` 1.4 (the surface this far above the ground under the camera), or `WaterY` |
 | river | `Rivers true` (needs `Erode`; `docs/prs/28-water/river_valley.ps`) |
-| sea, coast, beach | `Ocean true` with `WaterY`; raise `RippleAmp`, set `WindDir` |
+| sea | `Ocean true` with `WaterY` or `WaterRise`; raise `RippleAmp`, set `WindDir` |
+| coast, beach, cliffs, island | `MapOn true`, `MapSea` (sea level; also `Ocean true`), `MapFeatures` `/volcano` `/atoll` `/cliff` `/stack`, `MapLiftGrid` for low land; copy `spikes/coast.ps`. Don't set a `WaterY` different from `MapSea`: the water detaches from the coast |
 | a particular geography | `MapOn true`, `MapFeatures` (peak, ridge, valley, lake), `MapWater` |
 | desert, canyon, red rock | `/Mesa` |
 | high viewpoint | `CamLift` 0.72 |
