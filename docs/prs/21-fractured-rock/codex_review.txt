@@ -1,0 +1,21 @@
+Found five issues:
+
+1. **[P2] Strata strength does not scale several effects.** [fc_terrain.ps:374](/Users/jeromebanks/dev/fractal_clouds/.claude/worktrees/agent-ac3b01d8c5fb024fb/lib/fc_terrain.ps:374) darkens cracks/joints using `Ksn`, which excludes `StrataAmp`. Bump suppression (line 309) and ledge snow (line 379) also use this amplitude-independent weight. Confirmed: `StrataAmp=0.001` and `1` both produce `Kcr=0.5` at a full-weight recess. These effects jump on at arbitrarily small positive amplitudes.
+
+2. **[P2] Strata colors bypass the eligibility and distance fade.** [fc_terrain.ps:254](/Users/jeromebanks/dev/fractal_clouds/.claude/worktrees/agent-ac3b01d8c5fb024fb/lib/fc_terrain.ps:254) switches the rock-color formula everywhere whenever `StrataAmp>0`, before slope, patch, snow, material and pixel-size weighting. Confirmed different albedo at `Ny≈0.958`, `Ksn=0`, using `StrataAmp=0.000001`. Distant bedding colors likewise remain unfaded, undermining the documented shimmer prevention.
+
+3. **[P2] Parameter endpoints can abort rendering with `/undefinedresult`.** [fc_terrain.ps:355](/Users/jeromebanks/dev/fractal_clouds/.claude/worktrees/agent-ac3b01d8c5fb024fb/lib/fc_terrain.ps:355) divides by `1-Ktr`; `StrataTread=1`, `Kul=0` reproduces division by zero. [Line 373](/Users/jeromebanks/dev/fractal_clouds/.claude/worktrees/agent-ac3b01d8c5fb024fb/lib/fc_terrain.ps:373) calls `fc-smooth` with equal endpoints when `JointW=0`, even with `JointAmp=0`. `StrataStep=0` and `CrevK=0` introduce similar risks. Defaults are safe; document required bounds and guard/clamp these divisors.
+
+4. **[P3] The documented surface derivative omits spatial variation.** [techniques.html:360](/Users/jeromebanks/dev/fractal_clouds/.claude/worktrees/agent-ac3b01d8c5fb024fb/docs/techniques.html:360) presents an exact derivative of `h'`, while [fc_terrain.ps:358](/Users/jeromebanks/dev/fractal_clouds/.claude/worktrees/agent-ac3b01d8c5fb024fb/lib/fc_terrain.ps:358) omits gradients of the warp added at lines 255–256 and of the varying weight. With warp `W`, the slope term includes `s·W_x`; varying weight also contributes `s·w_x·(T-u)`. Describe the normal as a local approximation or include those terms.
+
+5. **[P3] `StrataDip`’s documented direction is reversed.** [settings.md:512](/Users/jeromebanks/dev/fractal_clouds/.claude/worktrees/agent-ac3b01d8c5fb024fb/docs/settings.md:512) calls it the beds’ “rise per unit x and z.” The implemented coordinate `(h + dip·x)/s` makes constant-phase beds **fall** with positive dip: `h=constant−dip·x`.
+
+The remaining requested checks:
+
+- **PostScript stack bugs: no findings.** Stack counts stayed balanced across 968 default and 968 enabled shading calls, including ledge snow, in both Ghostscript and PSCat.
+- **Laplacian: no findings.** `Kh-Nx` and `Kh-Nz` correctly recover the +e heights; division by `Ke` gives the documented slope-change measure.
+- **Base strata normal derivation: no findings.** `-Nx/Ny`, `-Nz/Ny`, the smoothstep derivative and renormalization are correct under the local approximation above.
+- **Zero-amplitude pixel identity: no findings.** The original color branch remains, added samples are skipped, and bump strength is multiplied by exactly 1. All 968 sampled RGB results matched main exactly in each interpreter.
+- **Settings after load: no findings.** Later `fc-default` assignments are skipped as already documented at settings.md:3–16; ordinary `def` overrides work.
+- **Random stream: no findings.** No new random draws; RNG state stayed unchanged in both test batches.
+- **Scratch-name clashes: no findings** against other `lib/` files.
