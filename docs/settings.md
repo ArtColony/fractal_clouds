@@ -231,7 +231,7 @@ heights in `/Clear`, `/Overcast` and `/Storm` assume the standard terrain
 
 | Setting | Default | What it does | Used |
 |---|---|---|---|
-| `Seed` | 5 | Seeds everything: both noises, the trees and the march jitter. A new seed is a new range. | 5 |
+| `Seed` | 5 | Seeds everything: both noises, the trees and the erosion. A new seed is a new range. (The cloud march's jitter is read from a blue-noise tile at the pixel, not seeded: the same in every band or crop.) | 5 |
 | `TreesOn` | false | Loads `lib/fc_trees.ps` and marches the forest. It also turns off `fc_terrain`'s painted forest (`TreeLine` −1000) unless the piece sets `TreeLine`. | false, true |
 | `Erode` | true | Bakes droplet erosion over the view (`fc_erode.ps`). Off skips the bake (about 1.5 min at `ErN` 1024); valleys then lack drainage channels and debris fans. | true |
 | `CamLift` | 0 | If above 0, the camera sits at this fraction of `TerrTop`, but at least `CamAbove` over the ground below it (a high viewpoint). | 0, 0.72 |
@@ -325,6 +325,8 @@ table is in `docs/techniques.html`, section 16.
 | `Res` | 1 | Image pixels per device pixel. 0.25 or 0.5 make fast composition checks. | 0.25, 0.5, 1 |
 | `AA` | false | Antialias depth edges: 4 extra samples on pixels where the hit distance jumps (a few percent of pixels). Pieces turn it on. | false, true |
 | `Crop` | (none) | `[x0 y0 x1 y1]`, fractions of the frame from the top left: render only that patch, at the full frame's detail. | many |
+| `PixSeed` | false | Reseed the random stream per pixel (from a hash of its position) and (with `AA`) give a crop the depth keys of the row above it and the pixel to its left, so a pixel comes out the same however the frame is cropped. While `fc-pixel` runs, `FrI`/`FrJ` (column, row from the top left) and `FrU`/`FrV` hold the pixel's position, also for those precomputed keys. `render_bands.sh` turns it on: its bands stitch into exactly one uncropped `PixSeed` render. Nothing in the gallery pieces draws on the random stream per pixel (#27), so that equals a plain render. | (bands) |
+| `RowTimes` | false | Print `fc-row-t0 MS` when the render starts (after the bakes) and `fc-row J MS` after each row: the probe of `render_bands.sh --auto`. | (probe) |
 
 Resolution comes from the page size times `DPI` (a `render.sh` variable):
 `DPI=72` gives 320×200 for a 320×200 pt piece, and `DPI=288` gives 1280×800.
@@ -403,6 +405,7 @@ changes `Pitch`, `Yaw` or `HFov` afterwards calls `fc-camera-update` and then
 | `DensOct` | 5 | Most noise octaves, for near clouds; distant clouds use fewer. | 5 |
 | `ShadOct`, `ShadStep` | 3, 3.2 | Octaves and spacing of the two probes toward the sun. | |
 | `CloudSteps` | 96 | Most samples per ray. | |
+| `CloudDense` | 0 | If above 0, a march step whose optical depth (`Sigma · density · step`) exceeds it is shortened to that depth, to half its length at most, so no one sample decides much of a pixel's light. Off by default: with the blue-noise jitter it lowered the per-pixel error inside the storm by a quarter but not the visible (blurred) grain, for 7–10% more time (#27). Applies to every layer. | 0, 0.3 |
 | `AmbTop`, `AmbBot` | derived (or [0.62 0.72 0.88], [0.34 0.38 0.48] without `SkyModel`) | Ambient light at the layer's top and bottom (sRGB). With the sky model, 1.2 and 0.31 of the derived `SkyAmb` unless the piece sets them. | |
 | `CloudLayers` | null | null marches the one layer the settings above describe. Otherwise an array of layers (below), marched one after another, nearest band first. | null, `[/Cumulus /Altocumulus /Cirrus]` |
 
@@ -457,7 +460,7 @@ single layer, `CloudLayers` null, keeps its old cut-off).
 | `RainDens` | 0.15 | Their density, as a fraction of the cloud's. |
 | `Shape` | null | A procedure `x y z oct → dd` (`oct`: the octaves the sample wants, fewer with distance) added to the density before the gain: a positive value adds cloud, a negative one cuts it. Only called inside the band (`Lo < y < Hi`), so a placed object needs a band tall enough to hold it. For placed objects such as a cumulonimbus (#15). Costs a call per sample. It is called before the noise: a value of −1 or less means nothing is there, and the noise is skipped (keep the threshold and coverage such that the noise can't lift −1 above 0). |
 | `RainShafts` | 0 | Above 0: the rain is broken into shafts by 2-D noise with this many cells per unit (the storm uses 0.06); 0 is the old solid curtain. |
-| `Bounds` | null | `[x0 z0 x1 z1]`, world x and z (the camera stands at x = z = 0): the layer is empty outside this box, and each ray marches only the part of the band inside it, with all its `Steps`. For a placed object, so a tall band doesn't make every sky ray march its whole height. Rays that miss the box draw no jitter (`fc-rnd`), so setting it shifts the global random stream for every later draw, not only that layer's grain. |
+| `Bounds` | null | `[x0 z0 x1 z1]`, world x and z (the camera stands at x = z = 0): the layer is empty outside this box, and each ray marches only the part of the band inside it, with all its `Steps`. For a placed object, so a tall band doesn't make every sky ray march its whole height. |
 | `RainMask` | null | A procedure `x z → 0..1` multiplying the rain (after `RainShafts`). A layer with one also lights its rain with `AmbBot`, as under the base, rather than the ambient a quarter of the way up. The storm uses it to fade the rain toward the edge of the tower's foot. |
 | `Probes` | 1 | A whole number, at least 1: density probes per layer for the ground's cloud shadow and `fc-cloud-sky`, spread evenly over the band above the point. 1 keeps the old single probe at the middle; a tall object needs more (the storm uses 3) or its anvil casts no shadow. |
 | `LightDepth` | null | A procedure `x y z → od`: optical depth toward the sun added to the two short sun probes', for a placed object's shadow on itself at a larger scale than the probes reach (#15). Called once per lit sample. |
@@ -537,6 +540,15 @@ the layer dict, `fc-storm-bounds` its `Bounds`.
 | `MassifLo`, `MassifHi` | 0.30, 0.56 | That mask's ramp. Raising both gives fewer, separate massifs. | |
 | `WarpAmp` | 0.45 | Domain warp, in ridge wavelengths: how much the ridges wander. | 0.45 |
 | `DetailAmp` | 0.16 | Strength of the gully texture (erosion fBm). | 0.16 |
+| `TerraceAmp` | 0 | Terraces in the geometry (#21), 0–1: steep ground in outcrop patches is cut into dipping beds, each a ledge and a cliff, in `fc-height-proc` itself, so silhouettes, the march, normals and the forest bake see them (cast shadows only roughly: the shadow march uses 4 octaves and is lifted by `ShadBias`, about 2.6 units). Only with `TerrFn` 3 (noise or map massif); skipped while erosion bakes, so the erosion map is measured on unterraced ground; with `ErDelta false` the baked map replaces `fc-height-proc` inside its square, so terraces show only outside it. With a map, `fc_map`'s planning sees them too. Costs about +50% per height call inside the patches (+44% render on a view that is mostly rock). 0 is off and adds one test and one store per height call. Lost blind pairwise in all 3 rounds (`docs/prs/21-terraces/`), so it stays off. | 0 |
+| `TerraceStep` | 3 | Mean bed thickness, world units. | |
+| `TerraceTread` | 0.65 | Mean fraction of a bed that is ledge (±0.15 per bed, kept within 0.05–0.9); the rest is the cliff. Larger makes steeper cliffs. | |
+| `TerraceDip` | [0.60 0.25] | The beds fall this much per unit x and z (0.65 is about 33°), so they don't follow height contours. | |
+| `TerraceBeds` | 0.45 | Share of the beds hard enough to stand out as cliffs, chosen anew in each fault block (1: every bed). | |
+| `TerraceIrreg` | 0.45 | 0–0.6 (clamped): how much bed thickness varies, through a slow noise of the bed coordinate and the strike. | |
+| `TerraceSlope` | [0.45 0.9] | Coarse slope (rise per unit run, from two ridged octaves) where terraces start, and where they are full. | |
+| `TerracePatch` | 0.6 | About what share of the ground lies in outcrop patches (1: everywhere). | |
+| `TerraceFault`, `TerraceThrow` | 70, 0.7 | Spacing of a family of wandering faults (world units; 0: none), and how far each fault block shifts the beds, in beds. The faults are real steps in the height. | |
 | `TerrFn` | 3 | 3 is the massif hierarchy. 0 (ridged only) and 1 (erosion fBm only) are kept from early drafts. | 0, 1, 3 |
 | `MarchT0` | 0.5 | Where marches start along a ray. A reflection sets it to the water distance while it marches, then puts it back. | 0.5 |
 | `MapOn` | false | Loads `lib/fc_map.ps`, which defines `fc-terrain-base` from a map (next section). Off, the terrain is exactly the noise it always was. | false, true |
@@ -686,7 +698,7 @@ sea (their load is lost).
 
 The bake covers a square `ErSize` wide, centred `ErDist` ahead of the
 camera along `Yaw`. Outside it, the terrain is procedural, blended over the
-square's outer 6%.
+square's outer 6%, unless `ErFar` adds a coarser map for the far distance.
 
 | Setting | Default | What it does | Used |
 |---|---|---|---|
@@ -702,6 +714,14 @@ square's outer 6%.
 | `ErBaseOct` | 5 | Procedural octaves baked into the map. | 5 |
 | `ErDelta` | true | Keep only erosion's *change* and add it to the full procedural terrain. false replaces the terrain with the map, which loses detail. | true, false |
 | `FineAmp`, `FineScale` | 0.07, 7 | Detail added back in replace mode (`ErDelta` false). | |
+| `ErThermal` | 0 | Thermal erosion (#30): this many thermal passes after each of `ErRounds` rounds of droplets; 0 is off. Steep rock weathers into scree, which slides down and piles up as talus at the angle of repose below cliffs. About 0.35 s per pass at `ErN` 512 (5 passes × 4 rounds add about 7 s); the droplets draw the same random numbers either way. | 0, 5 |
+| `ErRounds` | 4 | Rounds of droplets the thermal passes alternate with (with `ErThermal`). | |
+| `ErTalus` | 33 | Angle of repose, degrees: scree on steeper ground slides on. Thermal ignores the sea stop that droplets have (`MapSea`): scree can slide below sea level, which may soften coast cliffs. | 30–38 |
+| `ErThermalRate` | 0.5 | Share of half the excess slope that moves per pass, at most what is loose. | |
+| `ErWeather` | 0.03 | Share of the excess weathered from rock into scree per pass. Small keeps cliffs and makes talus below them; large (0.5) makes every steep slope loose, which flattens the whole range to the angle of repose. | 0.01–0.05 |
+| `ErFar` | false | A second, coarser erosion map for the far distance (#30), so ranges beyond the main square show drainage too. The main map blends into it over its outer 6%, and it blends into the procedural terrain over its own. It has its own random stream (from `Seed`) and puts the main one back, so the forest is unchanged. No flow or rivers on it. At its coarse texel (about 7 units) the droplets mostly fill basins with sediment and soften slopes; they cut few readable channels, even at 200000 drops. Adds about 15 s to the bake at the defaults (5 s sampling, 10 s droplets at 384²; more with `ErFarDrops`), and about 6% to render time where the view reaches past the main square. Only worth it when the view reaches past the main square: raise `TMax` (and `HazeDist`). | false, true |
+| `ErFarN`, `ErFarDrops` | 384, 40000 | Far map resolution and droplets. | |
+| `ErFarSize`, `ErFarDist` | 2600, 1100 | Far map area, world units, and its centre's distance ahead. | |
 
 ## Forest (`fc_trees.ps`, with `TreesOn`)
 

@@ -1,0 +1,24 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+%%Title: Terrace test view
+% Status: draft
+% fractal_clouds#21: the gallery massif (mountains.ps) seen with a narrow
+% lens and the sun behind the camera, so the faces toward us are sunlit and
+% a rock bed spans many pixels. A test view for TerraceAmp, not a piece.
+% Off/on pair: scripts/render.sh -D TerraceAmp=0 spikes/terraces_view.ps
+
+/Seed where { pop } { /Seed 5 def } ifelse
+/AA where { pop } { /AA true def } ifelse
+/Pitch where { pop } { /Pitch 4 def } ifelse
+/Yaw where { pop } { /Yaw 10 def } ifelse
+/HFov where { pop } { /HFov 30 def } ifelse
+/SunDir where { pop } { /SunDir [ -0.55 0.45 -0.70 ] def } ifelse    % behind the camera, left
+/CloudLo where { pop } { /CloudLo 60 def /CloudHi 88 def } ifelse
+/CoverAmp where { pop } { /CoverAmp 0.45 def } ifelse
+/HazeDist where { pop } { /HazeDist 400 def } ifelse
+/Threshold where { pop } { /Threshold 0.57 def } ifelse
+/CamLift where { pop } { /CamLift 0.72 def } ifelse
+
+(lib/fc_landscape.ps) run
+320 200 fc-landscape
+showpage
