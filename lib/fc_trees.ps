@@ -343,6 +343,12 @@ FsSpecies {
         % alive, a snag, or fallen
         FsR 8 get FcK get dup FsSnag lt { pop 1 } { FsSnag FsFallen add lt { 2 } { 0 } ifelse } ifelse
         /FcKind exch def
+        % dead trees only where a trunk would show; smaller on screen they
+        % stand as live crowns, so the far canopy keeps its density
+        FcKind 0 ne {
+            /FcL FsTrunks { FcH 0.28 mul FcPx div 4 sub 8 div 0 fc-max 1 fc-min } { 0 } ifelse def
+            FcL 0 le { /FcKind 0 def } if
+        } if
         FcKind 0 eq {
             /FcR FcH FcSp /rad get mul FsR 4 get FcK get 0.3 mul 0.85 add mul FsCell 0.55 mul fc-min def
             % trunks, and the crown lifted off the ground, where the crown is
@@ -356,8 +362,6 @@ FsSpecies {
             % a crown that has lost its lower whorls is slimmer too
             FcB 0 gt { /FcR FcR 1 FcB 0.6 mul sub mul def } if
         } {
-            % dead trees only where a trunk would show
-            /FcL FsTrunks { FcH 0.28 mul FcPx div 4 sub 8 div 0 fc-max 1 fc-min } { 0 } ifelse def
             /FcB 0 def
             FcKind 1 eq {
                 % a snag: a bare trunk, broken off part way up
@@ -370,7 +374,7 @@ FsSpecies {
                 /FcLa FsR 7 get FcK get 360 mul def
             } ifelse
         } ifelse
-        FcKind 0 eq FcL 0 gt or {
+        FcKind 0 eq FcL 0 gt or {   % (a dead tree here always has a trunk)
         FcX Fci 0.5 add FsR 1 get FcK get 0.5 sub 0.9 mul add FsCell mul sub /Fcdx exch def
         FcZ Fcj 0.5 add FsR 2 get FcK get 0.5 sub 0.9 mul add FsCell mul sub /Fcdz exch def
         /Fchd Fcdx dup mul Fcdz dup mul add sqrt def
@@ -541,7 +545,7 @@ FsSpecies {
         FsD 0.001 gt FsW 0 gt and {
             /FcY My FsHit mul CamY add FsX FsZ FsO fc-height sub def
             /FcPx FsHit PixAng mul def
-            FsX FsZ FsD FsHsc fc-crowns FsW mul 0.05 gt FcY FcIn 0.3 mul ge and {
+            FsX FsZ FsD FsHsc fc-crowns FsW mul 0.05 gt FsTrunks not FcY FcIn 0.3 mul ge or and {
                 /FsMat 1 def
                 % and which part: a crown's top, its underside, a snag or a log
                 FcIn 100 lt {
@@ -577,7 +581,9 @@ FsSpecies {
         Fvpx Fvpz fc-forest-map /Fvhs exch def /Fvd exch def
         Fvd 0.001 gt {
             /FcY Fvpy Fvpx Fvpz FsO fc-height sub def
-            Fvpx Fvpz Fvd Fvhs fc-crowns pop FcIn 0 lt { /Fvv Fvv 0.3 mul def } if
+            % inside a tree's solid, or under the ground where a tree stands
+            % (or well under it anywhere)
+            Fvpx Fvpz Fvd Fvhs fc-crowns FcY gt FcY 0 le and FcIn 0 lt or { /Fvv Fvv 0.3 mul def } if
         } if
     } forall
     Fvv
@@ -626,7 +632,7 @@ FsSpecies {
     Fwq FcTiers mul FsR 5 get FcK get 0.3 mul add dup floor sub /Fwf exch def
     % and between the branch clumps, gaps into the dark inside of the crown;
     % fewer at the stand's edge, where the light has kept the foliage full
-    0.35 0.8 Fwd fc-smooth 0.6 mul 0.4 add 0.75 mul /Fwgap exch def
+    FsTrunks { 0.35 0.8 Fwd fc-smooth 0.6 mul 0.4 add 0.75 mul } { 0.75 } ifelse /Fwgap exch def
     0.36 0.56 Fwg 2.3 mul 5.7 add Fwh 1.3 mul 2.9 add fc-noise2 fc-smooth Fwgap mul 1 Fwgap sub add
     Fwf 0.6 mul 0.4 add mul
     FcR FcPx div 4 sub 8 div 0 fc-max 1 fc-min /Fwlod exch def

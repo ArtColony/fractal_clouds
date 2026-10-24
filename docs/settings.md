@@ -320,14 +320,14 @@ it, the forest is only a colour texture on the ground.
 | `FsTiers` | 9 | Branch whorls per spruce crown (other species: `FsSpecies`). | 9 |
 | `FsDroop` | 0.30 | How far each spruce whorl's tips hang below its base, as a fraction of tree height. | 0.30 |
 | `FsEnv` | 1.0 | Spruce crown outline: 1 is a straight cone, more is a slimmer spire. | 1.0 |
-| `FsTrunks` | true | Trunks, and crowns lifted off the ground where the lower branches have died (dense stands; the species' `base` and `baseDense`). Only where a crown is over about 4 px wide. false keeps every crown on the ground. | true |
+| `FsTrunks` | true | Trunks, and crowns lifted off the ground where the lower branches have died (dense stands; the species' `base` and `baseDense`). Only where a crown is over about 4 px wide. false keeps every crown on the ground, every tree alive (snags and logs need trunks) and edge crowns as gappy as interior ones: the look before #25. | true |
 | `FsSnag` | 0.03 | Fraction of the trees that are dead snags: a bare, broken-off trunk. Only drawn where trunks are. | 0.03 |
 | `FsFallen` | 0.02 | Fraction lying on the ground as logs. | 0.02 |
 | `FsMix` | [1] | Weights of the species in `FsSpecies`, in order: spruce, fir, pine, larch, broadleaf. `[1]` is a pure spruce forest (the default look). Broadleaves only grow well below the treeline, so their share is smaller higher up. | [1], [0.45 0.2 0.15 0.1 0.1] |
 | `FsAutumn` | 0 | Season: at 1 the larches are gold and the broadleaves turned (per-tree, some earlier than others). Evergreens ignore it. | 0 |
 | `FsSpecies` | (five dicts) | The species table: one dict per species with its crown profile (`env droop tiers`), `rad` (crown radius / height), `hmul` (height), `base` and `baseDense` (crown base / height in the open and in a dense stand), `trunk` (radius / height), colours `alb alb2 shade autumn bark` (sRGB; `null` means the spruce setting) and an altitude band `lo hi` (height relative to the treeline). Define a whole table to add a species; the pieces' `FsMix` then needs a weight for it. | |
 | `FsBark` | [0.21 0.16 0.12] | Spruce bark (other species carry their own). | |
-| `FsSnagCol` | [0.46 0.43 0.38] | Weathered dead wood: snags, and the sides of logs. | |
+| `FsSnagCol` | [0.40 0.36 0.31] | Weathered dead wood: snags, and the sides of logs. | |
 | `FsLogCol` | [0.30 0.27 0.20] | The mossy top of a fallen trunk. | |
 | `FsN` | 384 | Density map resolution. | 384 |
 | `FsSize`, `FsDist` | 700, 300 | Map size and its distance ahead. | |
