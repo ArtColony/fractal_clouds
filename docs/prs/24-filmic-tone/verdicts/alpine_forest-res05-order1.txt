@@ -1,0 +1,5 @@
+REALISM: B
+AESTHETICS: B
+- Slightly deeper foreground shadows give the forest more convincing depth.
+- Stronger tonal separation anchors the scene beneath the hazy mountains.
+- Differences are subtle; both share visibly blocky vegetation and soft mountain detail.
