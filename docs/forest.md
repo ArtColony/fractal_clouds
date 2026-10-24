@@ -41,6 +41,7 @@ trees would have been a pixel or two. So this piece moves the camera
 | iteration 3 | crowns 0.28 × height on 1.5-unit cells, groves, two-tone needles | beat iteration 2 on aesthetics in both orders; realism split (position bias) |
 | iteration 4 | 1.3-unit cells, gentler grove thinning | tied with iteration 3 (each order preferred the image shown second); kept, as the closed stand reads more like a valley forest |
 | #25 | trunks under lifted crowns, fuller edge crowns, snags and logs, species table; bisection keeps the inside end (no ground speckle in the skirts) | close forest-edge crop beat iteration 4 in blind pairwise, both orders, realism and aesthetics (`docs/prs/25-trees-species/`) |
+| #17 | exact early outs in the crown search (cells too far to matter, shadow probes above the tallest tree), species values in globals | pixel-identical; near and mid crops 16% faster (`docs/techniques.html`) |
 
 Codex's absolute score for the trees was 4/10 at both critiques
 (`docs/forest/iter01-320.critique.md`, and for iteration 2), as its absolute
@@ -75,7 +76,10 @@ slowest, so `0.45 0.62 0.8` would balance better.
 ## Known limits
 
 - The near-tree march is the cost: crowns are marched in short steps
-  through the 3-unit tree band.
+  through the 3-unit tree band, and each step samples the terrain
+  (`fc-height` is about two thirds of the time after #17). Fewer steps
+  would move the hits, so #17 kept the step sequence and sped up only the
+  crown search.
 - Trunks only show where a crown is over about 4 px wide (#25 lifted the
   crowns of interior trees onto trunks, added snags and logs, and a
   species table; `FsMix` turns the spruce stand into a mixed one, experimental

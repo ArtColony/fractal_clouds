@@ -43,7 +43,10 @@
 %   fc-landscape-hit      - -> t | -1    nearest surface along the ray
 %   fc-landscape-surface  t -> r g b     its colour, linear light, before haze
 %   fc-landscape-sky      dx dy dz -> r g b   what a ray that hits nothing sees
-%   fc-landscape-grade    r g b -> r g b      last change before fc-tone
+%   fc-landscape-grade    r g b -> r g b      last change before fc-tone;
+%                         fc-grade (lib/fc_grade.ps) when a piece sets
+%                         GradeTemp, GradeSat, GradeSplit, GradeLift or
+%                         Vignette, else nothing
 %
 % While a pixel is shaded, Mx My Mz is its unit ray (from (0, CamY, 0));
 % after the surface and sky, LnT is the hit distance (TMax for sky) and
@@ -105,6 +108,16 @@ Profile { (lib/fc_bench.ps) run } if
 } bind def
 
 /fc-landscape-grade { } def                      % r g b -> r g b
+
+% a colour grade (lib/fc_grade.ps) if any of its settings is away from
+% neutral; otherwise the hook stays empty
+/LnGrade false def
+[ /GradeTemp 0 /GradeSat 1 /GradeSplit 0 /GradeLift 0 /Vignette 0 ] aload pop
+5 { exch dup where { exch get ne { /LnGrade true def } if } { pop pop } ifelse } repeat
+LnGrade {
+    (lib/fc_grade.ps) run
+    /fc-landscape-grade { fc-grade } bind def
+} if
 
 % --- the pixel ---------------------------------------------------------------
 /fc-landscape-pixel {                            % u v -> r g b
