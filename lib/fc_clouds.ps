@@ -543,7 +543,10 @@
 % offsets, so the error reads as a fine even dither, not grain; and every
 % render of a pixel, whole frame, crop or band, gets the same one. The extra
 % antialiasing samples of a pixel (same FrI, FrJ) each step on by the golden
-% ratio. Outside fc-render (no FrI) it falls back to fc-rnd.
+% ratio (the count restarts at each new pixel or new render, told apart by
+% fc-render's start time FrT0). Before any fc-render (no FrI) it falls back
+% to fc-rnd; after one, a stray call outside it counts as one more
+% sample of the last pixel.
 /ClBlue <
 2c7687b8e37ecce84f7721e4b9cf9a0c6ab239a01684049748d4305b12829903faa330ee66132b5d97f67a31abfc4fbfaf0a9f194fabd24515bc62789e10445f
 a940f12138149cbb32d485a137f25481e11b8d2bedaabfe5681ab98be3ac2ad58f5e4f83aad9c88a0bd148e0c511728be6427edc89f7357385ec3dc8fd69d495
@@ -610,11 +613,13 @@ cb59f07f0051fc6c35784d0c412267aad512b46be10b4b672d00d968cdf04cc49639d816f1889646
 fa9ad564f69373eea03cf9c77f17ff8826e708cbb8dc72c7260ce76d20dc627ad044e3c63ca076e53a6bddb641d30de0814b73b8e67b69c92ae1b00bf05322ae
 08c64e0cac582a0766b19206496131a7d24e79fb635135f1af78a1c54bf43fc01771b51d91fe4bbea81b5602859c653622cafa6030970cf154941fd63289bfe2
 > def
-/ClJI -1 def /ClJJ -1 def /ClJk 0 def
+/ClJI -1 def /ClJJ -1 def /ClJT -1 def /ClJk 0 def
 /fc-cloud-jitter {                               % - -> j
     /FrI where {
         pop
-        FrI ClJI ne FrJ ClJJ ne or { /ClJI FrI def /ClJJ FrJ def /ClJk 0 def } { /ClJk ClJk 1 add def } ifelse
+        FrI ClJI ne FrJ ClJJ ne or FrT0 ClJT ne or {
+            /ClJI FrI def /ClJJ FrJ def /ClJT FrT0 def /ClJk 0 def
+        } { /ClJk ClJk 1 add def } ifelse
         ClBlue FrJ 63 and 64 mul FrI 63 and add get 0.5 add 256 div
         ClJk 0.618034 mul add dup floor sub
     } { fc-rnd } ifelse
