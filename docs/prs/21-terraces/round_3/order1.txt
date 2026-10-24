@@ -1,0 +1,6 @@
+REALISM: A
+AESTHETICS: A
+- A has more continuous, erosion-like slopes.
+- B’s angular ledges and abrupt cliff bands look artificially cut.
+- A’s smoother foreground keeps attention on the main peak.
+- Both have convincing atmospheric depth, but visibly synthetic surface textures.

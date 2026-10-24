@@ -61,6 +61,19 @@
 /JointW 0.06 fc-default              % joint width, in joint-noise units
 /JointTilt 0.35 fc-default           % how far each block's face turns
 /JointDir [ 0.8 0.6 ] fc-default     % strike of the beds (x z), unit length
+% Terraces (#21), in the geometry: steep ground in outcrop patches is cut
+% into dipping beds, each a ledge (tread) and a cliff (riser), so the march,
+% the normals and the sun shadows all see them. 0 turns it off.
+/TerraceAmp 0 fc-default             % 0..1: how fully steep outcrops step
+/TerraceStep 3 fc-default            % mean bed thickness, world units
+/TerraceTread 0.65 fc-default        % mean fraction of a bed that is ledge
+/TerraceDip [ 0.60 0.25 ] fc-default % the beds fall this much per unit x, z (0.65: about 33 degrees)
+/TerraceBeds 0.45 fc-default         % share of the beds hard enough to stand out as cliffs
+/TerraceIrreg 0.45 fc-default        % 0..0.6: how much bed thickness varies
+/TerraceSlope [ 0.45 0.9 ] fc-default % coarse slope where terraces start, and where they are full
+/TerracePatch 0.6 fc-default         % share of the ground in outcrop patches (1 = everywhere)
+/TerraceFault 70 fc-default          % spacing of the faults, world units (0: none)
+/TerraceThrow 0.7 fc-default         % how far a fault shifts the beds, in beds
 
 % TerrFn: 0 ridged only, 1 erosion fBm only, 3 the massif hierarchy
 /TerrFn 3 fc-default
@@ -141,12 +154,72 @@
         Ho 2 gt {
             Hwx 2.6 mul 1.9 add Hwz 2.6 mul 6.1 add Ho 1.5 sub fc-eroded 0.5 sub DetailAmp mul
         } { 0 } ifelse
-        Hm 0.6 mul 0.4 add mul
+        Hm 0.6 mul 0.4 add mul dup /Hdt exch def      % the detail, kept for fc-terrace
         Hm Hrd 0.92 mul 0.18 add mul 0.06 add add
     } ifelse
     } ifelse } ifelse
     TerrH mul TerrBase add
+    TerraceAmp 0 gt { TerrFn 3 eq ErBaking not and { fc-terrace } if } if  % terraces (#21)
     TerrCoast { fc-coast } if                  % the coast (fc_coast.ps, with MapSea)
+} bind def
+
+% Terraces (#21): h -> h', called from fc-height-proc (massif terrain, not
+% while erosion bakes) with Hmx Hmz, Hwx Hwz and Hm set. The bed coordinate
+% u = (h + dip . (x, z)) / step, shifted across faults and warped so beds
+% thicken and thin, is put through a soft staircase T(u): flat for the
+% first tread fraction of each bed, then a smoothstep riser; h' = h + w step
+% (T(u) - u), so treads dip and risers steepen. u is taken from h without
+% its fine detail (Hdt, the erosion fBm), which stays on top. The weight w
+% is the outcrop patch times a slope gate from two ridged octaves (three
+% samples), so it doesn't depend on the octave count; the bed phase does
+% only through ridged octaves 3-5. The march, the normals, the shadow march
+% (4 octaves, lifted by ShadBias) and the forest bake see nearly the same
+% ledges.
+/fc-terrace {                                    % h -> h'
+    /Tqh exch def
+    % outcrop patches
+    TerracePatch 1 lt {
+        1 TerracePatch 1.2 mul sub dup 0.2 add         % 0: none at all
+        Hmx 0.012 mul 17.3 add Hmz 0.012 mul 41.9 add fc-noise2 fc-smooth
+    } { 1 } ifelse /Tqw exch def
+    Tqw 0 gt Hm 0.05 gt and {                    % (no slope to speak of off the massif)
+        % coarse slope: two ridged octaves at the warped point, by forward
+        % differences, scaled to world units (massif mask, TerrH, TerrScale;
+        % 1.25 fitted against the 3-octave terrain's slope, r = 0.7)
+        Hwx Hwz 2 fc-ridged /Tq0 exch def
+        Hwx 0.05 add Hwz 2 fc-ridged Tq0 sub
+        Hwx Hwz 0.05 add 2 fc-ridged Tq0 sub
+        dup mul exch dup mul add sqrt 20 mul Hm mul 1.25 mul TerrH mul TerrScale mul
+        TerraceSlope 0 get TerraceSlope 1 get 0.001 add 3 -1 roll fc-smooth
+        Tqw mul TerraceAmp 1 fc-min mul /Tqw exch def
+    } { /Tqw 0 def } ifelse
+    Tqw 0 gt {
+        % beds from the ground without its fine detail, which goes back on top:
+        % the ledges keep their gullies and ragged lips, and the bed phase
+        % hardly depends on how many octaves the caller asked for
+        Tqh Hdt TerrH mul sub Hmx TerraceDip 0 get mul add Hmz TerraceDip 1 get mul add
+        TerraceStep 0.05 fc-max div /Tqu exch def
+        % faults: blocks across a wandering line family, each shifting the beds
+        TerraceFault 0 gt {
+            Hmx 0.8 mul Hmz 0.6 mul sub TerraceFault div
+            Hmx 0.02 mul 5.1 add Hmz 0.02 mul 9.7 add fc-noise2 0.8 mul add floor /Tqb exch def
+            Tqb 137.508 mul sin TerraceThrow mul Tqu add /Tqu exch def
+        } { /Tqb 0 def } ifelse
+        % beds thicken and thin, and pinch out along the strike
+        Tqu 0.43 mul 3.7 add  Hmx 0.6 mul Hmz 0.8 mul add 0.01 mul 1.3 add  fc-noise2
+        0.5 sub 2 mul TerraceIrreg 0 fc-max 0.6 fc-min mul Tqu add /Tqu exch def
+        /Tqk Tqu floor def /Tqf Tqu Tqk sub def
+        % every bed has its own share of ledge
+        Tqk 269.5 mul sin 24634.6 mul dup floor sub 0.3 mul 0.15 sub TerraceTread add 0.05 fc-max 0.9 fc-min /Tqt exch def
+        % and only the hard beds (TerraceBeds of them, a new choice in each
+        % fault block) stand out as cliffs; the soft ones stay as they were
+        TerraceBeds 1 lt {
+            1 TerraceBeds 1.15 mul sub dup 0.15 add     % 0: none at all
+            Tqk 127.1 mul Tqb 311.7 mul add sin 43758.5 mul dup floor sub
+            fc-smooth Tqw mul /Tqw exch def
+        } if
+        Tqt 1 Tqf fc-smooth Tqf sub Tqw mul TerraceStep mul Tqh add
+    } { Tqh } ifelse
 } bind def
 
 % massif: two smooth octaves at the warped point (Hwx Hwz), pushed toward 0
@@ -168,7 +241,7 @@
     Ho 2 gt {
         Hwx 2.6 mul 1.9 add Hwz 2.6 mul 6.1 add Ho 1.5 sub fc-eroded 0.5 sub DetailAmp mul
     } { 0 } ifelse
-    Hm 0.6 mul 0.4 add mul
+    Hm 0.6 mul 0.4 add mul dup /Hdt exch def      % the detail, kept for fc-terrace
     Hm Hrd 0.92 mul 0.18 add mul 0.06 add add
 } bind def
 
