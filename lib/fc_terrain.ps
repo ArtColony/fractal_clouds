@@ -179,7 +179,7 @@
     /Tqh exch def
     % outcrop patches
     TerracePatch 1 lt {
-        0.9 TerracePatch sub  1.1 TerracePatch sub
+        1 TerracePatch 1.2 mul sub dup 0.2 add         % 0: none at all
         Hmx 0.012 mul 17.3 add Hmz 0.012 mul 41.9 add fc-noise2 fc-smooth
     } { 1 } ifelse /Tqw exch def
     Tqw 0 gt Hm 0.05 gt and {                    % (no slope to speak of off the massif)
@@ -207,15 +207,15 @@
         } { /Tqb 0 def } ifelse
         % beds thicken and thin, and pinch out along the strike
         Tqu 0.43 mul 3.7 add  Hmx 0.6 mul Hmz 0.8 mul add 0.01 mul 1.3 add  fc-noise2
-        0.5 sub 2 mul TerraceIrreg 0.6 fc-min mul Tqu add /Tqu exch def
+        0.5 sub 2 mul TerraceIrreg 0 fc-max 0.6 fc-min mul Tqu add /Tqu exch def
         /Tqk Tqu floor def /Tqf Tqu Tqk sub def
         % every bed has its own share of ledge
         Tqk 269.5 mul sin 24634.6 mul dup floor sub 0.3 mul 0.15 sub TerraceTread add 0.05 fc-max 0.9 fc-min /Tqt exch def
         % and only the hard beds (TerraceBeds of them, a new choice in each
         % fault block) stand out as cliffs; the soft ones stay as they were
         TerraceBeds 1 lt {
-            1 TerraceBeds 2 mul sub dup 0.2 sub exch 0.2 add
-            Tqk 127.1 mul Tqb 311.7 mul add sin 43758.5 mul dup floor sub 2 mul 1 sub
+            1 TerraceBeds 1.15 mul sub dup 0.15 add     % 0: none at all
+            Tqk 127.1 mul Tqb 311.7 mul add sin 43758.5 mul dup floor sub
             fc-smooth Tqw mul /Tqw exch def
         } if
         Tqt 1 Tqf fc-smooth Tqf sub Tqw mul TerraceStep mul Tqh add

@@ -58,4 +58,4 @@ machine was shared, so timings are approximate):
 
 The view is almost all massif in outcrop patches, so this is near the worst
 case; most of it is the slope gate's three 2-octave ridged samples. Off, the
-term is one comparison per height call.
+term is one comparison and one store per height call.
