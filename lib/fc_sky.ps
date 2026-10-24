@@ -16,6 +16,18 @@
 %                             optical depth is integrated along the ray
 %   r g b fc-tone r g b       exposure tone curve, 1 - exp(-c * Exposure),
 %                             then sRGB gamma
+%   fc-sun-update -           after changing SunDir (or SunElev/SunAzim):
+%                             normalise it and rederive the sun and sky
+%                             colours the piece hasn't set
+%
+% The sky (fractal_clouds#22) is single scattering in a clear atmosphere:
+% Rayleigh air (8 km scale height), a thin aerosol layer (1.2 km, Mie),
+% ozone absorption, over a curved earth. SunDir alone sets the time of day:
+% the sun reddens with its path through the air, the sky goes from blue at
+% noon to orange at the horizon at dusk, and the sun, sky and ambient
+% colours (SunCol, Zenith, Horizon, SkyAmb, AmbTop, AmbBot) are derived
+% from it unless the piece sets them. A piece that sets Zenith or Horizon
+% gets the older blend sky (SkyModel false), unchanged.
 
 /fc-default { 1 index where { pop pop pop } { def } ifelse } bind def
 
@@ -55,22 +67,274 @@ fc-camera-update
 } bind def
 
 % --- sun ------------------------------------------------------------------
+% Either SunDir, or SunElev/SunAzim in degrees (elevation above the horizon;
+% azimuth 0 is +z, straight ahead before Yaw, 90 is +x, to the right).
 /SunDir [ -0.55 0.42 0.72 ] fc-default
+/SunElev null fc-default
+/SunAzim 0 fc-default
+/SunPower 1.1 fc-default             % sunlight above the atmosphere (white)
+/SunDisc 40 fc-default               % brightness of the disc in the sky
+% Night (SkyModel only): a moon lights the sky and, once it outshines the
+% sun, the ground and clouds (SunDir and SunCol are then the moon's: a
+% day-for-night convention, with Exposure standing in for the eye). Stars
+% show where the sky is dark enough.
+/MoonDir null fc-default             % or MoonElev/MoonAzim, like the sun's
+/MoonElev null fc-default
+/MoonAzim 0 fc-default
+/MoonLight 0.12 fc-default           % moonlight, as a fraction of SunPower
+/MoonCol [ 0.60 0.76 1.00 ] fc-colour    % blue-grey, as night reads to the eye
+/Stars 1 fc-default                  % star brightness; 0 for none
+/PixAng 0.0035 fc-default            % radians per image pixel (fc_render.ps sets it)
+
+% which colours the piece left to the sky model
+/SunCol where { pop /SkAutoSun false def } { /SkAutoSun true def } ifelse
+/Zenith where { pop /SkAutoZen false def } { /SkAutoZen true def } ifelse
+/Horizon where { pop /SkAutoHor false def } { /SkAutoHor true def } ifelse
+/SkyAmb where { pop /SkAutoAmb false def } { /SkAutoAmb true def } ifelse
+/AmbTop where { pop /SkAutoTop false def } { /SkAutoTop true def } ifelse
+/AmbBot where { pop /SkAutoBot false def } { /SkAutoBot true def } ifelse
+/SkyModel SkAutoZen SkAutoHor and fc-default
 /SunCol [ 1.00 0.93 0.80 ] fc-colour
-
-/fc-sun-update {                                 % normalise SunDir
-    SunDir aload pop /Rz exch def /Ry exch def /Rx exch def
-    /Rn Rx Rx mul Ry Ry mul add Rz Rz mul add sqrt def
-    /SunDir [ Rx Rn div Ry Rn div Rz Rn div ] def
-} bind def
-fc-sun-update
-
-% --- sky ------------------------------------------------------------------
 /Zenith [ 0.20 0.38 0.74 ] fc-colour
 /Horizon [ 0.70 0.78 0.88 ] fc-colour
 /Exposure 1.6 fc-default
 
-/fc-sky {                                        % dx dy dz -> r g b
+% --- the atmosphere (SkyModel) ---------------------------------------------
+/SkyGain 12.7 fc-default             % scattered sky light, relative to the sun (14 / SunPower)
+/SkySat 1.2 fc-default               % colour saturation of the sky light
+/Turbidity 1 fc-default              % aerosol amount; 1 is a clear mountain day
+/AmbGain 2.1 fc-default              % sky light on the ground: ambient / mean sky radiance
+/MultiScatter 1 fc-default           % light scattered more than once; 0 for single scattering only
+/SkMS [ 0 0 0 ] def                  % the sky's mean radiance, set by fc-sun-update
+/SkMSon 1 def                        % 1 while the sun's pass runs, 0 for the moon's
+
+% constants, in world units (one unit is 10 m)
+/SkR 637100 def                      % earth radius
+/SkHR 800 def /SkHM 120 def          % scale heights: air, aerosol
+/SkBR [ 5.2e-5 1.2e-4 3.5e-4 ] def   % Rayleigh scattering per unit (an sRGB fit, near Bruneton's 5.8, 13.5, 33.1)
+/SkBE SkBR def                       % air extinction (no absorption)
+% ozone: a uniform layer from 15 to 35 km, absorbing 0.0052, 0.015, 0.0007
+% straight up (the Chappuis band takes green and orange, and the light
+% that lights the twilight sky has crossed it twice, low down: that's why
+% twilight is blue)
+/SkO1 1500 def /SkO2 3500 def
+/SkSO [ 0.26e-5 0.75e-5 0.034e-5 ] def   % absorption per unit inside the layer
+/SkBM 0.85e-4 Turbidity mul def      % aerosol scattering
+/SkBMe SkBM 1.1 mul def              % aerosol extinction
+/SkG 0.65 def                        % aerosol phase asymmetry (Henyey-Greenstein)
+/SkM0R 3.14159265 SkR mul 2 div SkHR div sqrt def   % horizontal air masses
+/SkM0M 3.14159265 SkR mul 2 div SkHM div sqrt def
+/SkEdges [ 0 20 60 150 350 800 1800 4000 ] def      % height bands above the camera; the last goes to space
+
+% m0 s fc-sky-airmass m -- relative air mass (path density / vertical column)
+% for a ray at local elevation sin s, in air whose horizontal air mass is
+% m0 = sqrt(pi R / 2H): 1 / sqrt(s^2 + 1/m0^2), which is 1 overhead and m0
+% along the horizontal, close to Kasten-Young. Below the horizontal the ray
+% goes down to its tangent point and up again.
+/fc-sky-airmass {                                % m0 s -> m
+    /SkS exch def /SkM0 exch def
+    SkS SkS mul 1 SkM0 SkM0 mul div add sqrt 1 exch div
+    SkS 0 lt {
+        SkM0 2 mul 2.71828 SkM0 SkM0 mul SkS SkS mul mul 3.14159265 div exp mul exch sub
+    } if
+} bind def
+
+% h s H fc-sky-chord L -- length of the ray from height h at local
+% elevation sin s (>= 0) up to height H, over the curved earth
+/fc-sky-chord {                                  % h s H -> L
+    /SkCH exch def /SkCs exch def /SkCh exch def
+    SkCH SkCh le { 0 } { SkR SkCs SkCs mul 2 SkCH SkCh sub mul SkR div add sqrt SkCs sub mul } ifelse
+} bind def
+
+% h s fc-sky-ozone X -- path length through the ozone layer from height h
+% toward elevation sin s (below the horizontal: down to the tangent point
+% and up again; the ray must clear the ground)
+/fc-sky-ozone {                                  % h s -> X
+    /SkOs exch def /SkOh exch def
+    SkOs 0 ge {
+        SkOh SkOs SkO2 fc-sky-chord SkOh SkOs SkO1 fc-sky-chord sub
+    } {
+        /SkOt SkOh SkR SkOs mul SkOs mul 2 div sub dup 0 lt { pop 0 } if def
+        SkOt 0 SkO2 fc-sky-chord SkOt 0 SkO1 fc-sky-chord sub 2 mul
+        SkOh SkOs neg SkO2 fc-sky-chord SkOh SkOs neg SkO1 fc-sky-chord sub sub
+    } ifelse
+} bind def
+
+% h s fc-sky-tsun r g b -- transmittance from height h to the sun at
+% elevation sin s; 0 once the earth is in the way (softened over the width
+% of the disc)
+/fc-sky-tsun {                                   % h s -> r g b
+    /SkTs exch def /SkTh exch def
+    SkTh 0 lt { /SkTh 0 def } if
+    SkTs 0 lt {
+        SkTh SkR SkTs mul SkTs mul 2 div sub  SkR SkTs neg mul 0.0087 mul 1 add div
+        dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if
+    } { 1 } ifelse /SkVis exch def
+    SkVis 0 gt {
+        /SkTxr SkHR 2.71828 SkTh neg SkHR div exp mul SkM0R SkTs fc-sky-airmass mul def
+        /SkTxm SkHM 2.71828 SkTh neg SkHM div exp mul SkM0M SkTs fc-sky-airmass mul def
+        /SkTxo SkTh SkTs fc-sky-ozone def
+        0 1 2 { /SkTi exch def
+            2.71828 SkBE SkTi get SkTxr mul SkBMe SkTxm mul add SkSO SkTi get SkTxo mul add neg exp SkVis mul
+        } for
+    } { 0 0 0 } ifelse
+} bind def
+
+% dx dy dz fc-sky-scatter r g b -- light scattered toward the camera along
+% the ray, for a white light of 1 above the atmosphere in the unit
+% direction SkLight. The ray is cut into height bands; in each, the
+% source-to-extinction ratio and the sunlight are taken at the band's
+% middle and the view transmittance integrates in closed form, so eight
+% bands are within a few percent of a fine march.
+/fc-sky-scatter {                                % dx dy dz -> r g b
+    /SkDz exch def /SkDy exch def /SkDx exch def
+    /SkMu SkDx SkLight 0 get mul SkDy SkLight 1 get mul add SkDz SkLight 2 get mul add def
+    SkDy 0 lt { /SkDy 0 def } if
+    /SkPr 1 SkMu SkMu mul add 0.0596831 mul def                   % 3/(16 pi) (1 + mu^2)
+    /SkPm 1 SkG SkG mul sub
+          1 SkG SkG mul add 2 SkG mul SkMu mul sub 1.5 exp 12.5663706 mul div def
+    /SkH0 CamY def
+    /SkSs SkLight 1 get def
+    % the light's component along the ray's horizontal: the local vertical
+    % tilts that way by s/R down the curved ray, so the light's local
+    % elevation changes with distance
+    /SkMuH SkDx SkLight 0 get mul SkDz SkLight 2 get mul add
+           SkDx SkDx mul SkDz SkDz mul add sqrt 0.000001 add div def
+    % the view ray's air columns from the camera to space
+    /SkXr0 SkHR 2.71828 SkH0 neg SkHR div exp mul SkM0R SkDy fc-sky-airmass mul def
+    /SkXm0 SkHM 2.71828 SkH0 neg SkHM div exp mul SkM0M SkDy fc-sky-airmass mul def
+    /SkXo1 SkH0 SkDy SkO1 fc-sky-chord def       % to the ozone layer's bottom
+    /SkTa [ 1 1 1 ] def
+    /SkOut [ 0 0 0 ] def
+    /SkKn SkEdges length 1 sub def
+    0 1 SkKn { /SkK exch def
+        /SkA SkEdges SkK get def
+        SkK SkKn lt {
+            /SkB SkEdges SkK 1 add get def
+            % distance along the (curved) ray to the band's top, and the
+            % columns from the camera to there
+            /SkHb SkH0 SkB add def
+            /SkSb SkR SkDy neg SkDy SkDy mul 2 SkB mul SkR div add sqrt add mul def
+            /SkSl SkDy SkSb SkR div add def
+            /SkXr SkXr0 SkHR 2.71828 SkHb neg SkHR div exp mul SkM0R SkSl fc-sky-airmass mul sub def
+            /SkXm SkXm0 SkHM 2.71828 SkHb neg SkHM div exp mul SkM0M SkSl fc-sky-airmass mul sub def
+            /SkXo SkH0 SkDy SkHb dup SkO2 gt { pop SkO2 } if fc-sky-chord SkXo1 sub dup 0 lt { pop 0 } if def
+            /SkHm SkH0 SkA SkB add 2 div add def
+        } {
+            /SkXr SkXr0 def /SkXm SkXm0 def
+            /SkXo SkH0 SkDy SkO2 fc-sky-chord SkXo1 sub def
+            /SkHm SkH0 SkA add SkHR 1.5 mul add def
+        } ifelse
+        /SkRr 2.71828 SkHm neg SkHR div exp def
+        /SkRm 2.71828 SkHm neg SkHM div exp def
+        /SkRo SkHm SkO1 ge SkHm SkO2 le and { 1 } { 0 } ifelse def
+        SkHm SkSs SkH0 SkDy SkHm fc-sky-chord SkR div SkMuH mul add fc-sky-tsun
+        3 array astore /SkTsun exch def
+        0 1 2 { /SkI exch def
+            /SkTb 2.71828 SkBE SkI get SkXr mul SkBMe SkXm mul add SkSO SkI get SkXo mul add neg exp def
+            SkOut SkI get
+            % sunlight scattered once, plus the sky's mean radiance scattered
+            % again (SkMS, the sun's pass only), over the extinction
+            SkBR SkI get SkRr mul SkPr mul SkBM SkRm mul SkPm mul add SkTsun SkI get mul
+            SkBR SkI get SkRr mul SkBM SkRm mul add SkMS SkI get mul SkMSon mul add
+            SkBE SkI get SkRr mul SkBMe SkRm mul add SkSO SkI get SkRo mul add div
+            SkTa SkI get SkTb sub mul add
+            SkOut SkI 3 -1 roll put
+            SkTa SkI SkTb put
+        } for
+    } for
+    SkOut aload pop
+} bind def
+
+% i j k fc-sky-hash h -- a 0..1 hash of three integers, for the stars
+/fc-sky-hash {                                   % i j k -> 0..1
+    74.7 mul exch 311.7 mul add exch 127.1 mul add sin 43758.5453 mul dup floor sub
+} bind def
+
+% dx dy dz vis fc-sky-stars r g b -- the star field along the ray, scaled by
+% vis. The sky is cut into SkCell-degree cells of azimuth and elevation; a
+% fifth of them hold a star, at a hashed spot inside, with a hashed
+% brightness (most faint, a few bright) and warmth. Each star is a gaussian
+% about two thirds of a pixel wide, so it stays a point at any resolution.
+/SkCell 1.2 def /SkN 300 def                     % 360 / SkCell cells round
+/fc-sky-stars {                                  % dx dy dz vis -> r g b
+    /SkSv exch def /SkSz exch def /SkSy exch def /SkSx exch def
+    /SkStr 0 def /SkStg 0 def /SkStb 0 def
+    SkSv 0.002 gt Stars 0 gt and {
+        /SkSa SkSx SkSz 2 copy abs exch abs add 0.0000001 lt { pop pop 0 } { atan } ifelse def   % azimuth, degrees
+        /SkSe SkSy SkSx SkSx mul SkSz SkSz mul add sqrt 0.000001 add atan def   % elevation
+        /SkSc SkSe cos def
+        /SkSsg PixAng 57.2958 mul 0.65 mul def                     % sigma, degrees
+        /SkSi0 SkSa SkCell div floor cvi def /SkSj0 SkSe SkCell div floor cvi def
+        -1 1 1 { SkSj0 add /SkSj exch def
+            -1 1 1 { SkSi0 add /SkSi exch def
+                /SkSh SkSi SkN add SkN mod def                     % wraps round the sky
+                SkSh SkSj 0 fc-sky-hash 0.2 lt {
+                    SkSi SkSh SkSj 1 fc-sky-hash add SkCell mul SkSa sub SkSc mul
+                    SkSj SkSh SkSj 2 fc-sky-hash add SkCell mul SkSe sub
+                    dup mul exch dup mul add SkSsg SkSsg mul 2 mul div neg 2.71828 exch exp
+                    SkSh SkSj 3 fc-sky-hash dup mul dup mul dup mul 0.97 mul 0.03 add mul
+                    Stars mul SkSv mul /SkSw exch def
+                    SkSh SkSj 4 fc-sky-hash /SkSt exch def
+                    SkSw 0.75 SkSt 0.25 mul add mul SkStr add /SkStr exch def
+                    SkSw 0.85 SkSt 0.05 mul add mul SkStg add /SkStg exch def
+                    SkSw 1.0 SkSt 0.35 mul sub mul SkStb add /SkStb exch def
+                } if
+            } for
+        } for
+    } if
+    % seen through the whole column of air: SkTa is the view transmittance
+    % left by the last fc-sky-scatter along this ray
+    SkStr SkTa 0 get mul SkStg SkTa 1 get mul SkStb SkTa 2 get mul
+} bind def
+
+% dx dy dz fc-sky-light r g b -- the sky's own light along the ray: sun and
+% moon scattering, saturated about its luminance (SkySat) and scaled
+% (SkyGain). Leaves SkL, its luminance before the gain, and the discs'
+% weights SkD and SkDm for fc-sky-model.
+/fc-sky-light {                                  % dx dy dz -> r g b
+    /SkVz exch def /SkVy exch def /SkVx exch def
+    /SkLight SkSun def /SkMSon 1 def
+    SkVx SkVy SkVz fc-sky-scatter
+    SunPower mul /SkOb exch def SunPower mul /SkOg exch def SunPower mul /SkOr exch def
+    SkMu 0 lt { 0 } { SkMu 4096 exp SunDisc mul } ifelse /SkD exch def
+    SkMoon null ne {
+        /SkLight SkMoon def /SkMSon 0 def
+        SkVx SkVy SkVz fc-sky-scatter
+        MoonCol 2 get mul MoonLight mul SunPower mul SkOb add /SkOb exch def
+        MoonCol 1 get mul MoonLight mul SunPower mul SkOg add /SkOg exch def
+        MoonCol 0 get mul MoonLight mul SunPower mul SkOr add /SkOr exch def
+        SkMu 0 lt { 0 } { SkMu 4096 exp SunDisc mul } ifelse /SkDm exch def
+    } { /SkDm 0 def } ifelse
+    /SkL SkOr 0.3 mul SkOg 0.59 mul add SkOb 0.11 mul add def
+    % saturate about the luminance, but never past the point where the
+    % weakest channel would clip to zero (a low sun's blue)
+    /SkSk SkySat def
+    SkOr SkOg 2 copy gt { exch } if pop SkOb 2 copy gt { exch } if pop   % the least channel
+    SkL exch sub dup 0.000000001 gt {
+        SkL exch div dup SkSk lt { /SkSk exch def } { pop } ifelse
+    } { pop } ifelse
+    SkOr SkL sub SkSk mul SkL add dup 0 lt { pop 0 } if SkyGain mul
+    SkOg SkL sub SkSk mul SkL add dup 0 lt { pop 0 } if SkyGain mul
+    SkOb SkL sub SkSk mul SkL add dup 0 lt { pop 0 } if SkyGain mul
+} bind def
+
+/fc-sky-model {                                  % dx dy dz -> r g b
+    fc-sky-light
+    % the discs, the sun and moon seen through the air, and the stars,
+    % which fade under a bright sky
+    % (a gaussian in the sky's luminance, width 0.002: the civil-twilight
+    % zenith (0.003) keeps a tenth, only its brightest stars show; a moonlit
+    % sky (0.005 and up) hides them, as a full moon does)
+    SkVx SkVy SkVz 2.71828 SkL SkyGain mul 0.002 div dup mul neg exp fc-sky-stars
+    /SkStb exch def /SkStg exch def /SkStr exch def
+    SkDiscCol 2 get SkD mul add SkMoonCol 2 get SkDm mul add SkStb add 3 1 roll
+    SkDiscCol 1 get SkD mul add SkMoonCol 1 get SkDm mul add SkStg add 3 1 roll
+    SkDiscCol 0 get SkD mul add SkMoonCol 0 get SkDm mul add SkStr add 3 1 roll
+} bind def
+
+% the older sky: a zenith-to-horizon blend plus three sun lobes
+/fc-sky-blend {                                  % dx dy dz -> r g b
     /Sz exch def /Sy exch def /Sx exch def
     Sx SunDir 0 get mul Sy SunDir 1 get mul add Sz SunDir 2 get mul add
     dup 0 lt { pop 0 } if
@@ -88,16 +352,126 @@ fc-sun-update
     } for
 } bind def
 
+/fc-sky { SkyModel { fc-sky-model } { fc-sky-blend } ifelse } bind def
+
+% --- derived colours --------------------------------------------------------
+% fc-sun-update: normalise SunDir (from SunElev/SunAzim if given), then the
+% colours the piece hasn't set: SunCol is the sun seen from the camera's
+% height; Zenith and Horizon are the model sky overhead and at the horizon
+% 90 degrees from the sun; SkyAmb is the sky's cosine-weighted mean over the
+% hemisphere, times AmbGain, pulled toward grey (sky light reaches the
+% ground after more scattering than the single kind modelled); AmbTop and
+% AmbBot are 1.2 and 0.31 of it, the ratios of the old defaults. SkyAmb,
+% AmbTop and AmbBot belong to fc_terrain and fc_clouds, which load later and
+% convert them from sRGB, so at load they're written encoded (SkEncode).
+/SkEncode false def
+/SkMoonTook false def                            % SunDir currently holds the moon
+/fc-sky-unit { aload pop /Rz exch def /Ry exch def /Rx exch def   % [x y z] -> [unit]
+    % never exactly level: fc_terrain's cloud shadow divides by the light's y
+    Ry abs 0.0005 lt { /Ry Ry 0 lt { -0.0005 } { 0.0005 } ifelse def } if
+    /Rn Rx Rx mul Ry Ry mul add Rz Rz mul add sqrt def
+    [ Rx Rn div Ry Rn div Rz Rn div ] } bind def
+/fc-sun-update {
+    SunElev null ne {
+        /SunDir [ SunElev cos SunAzim sin mul SunElev sin SunElev cos SunAzim cos mul ] def
+    } {
+        % the moon may have taken SunDir on an earlier call: the sun is then SkSunDir
+        SkMoonTook { SunDir SkMoon eq { /SunDir SkSunDir def } if } if
+    } ifelse
+    /SunDir SunDir fc-sky-unit def
+    /SkSun SunDir def /SkSunDir SunDir def /SkMoonTook false def
+    MoonElev null ne {
+        /MoonDir [ MoonElev cos MoonAzim sin mul MoonElev sin MoonElev cos MoonAzim cos mul ] def
+    } if
+    MoonDir null ne { /MoonDir MoonDir fc-sky-unit def } if
+    /SkMoon SkyModel { MoonDir } { null } ifelse def
+    % each light at the camera: SkSunCol, SkMoonCol, and the brighter one
+    % lights the surfaces
+    /SkSunCol [ CamY SkSun 1 get fc-sky-tsun 3 { SunPower mul 3 1 roll } repeat ] def
+    /SkMoonCol SkMoon null ne {
+        [ CamY SkMoon 1 get fc-sky-tsun MoonCol 2 get mul MoonLight mul 3 1 roll
+          MoonCol 1 get mul MoonLight mul 3 1 roll MoonCol 0 get mul MoonLight mul 3 1 roll ]
+    } { [ 0 0 0 ] } ifelse def
+    SkMoonCol 0 get 0.3 mul SkMoonCol 1 get 0.59 mul add SkMoonCol 2 get 0.11 mul add
+    SkSunCol 0 get 0.3 mul SkSunCol 1 get 0.59 mul add SkSunCol 2 get 0.11 mul add
+    gt {
+        /SunDir SkMoon def /SkMoonTook true def
+        SkAutoSun { /SunCol SkMoonCol def } if
+    } {
+        SkAutoSun SkyModel and { /SunCol SkSunCol def } if    % the blend sky keeps its old default
+    } ifelse
+    /SkDiscCol SkAutoSun { SkSunCol } { SunCol } ifelse def
+    SkyModel {
+        % multiple scattering: the mean of the once-scattered sky over the
+        % upper hemisphere (the ground below counts a little), which every
+        % band then scatters again
+        /SkMS [ 0 0 0 ] def /SkMSa [ 0 0 0 ] def /SkW 0 def
+        MultiScatter 0 gt {
+            /SkLight SkSun def
+            [ 10 30 50 75 ] { /SkEl exch def
+                0 45 315 { /SkAz exch def
+                    SkEl cos SkAz sin mul SkEl sin SkEl cos SkAz cos mul fc-sky-scatter
+                    /SkEw SkEl cos def
+                    SkEw mul SkMSa 2 get add SkMSa 2 3 -1 roll put
+                    SkEw mul SkMSa 1 get add SkMSa 1 3 -1 roll put
+                    SkEw mul SkMSa 0 get add SkMSa 0 3 -1 roll put
+                    /SkW SkW SkEw add def
+                } for
+            } forall
+            /SkMS [ SkMSa { SkW div 0.6 mul MultiScatter mul } forall ] def
+        } if
+        SkAutoZen { /Zenith [ 0 1 0 fc-sky-light ] def } if
+        SkAutoHor {
+            % the horizon colour 90 degrees round from the sun
+            /SkHn SunDir 0 get dup mul SunDir 2 get dup mul add sqrt 0.000001 add def
+            /Horizon [ SunDir 2 get neg SkHn div 0.999 mul 0.045 SunDir 0 get SkHn div 0.999 mul fc-sky-light ] def
+        } if
+        SkAutoAmb SkAutoTop or SkAutoBot or {
+            /SkAcc [ 0 0 0 ] def /SkW 0 def
+            [ 10 30 50 70 85 ] { /SkEl exch def
+                0 30 330 { /SkAz exch def
+                    SkEl cos SkAz sin mul SkEl sin SkEl cos SkAz cos mul fc-sky-light
+                    /SkEw SkEl sin SkEl cos mul def
+                    SkEw mul SkAcc 2 get add SkAcc 2 3 -1 roll put
+                    SkEw mul SkAcc 1 get add SkAcc 1 3 -1 roll put
+                    SkEw mul SkAcc 0 get add SkAcc 0 3 -1 roll put
+                    /SkW SkW SkEw add def
+                } for
+            } forall
+            /SkAcc [ SkAcc { SkW div AmbGain mul } forall ] def
+            /SkL SkAcc 0 get 0.3 mul SkAcc 1 get 0.59 mul add SkAcc 2 get 0.11 mul add def
+            /SkAcc [ SkAcc { SkL sub 0.35 mul SkL add } forall ] def
+            SkAutoAmb { /SkyAmb [ SkAcc { SkEncode { 1 2.2 div exp } if } forall ] def } if
+            SkAutoTop { /AmbTop [ SkAcc { 1.2 mul SkEncode { 1 2.2 div exp } if } forall ] def } if
+            SkAutoBot { /AmbBot [ SkAcc { 0.31 mul SkEncode { 1 2.2 div exp } if } forall ] def } if
+        } if
+    } if
+} bind def
+/SkEncode true def
+fc-sun-update
+/SkEncode false def
+
+% --- haze -----------------------------------------------------------------
 /HazeCol Horizon def
 /fc-haze-colour {                                % dx dz -> -
     /Hz exch def /Hx exch def
     /Hn Hx Hx mul Hz Hz mul add sqrt 0.000001 add def
-    Hx Hn div 0.999 mul 0.045 Hz Hn div 0.999 mul fc-sky
+    % the sky's own light only: a disc or a star in the sample would run a
+    % bright column down everything hazed below it
+    Hx Hn div 0.999 mul 0.045 Hz Hn div 0.999 mul SkyModel { fc-sky-light } { fc-sky } ifelse
     3 array astore /HazeCol exch def
 } bind def
 
 /HazeDist 520 fc-default             % e-folding distance at height 0
 /HazeH 45 fc-default                 % haze scale height
+% HazeChroma: how much the haze keeps the air's colour selectivity. 0 fades
+% every channel alike over HazeDist. 1 takes the haze to be the model's
+% Rayleigh air plus enough neutral aerosol to reach HazeDist in green, so
+% blue fades a little sooner and red a little later (about 15% and 4% at
+% HazeDist 650; a haze this thick is mostly aerosol). 2 or 3 exaggerates.
+/HazeChroma SkyModel { 1 } { 0 } ifelse fc-default
+/SkHzA 1 HazeDist div SkBE 1 get sub dup 0 lt { pop 0 } if def   % the aerosol part
+/HazeW [ 0 1 2 { SkBE exch get SkHzA add HazeDist mul 1 sub HazeChroma mul 1 add } for ] def
 
 /fc-haze {                                       % r g b t -> r g b
     % optical depth of exponential-height haze along the current ray, from
@@ -109,12 +483,20 @@ fc-sun-update
     } {
         dup neg 2.71828 exch exp 1 exch sub exch div Ht mul mul
     } ifelse
-    HazeDist div neg 2.71828 exch exp            % transmittance
-    1 exch sub /Hf exch def
-    /Hb exch def /Hg exch def /Hr exch def
-    Hr HazeCol 0 get Hr sub Hf mul add
-    Hg HazeCol 1 get Hg sub Hf mul add
-    Hb HazeCol 2 get Hb sub Hf mul add
+    HazeChroma 0 eq {
+        HazeDist div neg 2.71828 exch exp            % transmittance
+        1 exch sub /Hf exch def
+        /Hb exch def /Hg exch def /Hr exch def
+        Hr HazeCol 0 get Hr sub Hf mul add
+        Hg HazeCol 1 get Hg sub Hf mul add
+        Hb HazeCol 2 get Hb sub Hf mul add
+    } {
+        HazeDist div /Hd exch def
+        /Hb exch def /Hg exch def /Hr exch def
+        Hr HazeCol 0 get Hr sub 1 2.71828 Hd HazeW 0 get mul neg exp sub mul add
+        Hg HazeCol 1 get Hg sub 1 2.71828 Hd HazeW 1 get mul neg exp sub mul add
+        Hb HazeCol 2 get Hb sub 1 2.71828 Hd HazeW 2 get mul neg exp sub mul add
+    } ifelse
 } bind def
 
 /fc-tone {                                       % linear r g b -> sRGB r g b

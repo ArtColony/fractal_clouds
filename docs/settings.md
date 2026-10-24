@@ -83,15 +83,39 @@ Resolution comes from the page size times `DPI` (a `render.sh` variable):
 
 ## Sun, sky, haze and tone (`fc_sky.ps`)
 
+The sun's direction is the time of day. With the sky model on (the
+default), the sun, sky and ambient colours all follow from it: a piece
+sets `SunDir` or `SunElev`/`SunAzim` and nothing else, and gets noon,
+golden hour, alpenglow, dusk or a moonlit night. Any colour a piece does
+set is kept. A piece that sets `Zenith` or `Horizon` gets the older
+blend sky (`SkyModel` false), exactly as before.
+
 | Setting | Default | What it does | Used |
 |---|---|---|---|
 | `SunDir` | [−0.55 0.42 0.72] | Direction *toward* the sun (x right, y up, z ahead before yaw). Normalised on load. Low `y` gives long shadows; negative `z` puts the sun behind the camera. | [−0.62 0.40 0.62], [0.55 0.50 0.45], [0.50 0.13 −0.55] |
-| `SunCol` | [1.00 0.93 0.80] | Sunlight colour (sRGB). | also [1.00 0.72 0.48] (evening) |
-| `Zenith` | [0.20 0.38 0.74] | Sky colour overhead. | also [0.24 0.34 0.58] |
-| `Horizon` | [0.70 0.78 0.88] | Sky colour at the horizon. It's also the haze colour. | also [0.94 0.74 0.58] |
-| `Exposure` | 1.6 | Brightness before the tone curve `1 − exp(−Exposure·L)`. | 1.6, 1.9 |
+| `SunElev`, `SunAzim` | null, 0 | The sun by angles instead: elevation above the horizon and azimuth (0 is +z, ahead before `Yaw`; 90 is +x, to the right), degrees. A number in `SunElev` overrides `SunDir`. | −5 … 55 (the sweep) |
+| `SkyModel` | true unless the piece set `Zenith` or `Horizon` | The scattering sky below. false is the zenith-to-horizon blend with three sun lobes. | true, false |
+| `SunCol` | derived | Sunlight colour at the camera (sRGB if the piece sets it). Derived: white sunlight (`SunPower`) through the air along the sun's path, so it reddens as the sun drops. | [1.00 0.72 0.48] (evening lake) |
+| `Zenith` | derived | Sky colour overhead. Derived from the model; setting it turns `SkyModel` off. | [0.24 0.34 0.58] |
+| `Horizon` | derived | Sky colour at the horizon. Derived from the model (90° round from the sun); setting it turns `SkyModel` off. | [0.94 0.74 0.58] |
+| `SunPower` | 1.1 | Sunlight above the atmosphere, white. | 1.1 |
+| `SunDisc` | 40 | Brightness of the sun's (and moon's) disc in the sky. | 40 |
+| `SkyGain` | 12.7 | The scattered sky's brightness relative to the sun (both are scaled by `SunPower`). | 12.7 |
+| `SkySat` | 1.2 | Saturation of the sky's colour about its luminance; 1 is the model as computed. | 1.2 |
+| `Turbidity` | 1 | Aerosol amount: 1 is a clear mountain day. More whitens the horizon and widens the glow round the sun. | 1 |
+| `MultiScatter` | 1 | Light scattered more than once (the sky's mean radiance scattered again): brightens and blues the horizon. 0 for single scattering. | 1 |
+| `AmbGain` | 2.1 | Derived `SkyAmb` is this times the sky's cosine-weighted mean, pulled 65% toward grey (sky light reaches the ground after far more scattering than the model follows, and a bluer ambient turned the alpine forest teal); `AmbTop` and `AmbBot` are 1.2 and 0.31 of that. Pieces that set any of the three keep theirs. | 2.1 |
+| `MoonDir`, `MoonElev`, `MoonAzim` | null, null, 0 | A moon, by vector or by angles. Null means none. It lights the sky, and once it outshines the sun at the camera it takes over `SunDir` and `SunCol` for the ground and clouds. | 20/60, 25/−40, 45/10 |
+| `MoonLight` | 0.12 | Moonlight as a fraction of `SunPower` (a day-for-night convention; raise `Exposure` too). | 0.12 |
+| `MoonCol` | [0.60 0.76 1.00] | Moonlight colour above the air, sRGB: blue-grey, as night reads to the eye. | |
+| `Stars` | 1 | Star brightness, where the sky is dark enough. 0 for none. | 1 |
+| `Exposure` | 1.6 | Brightness before the tone curve `1 − exp(−Exposure·L)`. | 1.6, 1.9, 3, 4 (night) |
 | `HazeDist` | 520 | Distance at which haze reaches 63% at height 0. Smaller means thicker air. | 400, 520, 650 |
 | `HazeH` | 45 | Height over which the haze thins by a factor of e. | 45 |
+| `HazeChroma` | 1 with `SkyModel`, else 0 | How far the haze fades each channel at its own rate. 1 takes the haze to be the model's Rayleigh air plus enough neutral aerosol to reach `HazeDist` in green, so blue fades a little sooner and red a little later (about 15% and 4% at `HazeDist` 650: a haze that thick is mostly aerosol); 0 fades every channel over `HazeDist`; 2 or 3 exaggerates the blue distance. `HazeDist` is the green channel's distance. | 0, 1 |
+
+`fc-sun-update` recomputes everything derived after a piece changes
+`SunDir`, `SunElev` or the moon after loading.
 
 ## Clouds (`fc_clouds.ps`)
 
@@ -106,7 +130,7 @@ Resolution comes from the page size times `DPI` (a `render.sh` variable):
 | `DensOct` | 5 | Most noise octaves, for near clouds; distant clouds use fewer. | 5 |
 | `ShadOct`, `ShadStep` | 3, 3.2 | Octaves and spacing of the two probes toward the sun. | |
 | `CloudSteps` | 96 | Most samples per ray. | |
-| `AmbTop`, `AmbBot` | [0.62 0.72 0.88], [0.34 0.38 0.48] | Ambient light at the layer's top and bottom (sRGB). | |
+| `AmbTop`, `AmbBot` | derived (or [0.62 0.72 0.88], [0.34 0.38 0.48] without `SkyModel`) | Ambient light at the layer's top and bottom (sRGB). With the sky model, 1.2 and 0.31 of the derived `SkyAmb` unless the piece sets them. | |
 | `CloudLayers` | null | null marches the one layer the settings above describe. Otherwise an array of layers (below), marched one after another, nearest band first. | null, `[/Cumulus /Altocumulus /Cirrus]` |
 
 ### Cloud layers (`CloudLayers`)
@@ -247,7 +271,7 @@ lake shallower than that shows rocks and islands of bed.
 | `Scree` | [0.50 0.49 0.47] | Gentler slopes below cliffs. | |
 | `Snow` | [0.94 0.95 0.97] | | |
 | `Forest` | [0.20 0.26 0.18] | Painted-forest colour (see `TreeLine`). | |
-| `SkyAmb` | [0.58 0.66 0.80] | Sky light on the ground and trees. | also [0.52 0.56 0.70] |
+| `SkyAmb` | derived (or [0.58 0.66 0.80] without `SkyModel`) | Sky light on the ground and trees. With the sky model, the sky's mean times `AmbGain` unless the piece sets it. | [0.52 0.56 0.70] (evening lake) |
 | `SkyLight` | 1.15 | Strength of that sky light. | 1.15 |
 | `Bounce` | [0.40 0.36 0.30] | Warm light reflected up from the ground below. | |
 | `BumpAmp` | 0.55 | How strongly steep rock breaks into lit and shaded facets. | 0, 0.55 |
