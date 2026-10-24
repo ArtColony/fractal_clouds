@@ -459,11 +459,13 @@
     ClBoxed { fc-cloud-box } if
     Ct0 Ct1 lt {
         /Cph Mx SunDir 0 get mul My SunDir 1 get mul add Mz SunDir 2 get mul add fc-phase def
-        % step length grows with distance; the first step is jittered
+        % step length grows with distance; the first step is jittered by
+        % a hash of the pixel (fc-cloud-jitter), a new value per layer
         /Cdt0 Ct1 Ct0 sub ClSteps div def
         /Ct Ct0 def
         /Cdt Cdt0 Ct 0.012 mul add def
-        /Ct Ct Cdt fc-rnd mul add def
+        /Ct Ct Cdt ClJit mul add def
+        /ClJit ClJit 0.7548777 add dup floor sub def
         {
             Ct Ct1 ge { exit } if
             /Cdt Cdt0 Ct 0.012 mul add def
@@ -506,6 +508,7 @@
 /fc-clouds {                                     % tlimit -> -
     /Ctl exch def
     /Cr 0 def /Cg 0 def /Cb 0 def /Tr 1 def
+    /ClJit fc-cloud-jitter def
     FcClCompiled not { fc-clouds-compile } if
     CloudLayers null eq { fc-cloud-march } {
         % nearest band first: up the list for a rising ray, down it otherwise
@@ -515,4 +518,21 @@
     } ifelse
 } bind def
 
+% The march's first-step jitter, 0..1: interleaved gradient noise (Jimenez
+% 2014) of the pixel fc-render is on (FrI, FrJ), so neighbouring pixels get
+% well-spread offsets (the error reads as a fine even dither, not grain),
+% and every render of a pixel, whole frame or band, gets the same one. The
+% extra antialiasing samples of a pixel (same FrI, FrJ) each step on by the
+% golden ratio. Outside fc-render (no FrI) it falls back to fc-rnd.
+/ClJI -1 def /ClJJ -1 def /ClJk 0 def
+/fc-cloud-jitter {                               % - -> j
+    /FrI where {
+        pop
+        FrI ClJI ne FrJ ClJJ ne or { /ClJI FrI def /ClJJ FrJ def /ClJk 0 def } { /ClJk ClJk 1 add def } ifelse
+        FrI 0.06711056 mul FrJ 0.00583715 mul add dup floor sub 52.9829189 mul
+        ClJk 0.618034 mul add dup floor sub
+    } { fc-rnd } ifelse
+} bind def
+
+% 0..1 from the random stream (the erosion bake draws on it)
 /fc-rnd { rand 2147483647 div } bind def
