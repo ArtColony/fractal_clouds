@@ -20,6 +20,9 @@
 #                                        # gets the value (the noises, trees, erosion,
 #                                        # jitter); sweep Seed for frames a piece can name
 #   --grid 3x3                           # the contact sheet's columns x rows
+#                                        # (a -D of the swept name is defined after
+#                                        # pscat's sweep value, so it overrides the
+#                                        # sweep: every frame gets the -D value)
 #
 # Output goes to renders/<name>.png (or $OUT/<name>.png); timings are appended
 # to timings.tsv in the same directory.
@@ -27,6 +30,10 @@
 # Exits nonzero if any piece errors.
 set -euo pipefail
 
+# the whole script is one function, called on the last line, so bash has
+# read all of it before it runs: editing render.sh while a render is in
+# flight can't change what that run does
+main() {
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"   # pieces load (lib/...) relative to the repo root
 
@@ -66,12 +73,17 @@ sweepname=""
 grid=()
 while [ $# -gt 0 ]; do
   case "$1" in
-    -D) defs="$defs /${2%%=*} ${2#*=} def"; shift 2 ;;
-    -D*) d="${1#-D}"; defs="$defs /${d%%=*} ${d#*=} def"; shift ;;
     --frame) frame=1; shift ;;
-    --sweep) sweep=(--sweep "$2"); sweepname="${2%%=*}"; shift 2 ;;
-    --sweep-seed) sweep=(--sweep-seed "$2"); sweepname=""; shift 2 ;;
-    --grid) grid=(--grid "$2"); shift 2 ;;
+    --sweep|--sweep-seed|--grid|-D)
+      [ $# -ge 2 ] || { echo "render: $1 needs a value" >&2; exit 2; }
+      case "$1" in
+        -D) defs="$defs /${2%%=*} ${2#*=} def" ;;
+        --sweep) sweep=(--sweep "$2"); sweepname="${2%%=*}" ;;
+        --sweep-seed) sweep=(--sweep-seed "$2"); sweepname="" ;;
+        --grid) grid=(--grid "$2") ;;
+      esac
+      shift 2 ;;
+    -D*) d="${1#-D}"; defs="$defs /${d%%=*} ${d#*=} def"; shift ;;
     *) break ;;
   esac
 done
@@ -137,7 +149,9 @@ for ps in "${pieces[@]}"; do
 
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$name" "$have" "$dpi" "$page" "$secs" "$status" "${defs# }" >> "$out/timings.tsv"
   printf '%-28s %8ss  %s\n' "$name" "$secs" "$status"
-  [ "$status" = ok ] || grep -v -E '^(real|user|sys) |^pscat: wrote ' "$log" | sed 's/^/    /' >&2
+  [ "$status" = ok ] || { grep -v -E '^(real|user|sys) |^pscat: wrote ' "$log" || true; } | sed 's/^/    /' >&2
 done
 
 exit "$failed"
+}
+main "$@"

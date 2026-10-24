@@ -41,7 +41,8 @@
 %   LookAt    null   [x z] or [x y z]: aim the camera at that map point
 %                    (sets Yaw as this file loads, and Pitch during setup,
 %                    once the camera height and the ground there are known;
-%                    without y, the ground at x z)
+%                    without y, the ground at x z, or WaterY / MapSea where
+%                    higher; a map lake's level isn't used: give y)
 %   LookTilt  0      degrees added to the Pitch LookAt works out (positive
 %                    tilts the view up, lowering the target in the frame)
 %
@@ -121,8 +122,13 @@ Profile { (lib/fc_bench.ps) run } if
         /CamY exch def
     } ifelse
     LnLkOn {
-        % pitch to the target: its own y, or the ground there
-        LookAt length 3 ge { LookAt 1 get } { LnLkX LnLkZ TerrOct fc-height } ifelse
+        % pitch to the target: its own y, or the ground there, or the
+        % water over it (WaterY, or a map's sea MapSea) where that is higher
+        LookAt length 3 ge { LookAt 1 get } {
+            LnLkX LnLkZ TerrOct fc-height
+            WaterY null ne { WaterY fc-max } if
+            /MapSea where { pop MapSea null ne { MapSea fc-max } if } if
+        } ifelse
         CamY sub LnLkD atan dup 180 gt { 360 sub } if LookTilt add /Pitch exch def
         fc-camera-update
         LnGrade { fc-grade-update } if
