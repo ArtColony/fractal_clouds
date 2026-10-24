@@ -60,6 +60,7 @@
 /RiverWidth 14 fc-default            % full-size channel width, world units
 /RiverDepth 2 fc-default           % carve depth, world units
 /RiverFill 0.7 fc-default            % how full the channels are, 0..1
+/Ocean false fc-default              % true: lib/fc_ocean.ps's sea (waves, depth colour, foam, surf, wet sand; #38)
 
 /RvBaked false def
 /AqWet false def /AqRiv false def
@@ -295,6 +296,15 @@
     Cr AqR Tr mul add Cg AqG Tr mul add Cb AqB Tr mul add
 } bind def
 
+% the reflection off a level film at distance t and height y (the sea's wet
+% sand, #38). It overwrites AqLev, AqSurfT and AqNr*, so it is for use
+% outside fc-water-shade
+/fc-water-reflect-at {                           % t y -> r g b
+    /AqLev exch def /AqSurfT exch def
+    /AqNrx 0 def /AqNry 1 def /AqNrz 0 def
+    fc-water-reflect
+} bind def
+
 % fc-haze while the reflected clouds are marched: from the water point
 /fc-water-haze {                                 % r g b t -> r g b
     AqS sub 0 fc-max /AqHt exch def /AqHc CamY def /CamY AqLev def
@@ -458,3 +468,6 @@ TreesOn {
 /ProfileProcs where { pop
     /ProfileProcs [ ProfileProcs aload pop /fc-water-shade /fc-water-reflect /fc-water-rivers ] def
 } if
+
+% the sea (#38) wraps the hooks above, so it loads last
+Ocean { (lib/fc_ocean.ps) run } if

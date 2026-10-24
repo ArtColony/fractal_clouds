@@ -370,6 +370,7 @@ and its own colour are hooks (`fc-water-normal`, `fc-water-colour`, below).
 | `RiverDepth` | 2 | Depth carved into the erosion map at full size. | 2 |
 | `RiverFill` | 0.7 | How full of water the channels are, 0..1. | 0.7 |
 | `ErFlowOn` | false | (`fc_erode.ps`) Compute the flow map without rivers (`Rivers` turns it on). | |
+| `Ocean` | false | Load `lib/fc_ocean.ps`: the sea (below). Needs `WaterY` or `WaterRise` too, which load this file. | true |
 
 | Procedure | Stack | What it does |
 |---|---|---|
@@ -378,6 +379,52 @@ and its own colour are hooks (`fc-water-normal`, `fc-water-colour`, below).
 | `fc-water-colour` | `t depth → r g b` | Light scattered back from inside the water, before the bed shows through. `depth` is the bed's depth under the surface point (1000 where the ray meets no bed). A hook: depth tint goes here. |
 | `fc-water-shade` | `t → r g b` | The whole surface: Fresnel mix of the reflection and the water (with the bed through shallows). Reads `AqLev` (the level hit) and `AqBedT` (the bed's distance). |
 | `fc-water-rivers` | `–` | After the bake: carve and fill the channels. Setup calls it. |
+
+### The sea (`fc_ocean.ps`, with `Ocean`)
+
+`fc_water.ps` loads it last. It replaces `fc-water-normal` (swell plus the
+ripples as wind chop) and `fc-water-colour` (colour by depth), and wraps
+`fc-water-shade` (sun glitter and foam), `fc-landscape-surface` (wet sand),
+`fc-terrain-material` (sand on the beach and the bed) and `fc-water-dry-hit`
+(the march under the sea stops about `6 WaterClear` past the surface, where
+the bed no longer shows; this needs `WaterY`, and it shortens `TMax` for the
+march and puts it back, until `fc_landscape.ps` has a separate march bound).
+Only the sea is changed: the plane at `WaterY`. Rivers, and map lakes above
+it, keep the lake's ripples and colour, with no surf, wet sand or sand. The chop is the lake's ripples, so a sea raises
+`RippleAmp` (0.07 in `spikes/ocean_shore.ps`) and points `WindDir`. Waves
+change the shading only: the hit is still the flat plane (`docs/techniques.html`
+§12, The sea, has the numbers). Depth below is sea level minus the
+ground's height straight under the surface point, not `fc-water-colour`'s
+depth along the ray. With `Ocean` false nothing here loads.
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `SwellAmp` | 0.10 | Slope of the main swell component (four directional sine waves, slopes 1, 0.75, 0.6, 0.45 of it). Each fades out as its wavelength nears three pixels, and the slope it loses tilts the normal toward the camera, as the ripples' does, so far water doesn't sparkle. | 0.10 |
+| `SwellLen` | 12 | Longest swell wavelength, world units (120 m); the others are 0.63, 0.41 and 0.27 of it. | 12 |
+| `SwellSpread` | 30 | Degrees the components' headings spread around `WindDir`. | 30 |
+| `SwellShoal` | 0.8 | Extra steepness where the water is shallower than `3 SurfDepth`. | 0.8 |
+| `SeaShallow` | [0.10 0.70 0.66] | The water's own colour over shallows (turquoise), sRGB. Lit by `SkyAmb` and, more over a shallow bed, the sun. | default |
+| `SeaDeep` | [0.03 0.11 0.13] | ... and over deep water (dark blue-green). | default |
+| `SeaDepth` | 1.5 | Depth over which `SeaShallow` turns `SeaDeep` (1/e), world units. The bed itself also shows through, by `WaterClear`. | 1.5 |
+| `SeaDepthOct` | 5 | Terrain octaves for the depth (one `fc-height` per water pixel; four more in the surf zone). | 5 |
+| `FoamCol` | [0.90 0.92 0.93] | Foam albedo, sRGB, lit by the sun (with terrain and cloud shadow) and the sky. | default |
+| `FoamCrest` | 0.85 | Swell height (−1..1, the components' weighted sum) where crests start to foam, fully from 0.2 higher; 1 or more: no crest foam. | 0.85 |
+| `FoamScale` | 1.2 | 1 / foam lace size. Noise thresholded so a cover of *f* leaves about *f* of the surface white; under three pixels it fades to the flat mean. | 1.2 |
+| `SurfDepth` | 0.35 | Water shallower than this breaks (the surf zone, fading in from 0.7 of it). | 0.35 |
+| `SurfSpacing` | 1.5 | Distance between breaker lines, world units. The lines follow the depth contours: their phase is the distance to the waterline, estimated as depth over the bed's slope, plus a wander. Lines under three pixels apart fade to their mean cover. | 1.5 |
+| `SurfTrail` | 0.3 | Foam trail behind each breaker (seaward, after a sharp shoreward front), as a fraction of the spacing (1/e). | 0.3 |
+| `SurfFoam` | 1 | Surf foam cover, 0..1; 0 turns off the breakers and the swash line at the waterline. | 1 |
+| `WetSand` | 0.1 | Height above the water of the wet band, where the ground mirrors the sky and clouds (Fresnel on a level film; no ground in the reflection). Measured on the same `SeaDepthOct` height as the surf, so the swash meets it; its edge widens to the height a pixel spans. 0: none. | 0.1 |
+| `WetMirror` | 0.75 | How mirror-like the wet band is, 0..1. | 0.75 |
+| `GlitterGain` | 1 | Sun glitter: a microfacet lobe (Beckmann, with Smith shadowing-masking) on the wave normal, its width `GlitterRough` plus the slope the waves lose with distance, so near glints break up and far ones merge into a smooth path. Shadowed by terrain and clouds. 0: none. | 1 |
+| `GlitterRough` | 0.03 | Slope spread the waves don't resolve. | 0.03 |
+| `SandHeight` | 0.8 | Sand on the sea bed and up to this height above the water (on gentle ground), before `fc_water`'s wet ground. With `lib/fc_coast.ps` loaded (`fc-coast-material` defined) the beach is the coast's, and this paints only the bed under water. 0: none. | 0.8 |
+| `SandCol` | [0.74 0.67 0.52] | Its colour, sRGB. | default |
+
+| Procedure | Stack | What it does |
+|---|---|---|
+| `fc-ocean-lace` | `f → f'` | Foam cover to the lace's cover at the current water point. |
+| `fc-water-reflect-at` | `t y → r g b` | (`fc_water.ps`) The reflection off a level film at distance `t` and height `y`: the wet sand's. It overwrites `AqLev`, `AqSurfT` and `AqNrx AqNry AqNrz`, so call it outside `fc-water-shade`. |
 
 ## Hooks a piece can redefine
 
