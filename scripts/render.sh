@@ -8,6 +8,18 @@
 #   scripts/render.sh -D Res=0.25 -D Seed=3 gallery/foo.ps
 #                                        # predefine /Res 0.25 and /Seed 3 (pieces
 #                                        # opt in with `/Name where { pop } {...} ifelse`)
+#   scripts/render.sh --frame gallery/foo.ps
+#                                        # framing pass: Res 0.5, no AA, with a thirds
+#                                        # grid and the horizon drawn on (lib/fc_frame.ps);
+#                                        # writes renders/foo-frame.png
+#   scripts/render.sh --sweep Seed=1:9 gallery/foo.ps
+#                                        # contact sheet: one frame per value at Res 0.25,
+#                                        # each labelled, composited into
+#                                        # renders/foo-sweep.png (frames foo-sweep-NNN.png)
+#   scripts/render.sh --sweep-seed 1:9 ...   # the same, reseeding srand (pscat's own
+#                                        # sweep: only the march jitter and the erosion
+#                                        # droplets; sweep Seed for a new range)
+#   --grid 3x3                           # the contact sheet's columns x rows
 #
 # Output goes to renders/<name>.png (or $OUT/<name>.png); timings are appended
 # to timings.tsv in the same directory.
@@ -48,13 +60,40 @@ if [ -d "$bundle_lib" ]; then
 fi
 
 defs=""
+frame=0
+sweep=()      # extra pscat arguments for a sweep
+sweepname=""
+grid=()
 while [ $# -gt 0 ]; do
   case "$1" in
     -D) defs="$defs /${2%%=*} ${2#*=} def"; shift 2 ;;
     -D*) d="${1#-D}"; defs="$defs /${d%%=*} ${d#*=} def"; shift ;;
+    --frame) frame=1; shift ;;
+    --sweep) sweep=(--sweep "$2"); sweepname="${2%%=*}"; shift 2 ;;
+    --sweep-seed) sweep=(--sweep-seed "$2"); sweepname=""; shift 2 ;;
+    --grid) grid=(--grid "$2"); shift 2 ;;
     *) break ;;
   esac
 done
+
+# a framing pass or a sweep is a quick look: low Res unless the caller set it,
+# and the overlays from lib/fc_frame.ps, loaded ahead of the piece
+suffix=""
+pre=""
+if [ ${#sweep[@]} -gt 0 ]; then
+  suffix="-sweep"
+  case " $defs " in *" /Res "*) ;; *) pre="$pre /Res 0.25 def" ;; esac
+  [ -z "$sweepname" ] || pre="$pre /FrameLabel /$sweepname def"
+fi
+if [ "$frame" = 1 ]; then
+  [ -n "$suffix" ] || suffix="-frame"
+  case " $defs " in *" /Res "*) ;; *) pre="$pre /Res 0.5 def" ;; esac
+  case " $defs " in *" /AA "*) ;; *) pre="$pre /AA false def" ;; esac
+  pre="$pre /FrameGrid true def"
+fi
+if [ -n "$pre" ]; then
+  defs="$pre (lib/fc_frame.ps) run$defs"
+fi
 
 if [ $# -gt 0 ]; then
   pieces=("$@")
@@ -70,7 +109,7 @@ fi
 failed=0
 for ps in "${pieces[@]}"; do
   [ -e "$ps" ] || { echo "render: no such piece: $ps" >&2; failed=1; continue; }
-  name="$(basename "$ps" .ps)"
+  name="$(basename "$ps" .ps)$suffix"
   page="$(awk '/^%%BoundingBox:/ {print $4 "x" $5; exit}' "$ps")"
   page="${page:-612x792}"
 
@@ -79,12 +118,21 @@ for ps in "${pieces[@]}"; do
   # /usr/bin/time -p writes "real N" to stderr on both macOS and Linux.
   # with defines, feed `defs (piece) run` on stdin so the piece sees them
   if [ -n "$defs" ]; then src=-; else src="$ps"; fi
-  if ! printf '%s (%s) run\n' "$defs" "$ps" | /usr/bin/time -p pscat --page "$page" --dpi "$dpi" --lint --png "$out/$name.png" "$src" >"$log" 2>&1; then
+  if [ ${#sweep[@]} -gt 0 ]; then
+    # pscat writes the frames as $name-001.png ... and composites them;
+    # it refuses --lint with a sweep, so a sweep isn't linted
+    lint=()
+    outargs=("${sweep[@]}" ${grid[@]+"${grid[@]}"} --png "$out/$name.png" --contact-sheet "$out/$name.png")
+  else
+    lint=(--lint)
+    outargs=(--png "$out/$name.png")
+  fi
+  if ! printf '%s (%s) run\n' "$defs" "$ps" | /usr/bin/time -p pscat --page "$page" --dpi "$dpi" ${lint[@]+"${lint[@]}"} "${outargs[@]}" "$src" >"$log" 2>&1; then
     status=error
     failed=1
   fi
   secs="$(awk '/^real/ {print $2}' "$log")"
-  grep -q 'pscat: lint: clean' "$log" || [ "$status" = error ] || status=lint
+  [ ${#lint[@]} -eq 0 ] || grep -q 'pscat: lint: clean' "$log" || [ "$status" = error ] || status=lint
 
   printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$name" "$have" "$dpi" "$page" "$secs" "$status" "${defs# }" >> "$out/timings.tsv"
   printf '%-28s %8ss  %s\n' "$name" "$secs" "$status"

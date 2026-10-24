@@ -1,0 +1,81 @@
+%!PS-Adobe-3.0
+% fc_frame.ps -- composition overlays drawn on the finished page
+% (fractal_clouds#23). scripts/render.sh loads it ahead of the piece for
+% --frame (a thirds grid and the horizon) and --sweep (each frame labelled
+% with the swept value), so a piece needs nothing of its own.
+%
+% It wraps showpage: just before the page is shown it draws
+%
+%   FrameGrid   false  the rule-of-thirds grid, the eye-level horizon (the
+%                      line where rays are level: Pitch and HFov place it),
+%                      and, with LookAt, a circle where the aim point is
+%   FrameLabel  null   a name, such as /Seed: its value printed in the
+%                      corner (render.sh --sweep sets it)
+%
+%   pw ph fc-frame-overlay -    the grid and horizon on a pw x ph frame
+%                               (needs the camera: Pitch, TanH)
+%
+% The overlay is drawn at page resolution over the image, whatever Res.
+% Its names start with Fm.
+
+/FrameGrid where { pop } { /FrameGrid false def } ifelse
+/FrameLabel where { pop } { /FrameLabel null def } ifelse
+
+% a line drawn dark, then light on top, so it reads on sky and on ground
+/fc-frame-line {                                 % x0 y0 x1 y1 r g b -> -
+    /FmB exch def /FmG exch def /FmR exch def
+    /FmY1 exch def /FmX1 exch def /FmY0 exch def /FmX0 exch def
+    0 setgray 1.2 setlinewidth FmX0 FmY0 moveto FmX1 FmY1 lineto stroke
+    FmR FmG FmB setrgbcolor 0.5 setlinewidth FmX0 FmY0 moveto FmX1 FmY1 lineto stroke
+} bind def
+
+/fc-frame-overlay {                              % pw ph -> -
+    /FmH exch def /FmW exch def
+    gsave
+    [] 0 setdash 0 setlinecap
+    % thirds
+    1 1 2 { /FmK exch def
+        FmW FmK mul 3 div 0  FmW FmK mul 3 div FmH  1 1 1 fc-frame-line
+        0 FmH FmK mul 3 div  FmW FmH FmK mul 3 div  1 1 1 fc-frame-line
+    } for
+    % eye level: a level ray at u = 0 has v = -tan(Pitch) / TanH, and v
+    % runs over the frame's width scale (lib/fc_render.ps)
+    /FmV Pitch sin Pitch cos div neg TanH div def
+    /FmY FmH 2 div FmV FmW mul 2 div add def
+    /Helvetica findfont 7 scalefont setfont
+    FmY 0 ge FmY FmH le and {
+        0 FmY FmW FmY 1 0.55 0.1 fc-frame-line
+        1 0.55 0.1 setrgbcolor 3 FmY 2 add moveto (horizon) show
+    } {
+        1 0.55 0.1 setrgbcolor
+        3 FmY 0 lt { 3 } { FmH 9 sub } ifelse moveto
+        FmY 0 lt { (horizon below the frame) } { (horizon above the frame) } ifelse show
+    } ifelse
+    (fc_frame: horizon at ) print
+    1 FmY FmH div sub 100 mul round cvi 10 string cvs print (% from the top\n) print
+    % LookAt's point: straight ahead, LookTilt below the centre
+    /LnLkOn where { pop LnLkOn } { false } ifelse {
+        /FmY LookTilt neg dup sin exch cos div TanH div FmW mul 2 div FmH 2 div add def
+        1 0.15 0.1 setrgbcolor 0.8 setlinewidth
+        newpath FmW 2 div 3.5 add FmY moveto FmW 2 div FmY 3.5 0 360 arc stroke
+    } if
+    grestore
+} bind def
+
+/fc-frame-label {                                % - -> -
+    gsave
+    /Helvetica findfont 8 scalefont setfont
+    FrameLabel 40 string cvs ( = ) FrameLabel load 40 string cvs
+    /FmL3 exch def /FmL2 exch def /FmL1 exch def
+    % a dark box behind the text
+    0 setgray 2 2 FmL1 stringwidth pop FmL2 stringwidth pop add FmL3 stringwidth pop add 6 add 11 rectfill
+    1 setgray 5 5 moveto FmL1 show FmL2 show FmL3 show
+    grestore
+} bind def
+
+/FmShowpage where { pop } { /FmShowpage /showpage load def } ifelse   % once, if loaded twice
+/showpage {
+    FrameGrid { /FrPw where { pop FrPw FrPh fc-frame-overlay } if } if
+    FrameLabel null ne { fc-frame-label } if
+    FmShowpage
+} def
