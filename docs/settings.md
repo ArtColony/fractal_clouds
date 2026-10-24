@@ -231,7 +231,7 @@ heights in `/Clear`, `/Overcast` and `/Storm` assume the standard terrain
 
 | Setting | Default | What it does | Used |
 |---|---|---|---|
-| `Seed` | 5 | Seeds everything: both noises, the trees and the erosion. A new seed is a new range. (The cloud march's jitter is a hash of the pixel, not seeded: the same in every band or crop.) | 5 |
+| `Seed` | 5 | Seeds everything: both noises, the trees and the erosion. A new seed is a new range. (The cloud march's jitter is read from a blue-noise tile at the pixel, not seeded: the same in every band or crop.) | 5 |
 | `TreesOn` | false | Loads `lib/fc_trees.ps` and marches the forest. It also turns off `fc_terrain`'s painted forest (`TreeLine` −1000) unless the piece sets `TreeLine`. | false, true |
 | `Erode` | true | Bakes droplet erosion over the view (`fc_erode.ps`). Off skips the bake (about 1.5 min at `ErN` 1024); valleys then lack drainage channels and debris fans. | true |
 | `CamLift` | 0 | If above 0, the camera sits at this fraction of `TerrTop`, but at least `CamAbove` over the ground below it (a high viewpoint). | 0, 0.72 |
@@ -279,7 +279,7 @@ table is in `docs/techniques.html`, section 16.
 | `Res` | 1 | Image pixels per device pixel. 0.25 or 0.5 make fast composition checks. | 0.25, 0.5, 1 |
 | `AA` | false | Antialias depth edges: 4 extra samples on pixels where the hit distance jumps (a few percent of pixels). Pieces turn it on. | false, true |
 | `Crop` | (none) | `[x0 y0 x1 y1]`, fractions of the frame from the top left: render only that patch, at the full frame's detail. | many |
-| `PixSeed` | false | Reseed the random stream per pixel (from a hash of its position) and (with `AA`) give a crop the depth keys of the row above it and the pixel to its left, so a pixel comes out the same however the frame is cropped. While `fc-pixel` runs, `FrI`/`FrJ` (column, row from the top left) and `FrU`/`FrV` hold the pixel's position, also for those precomputed keys. `render_bands.sh` turns it on: its bands stitch into exactly one uncropped `PixSeed` render. | (bands) |
+| `PixSeed` | false | Reseed the random stream per pixel (from a hash of its position) and (with `AA`) give a crop the depth keys of the row above it and the pixel to its left, so a pixel comes out the same however the frame is cropped. While `fc-pixel` runs, `FrI`/`FrJ` (column, row from the top left) and `FrU`/`FrV` hold the pixel's position, also for those precomputed keys. `render_bands.sh` turns it on: its bands stitch into exactly one uncropped `PixSeed` render. Nothing in the gallery pieces draws on the random stream per pixel (#27), so that equals a plain render. | (bands) |
 | `RowTimes` | false | Print `fc-row-t0 MS` when the render starts (after the bakes) and `fc-row J MS` after each row: the probe of `render_bands.sh --auto`. | (probe) |
 
 Resolution comes from the page size times `DPI` (a `render.sh` variable):

@@ -24,9 +24,10 @@
 # Every band runs with /PixSeed true (lib/fc_render.ps): the random stream
 # is reseeded per pixel and each band first computes the depth keys of the
 # row above it, so the stitched picture is the same, byte for byte, whatever
-# the cuts, and the same as one uncropped render with -D PixSeed=true. It is
-# not the same as a plain render.sh run, whose cloud-march jitter runs on
-# from pixel to pixel (same grain, different pixels).
+# the cuts, and the same as one uncropped render with -D PixSeed=true. Since
+# #27 nothing in a pixel draws on the random stream (the cloud-march jitter
+# is a blue-noise tile at the pixel), so that is also the same as a plain
+# render.sh run of the whole frame.
 #
 # BAND_WRAP, if set, is put in front of each band's command (for example a
 # lock that limits how many renders run at once).

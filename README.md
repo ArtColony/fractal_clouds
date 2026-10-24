@@ -84,8 +84,9 @@ DPI=288 scripts/render_bands.sh gallery/foo.ps 0.55 0.66 0.81
 
 Bands run with `-D PixSeed=true` (see `docs/settings.md`), so the stitched
 frame is byte-identical whatever the cuts, and identical to
-`scripts/render.sh -D PixSeed=true` run on the whole frame. Its cloud-march
-jitter differs from a plain `render.sh` run (same grain, other pixels).
+`scripts/render.sh -D PixSeed=true` run on the whole frame, which (since the
+cloud-march jitter no longer draws on the random stream, #27) is the same as
+a plain `render.sh` run.
 
 Each piece sets its canvas with `%%BoundingBox: 0 0 W H`. Timings are
 appended to `renders/timings.tsv`.
