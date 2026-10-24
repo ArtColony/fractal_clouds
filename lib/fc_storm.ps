@@ -1,0 +1,196 @@
+%!PS-Adobe-3.0
+% fc_storm.ps -- a cumulonimbus placed in the scene like a mountain
+% (fractal_clouds#15).
+%
+% Load it after lib/fc_landscape.ps (it needs fc_clouds.ps and fc_noise2.ps):
+% it puts one storm layer in front of CloudLayers (any other layers must lie
+% wholly above the storm's band, StormTop + DomeR). The storm is a cloud
+% layer whose band runs from the flat base to the top of the dome; its
+% Shape (fc-storm-shape) is a signed field, positive inside the envelope,
+% that the layer's billow noise breaks into turrets; its Bounds box keeps
+% the march (and the noise) to the storm's neighbourhood. Rain shafts are
+% the layer's Rain; virga hang under the anvil from the Shape.
+%
+%   x y z oct fc-storm-shape dd     the envelope, in noise units (the Shape)
+%   fc-storm-layer dict             the storm layer, from the settings
+%
+% Coordinates: world x z (the camera stands at x = z = 0); u runs from the
+% storm's centre downwind (StormWind), w across the wind.
+
+/StormDist 420 fc-default            % ground distance from the camera to the tower's foot
+/StormAzim 0 fc-default              % its bearing, degrees: 0 is +z, 90 is +x (as SunAzim)
+/StormBase 70 fc-default             % the flat, dark base
+/StormTop 180 fc-default             % the anvil's flat top
+/StormR 55 fc-default                % tower radius at the base
+/StormFlare 0.3 fc-default           % the tower is this much wider at the top
+/StormLean 0.15 fc-default           % the tower leans downwind this much per unit height
+/StormWind 0 fc-default              % where the anvil spreads, degrees from +x (as a layer's Wind)
+/AnvilBot 152 fc-default             % where the anvil starts to spread from the tower
+/AnvilR 170 fc-default               % how far it spreads downwind (upwind: a third of it)
+/AnvilW 0.4 fc-default              % its half-width across the wind, as a fraction of AnvilR
+/DomeR 34 fc-default                 % the overshooting dome above the top; 0 for none
+/StormEdge 2 fc-default              % envelope gain: higher = smoother, tighter outline
+/Virga 0.3 fc-default                % strength of the streaks under the anvil; 0 for none
+/VirgaLen 26 fc-default              % how far they hang
+/StormRain 84 fc-default             % rain shafts this far below the base (the layer's Rain)
+/StormRainDens 0.3 fc-default       % their density, as a fraction of the cloud's
+/AnvilEdge 4 fc-default              % the anvil's envelope gain, relative to the tower's
+/StormShade 0.25 fc-default          % optical depth per unit length of envelope toward the sun
+/StormShadeN 5 fc-default /StormShadeStep 16 fc-default    % its steps
+/StormGloom 0 fc-default             % > 0: the air under the storm is shaded: this much
+                                     % extinction per unit of ray under the base, inside
+                                     % StormGloomR, toward StormGloomCol (wraps fc-landscape-grade)
+/StormGloomR 2 fc-default            % that column's radius, in StormR
+/StormGloomCol [ 0.10 0.11 0.13 ] fc-colour
+/StormLayer << >> fc-default         % overrides for the storm layer's keys (docs/settings.md)
+
+% --- derived ------------------------------------------------------------------
+/StCx StormDist StormAzim sin mul def
+/StCz StormDist StormAzim cos mul def
+/StWc StormWind cos def /StWs StormWind sin def
+/StH StormTop StormBase sub def
+/StTw StormR StormFlare mul StH div def      % radius growth per unit height
+/StTopU StormLean StH mul def                % the tower top's offset downwind
+/StAh StormTop AnvilBot sub 1 fc-max def
+/StRa AnvilR StormR add def                  % the anvil's widest reach
+
+% the anvil at height y: how far inside its outline (u w) lies, 1 at the
+% centre line, 0 on the edge; it widens with height above AnvilBot
+/fc-storm-anvil {                                % u w y -> s
+    AnvilBot sub StAh div dup 0 le { pop pop pop -9 } {
+        0.35 exp AnvilR mul StormR add /SmRa exch def
+        /SmAw exch def
+        StTopU sub dup 0 lt { SmRa 0.35 mul } { SmRa } ifelse div dup mul
+        SmAw SmRa AnvilW mul StormR fc-max div dup mul add sqrt 1 exch sub
+    } ifelse
+} bind def
+
+% the envelope without noise: > 0 inside, 1 on the axis (sets SmX SmY SmZ
+% SmU SmW, relative to the storm)
+/fc-storm-env {                                  % x y z -> s
+    StCz sub /SmZ exch def /SmY exch def StCx sub /SmX exch def
+    /SmU SmX StWc mul SmZ StWs mul add def
+    /SmW SmZ StWc mul SmX StWs mul sub def
+    /SmH SmY StormBase sub def
+    % tower: a leaning, flaring column, ending at the top
+    SmY StormTop gt { -9 } {
+        SmU SmH StormLean mul sub dup mul SmW dup mul add sqrt
+        StormR SmH StTw mul add div 1 exch sub
+    } ifelse
+    % anvil: flat on top, smoother than the tower (AnvilEdge)
+    SmY AnvilBot gt {
+        SmU SmW SmY fc-storm-anvil StormTop SmY sub 8 div fc-min AnvilEdge mul fc-max
+    } if
+    % overshooting dome over the tower top
+    DomeR 0 gt { SmY StormTop DomeR sub gt {
+        SmU StTopU sub dup mul SmW dup mul add SmY StormTop DomeR 0.2 mul add sub dup mul add sqrt
+        DomeR div 1 exch sub fc-max
+    } if } if
+} bind def
+
+/fc-storm-shape {                                % x y z oct -> dd
+    pop fc-storm-env StormEdge mul
+    % virga: streaks under the anvil, fading down to VirgaLen below it
+    Virga 0 gt { SmY AnvilBot VirgaLen sub gt SmY StormTop lt and { dup 0.2 lt {
+        SmU SmW SmY VirgaLen add StormTop fc-min fc-storm-anvil dup 0 gt {
+            SmX 0.11 mul 3.1 add SmZ 0.11 mul 8.7 add fc-noise2 0.5 sub 3 mul
+            dup 0 lt { pop pop } { mul Virga mul 0.25 sub fc-max } ifelse
+        } { pop } ifelse
+    } if } if } if
+} bind def
+
+% the storm's own shadow on itself (the layer's LightDepth): the noise's
+% two sun probes reach only 2 ShadStep; past them, StormShadeN steps of
+% StormShadeStep through the envelope toward the sun, so the far side of
+% the tower and everything under the anvil goes dark
+/fc-storm-depth {                                % x y z -> optical depth
+    /SdZ exch def /SdY exch def /SdX exch def
+    0 0 1 StormShadeN 1 sub {
+        StormShadeStep mul ClSStep 2 mul add /SdT exch def
+        SdX SunDir 0 get SdT mul add SdY SunDir 1 get SdT mul add SdZ SunDir 2 get SdT mul add
+        fc-storm-env dup 0 gt { 1 fc-min add } { pop } ifelse
+    } for
+    StormShadeStep mul StormShade mul
+} bind def
+
+% the rain under the base (the layer's RainMask): fades out toward the edge
+% of the tower's foot, in broad shafts streaked by a finer noise
+/fc-storm-rainmask {                             % x z -> 0..1
+    /SrZ exch def /SrX exch def
+    0 0.6 SrX StormBase 10 add SrZ fc-storm-env fc-smooth
+    0.3 0.7 SrX 0.05 mul 17.3 add SrZ 0.05 mul 4.1 add fc-noise2 fc-smooth mul
+    SrX 0.25 mul 2.9 add SrZ 0.25 mul 11.7 add fc-noise2 0.7 mul 0.3 add mul
+} bind def
+
+% --- the layer ------------------------------------------------------------------
+% the storm's box: the envelope with room for the noise to push it out
+/fc-storm-bounds {                               % - -> [x0 z0 x1 z1]
+    /SbE 1 1 StormEdge div add def
+    /SbT StormR StormFlare 1 add mul StTopU add SbE mul def
+    /SbU0 SbT neg StTopU StRa 0.35 mul SbE mul sub fc-min def
+    /SbU1 StTopU StRa SbE mul add SbT fc-max def
+    /SbW StRa AnvilW mul StormR fc-max SbE mul SbT fc-max def
+    /SbX0 1e9 def /SbX1 -1e9 def /SbZ0 1e9 def /SbZ1 -1e9 def
+    [ SbU0 SbW neg  SbU0 SbW  SbU1 SbW neg  SbU1 SbW ] /SbC exch def
+    0 2 6 { /SbI exch def
+        SbC SbI get StWc mul SbC SbI 1 add get StWs mul sub StCx add
+        dup SbX0 lt { dup /SbX0 exch def } if dup SbX1 gt { dup /SbX1 exch def } if pop
+        SbC SbI get StWs mul SbC SbI 1 add get StWc mul add StCz add
+        dup SbZ0 lt { dup /SbZ0 exch def } if dup SbZ1 gt { dup /SbZ1 exch def } if pop
+    } for
+    [ SbX0 SbZ0 SbX1 SbZ1 ]
+} bind def
+
+/fc-storm-layer {                                % - -> dict
+    << /Type /Cumulus
+       /Lo StormBase /Hi StormTop DomeR 1.2 mul add 1 add
+       /Profile [ 1000 1000 ] /ProfAmp 0     % the Shape makes the outline
+       /Noise /Billow /Scale 0.05 /Stretch [ 1 0.8 1 ] /Threshold 0.36
+       /CoverAmp 0 /Gain 12 /Sigma 0.12
+       /DensOct 5 /ShadOct 3 /ShadStep 9 /Steps 110
+       /AmbTop [ 0.40 0.44 0.53 ] /AmbBot [ 0.06 0.065 0.08 ]
+       /Rain StormRain /RainDens StormRainDens /RainMask { fc-storm-rainmask }
+       /Shape { fc-storm-shape } /LightDepth { fc-storm-depth }
+       /Bounds fc-storm-bounds /Probes 3
+    >>
+    StormLayer { 2 index 3 1 roll put } forall
+} bind def
+
+/CloudLayers [ fc-storm-layer CloudLayers null ne { CloudLayers aload pop } if ] def
+
+% --- gloom under the storm ------------------------------------------------------
+% The air beneath the storm gets no sun, so its haze is dark: the part of the
+% ray (up to the hit, LnT) inside a vertical column StormGloomR * StormR
+% around the storm and below its base fades the pixel toward StormGloomCol,
+% weighted by depth below the base and by closeness to the axis, so the
+% column has no hard edge.
+/fc-storm-gloom {                                % r g b -> r g b
+    /SgA Mx dup mul Mz dup mul add def
+    SgA 0.000001 gt {
+        /SgB Mx StCx mul Mz StCz mul add def     % (half of -b)
+        /SgC StCx dup mul StCz dup mul add StormGloomR StormR mul dup mul sub def
+        SgB dup mul SgA SgC mul sub dup 0 gt {
+            sqrt /SgD exch def
+            /SgT0 SgB SgD sub SgA div 0 fc-max def
+            /SgT1 SgB SgD add SgA div LnT fc-min def
+            My 0.000001 gt { /SgT1 SgT1 StormBase CamY sub My div fc-min def } if
+            My -0.000001 lt CamY StormBase gt and { /SgT0 SgT0 StormBase CamY sub My div fc-max def } if
+            SgT1 SgT0 gt {
+                % the shade thickens downward from the base (linear in height,
+                % integrated along the ray) and toward the column's axis
+                StormBase CamY sub SgT1 SgT0 sub mul
+                My SgT1 dup mul SgT0 dup mul sub mul 2 div sub StormBase TerrBase sub div
+                SgB dup mul SgA div SgC sub StormGloomR StormR mul dup mul div mul
+                StormGloom mul neg 2.71828 exch exp /SgF exch def
+                StormGloomCol 2 get 1 SgF sub mul exch SgF mul add 3 1 roll
+                StormGloomCol 1 get 1 SgF sub mul exch SgF mul add 3 1 roll
+                StormGloomCol 0 get 1 SgF sub mul exch SgF mul add 3 1 roll
+            } if
+        } { pop } ifelse
+    } if
+} bind def
+
+StormGloom 0 gt {
+    /FsGradeOrig /fc-landscape-grade load def
+    /fc-landscape-grade { fc-storm-gloom FsGradeOrig } def
+} if
