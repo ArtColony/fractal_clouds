@@ -55,7 +55,7 @@
 /RiverFill 0.6 fc-default            % how full the channels are, 0..1
 
 /RvBaked false def
-/AqWet false def
+/AqWet false def /AqRiv false def
 
 % --- level ---------------------------------------------------------------------
 /fc-river-level {                                % x z -> y | -1000
@@ -71,9 +71,17 @@
 } bind def
 
 /fc-water-level {                                % x z -> y | -1000
-    RvBaked { fc-river-level } { pop pop -1000 } ifelse
+    /AqWz exch def /AqWx exch def
+    RvBaked { AqWx AqWz fc-river-level } { -1000 } ifelse
     WaterY null ne { WaterY fc-max } if
+    AqLakes { /AqLf2 exch def
+        AqLf2 1 get 1 index gt { AqWx AqWz AqLf2 fc-water-in-lake { pop AqLf2 1 get } if } if
+    } forall
 } bind def
+
+% the map's lakes (MapWater): fc_map.ps /lake features, each a plane at its
+% level over its polygon
+/AqLakes [ MapWater MapOn and { MapFeatures { dup 0 get /lake eq not { pop } if } forall } if ] def
 
 % --- rivers --------------------------------------------------------------------
 % fc-erode-bake leaves each texel's catchment in ErFlow (how many texels
@@ -184,7 +192,7 @@
     AqNa StreakScale mul 0.15 mul 3.1 add AqNb StreakScale mul 7.7 add fc-noise2
     2 mul 1 sub WindStreaks mul 1 add 0 fc-max
     RippleAmp mul
-    AqNx AqNz fc-river-here { RiverRough mul } if
+    AqRiv { RiverRough mul } if
     /AqAmp exch def
     % the footprint of a pixel on the water, along the view
     AqNt PixAng mul My abs 0.12 fc-max div /AqFp exch def
@@ -213,13 +221,6 @@
     /AqNnz exch def /AqNny exch def /AqNnx exch def
     /AqNn AqNnx dup mul AqNny dup mul add AqNnz dup mul add sqrt def
     AqNnx AqNn div AqNny AqNn div AqNnz AqNn div
-} bind def
-
-% is (x, z) in a river (rather than the lake)? -> bool
-/fc-river-here {                                 % x z -> bool
-    RvBaked {
-        fc-river-level dup -999 gt exch WaterY null eq { -1000 } { WaterY } ifelse gt and
-    } { pop pop false } ifelse
 } bind def
 
 /fc-water-colour {                               % t -> r g b
@@ -306,20 +307,14 @@
 
 /fc-landscape-hit {                              % -> t | -1
     fc-water-dry-hit /AqBedT exch def
-    /AqWet false def
-    AqBedT
-    % the plane
-    WaterY null ne My 0 lt and {
-        WaterY CamY sub My div /AqTp exch def
-        AqTp 0 gt AqTp TMax le and AqBedT 0 lt AqTp AqBedT lt or and {
-            pop AqTp /AqWet true def /AqLev WaterY def
-        } if
-    } if
+    /AqWet false def /AqRiv false def /AqBest AqBedT def
+    % the plane, and the map's lakes
+    WaterY null ne { WaterY true fc-water-plane } if
+    AqLakes { dup 1 get exch fc-water-plane } forall
     % a river: the dry hit is under its surface; step back to where the ray
     % went in, then bisect
     RvBaked AqWet not and AqBedT 0 gt and {
         Mx AqBedT mul Mz AqBedT mul fc-river-level My AqBedT mul CamY add gt {
-            pop
             /AqDt ErTex 0.5 mul Mx dup mul Mz dup mul add sqrt 0.01 fc-max div def
             /AqB AqBedT def /AqA AqBedT def
             64 {
@@ -333,11 +328,33 @@
                 Mx AqM mul Mz AqM mul fc-river-level My AqM mul CamY add le
                 { /AqA AqM def } { /AqB AqM def } ifelse
             } repeat
-            AqA AqB add 2 div
-            dup Mx 1 index mul exch Mz mul fc-river-level /AqLev exch def
-            /AqWet true def
+            /AqBest AqA AqB add 2 div def
+            Mx AqBest mul Mz AqBest mul fc-river-level /AqLev exch def
+            /AqWet true def /AqRiv true def
         } if
     } if
+    AqBest
+} bind def
+
+% a level plane in front of the best hit so far? region: true (everywhere)
+% or a map /lake feature (its polygon, out to its shore band)
+/fc-water-plane {                                % level region -> -
+    /AqPr exch def /AqPl exch def
+    My 0 lt AqPl CamY lt and {
+        AqPl CamY sub My div /AqTp exch def
+        AqTp TMax le AqBest 0 lt AqTp AqBest lt or and {
+            AqPr true eq { true } { Mx AqTp mul Mz AqTp mul AqPr fc-water-in-lake } ifelse {
+                /AqBest AqTp def /AqWet true def /AqLev AqPl def
+            } if
+        } if
+    } if
+} bind def
+
+% is (x, z) inside a map lake, or within its shore band? (fc_map.ps's
+% fc-map-dist reads the point, in map coordinates, from MpX MpZ)
+/fc-water-in-lake {                              % x z feature -> bool
+    /AqLf exch def TerrOZ add /MpZ exch def TerrOX add /MpX exch def
+    AqLf 4 true fc-map-dist exch AqLf 3 get lt or
 } bind def
 
 /fc-landscape-surface {                          % t -> r g b

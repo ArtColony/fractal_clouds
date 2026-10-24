@@ -61,66 +61,11 @@ Plan { /Erode where { pop } { /Erode false def } ifelse } if   % the plan is the
 /Threshold where { pop } { /Threshold 0.57 def } ifelse
 /HazeDist where { pop } { /HazeDist 900 def } ifelse
 /SnowLine where { pop } { /SnowLine 27 def } ifelse
-% the lake: its surface at the level the map gave it
-/WaterY where { pop } { /WaterY -0.5 def } ifelse
-/Water where { pop } { /Water [ 0.10 0.15 0.16 ] def } ifelse    % sRGB, seen straight down
+% the lake: water at the level the map gave it (lib/fc_water.ps, #28)
+/MapWater where { pop } { /MapWater true def } ifelse
+/WaterCol where { pop } { /WaterCol [ 0.10 0.15 0.16 ] def } ifelse    % sRGB, seen straight down
 
 (lib/fc_landscape.ps) run
-
-% no trees on ground the lake covers, or on its very edge
-TreesOn {
-    /fc-dry-dens /fc-forest-dens load def
-    /fc-forest-dens {                            % x z h ny curv -> density height-scale
-        2 index /WkH exch def
-        fc-dry-dens exch WkH WaterY 0.3 add sub 0.8 div 0 fc-max 1 fc-min mul exch
-    } bind def
-} if
-fc-landscape-setup
-/Water [ Water { 2.2 exp } forall ] def
-
-% --- water (the hooks of gallery/evening_lake.ps) -----------------------------
-% A plane at WaterY. Its reflection is the same scene seen from the camera
-% mirrored through the plane, along the mirrored ray: march that from the
-% water point onwards (MarchT0) with the default hit and surface.
-/fc-dry-hit /fc-landscape-hit load def
-/fc-dry-surface /fc-landscape-surface load def
-
-/fc-landscape-hit {                              % -> t | -1
-    fc-dry-hit /WkT exch def /WkWet false def
-    My 0 lt {
-        WaterY CamY sub My div /WkW exch def
-        WkT 0 lt WkW WkT lt or WkW TMax le and { /WkWet true def /WkT WkW def } if
-    } if
-    WkT
-} bind def
-
-/fc-landscape-surface {                          % t -> r g b
-    WkWet not { fc-dry-surface } {
-        /WkW exch def
-        /WkMx Mx def /WkMy My def /WkMz Mz def /WkCam CamY def
-        % ripples: tilt the mirror a little, less where they'd be under a pixel
-        Mx WkW mul 0.7 mul Mz WkW mul 1.9 mul fc-noise2 0.5 sub
-        WkW PixAng mul 0.35 exch div 1 fc-min 0.03 mul mul /WkRip exch def
-        /CamY WaterY 2 mul CamY sub def /My My neg def
-        /Mx Mx WkRip add def
-        /WkT0 MarchT0 def /MarchT0 WkW def
-        fc-dry-hit /WkT exch def
-        /MarchT0 WkT0 def
-        WkT 0 gt {
-            WkT fc-dry-surface
-            % haze from the water to what it reflects
-            /CamY WaterY def WkT WkW sub fc-haze /CamY WaterY 2 mul WkCam sub def
-        } { /WkT TMax def Mx My Mz fc-landscape-sky } ifelse
-        /WkB exch def /WkG exch def /WkR exch def
-        WkT fc-clouds
-        % Fresnel (Schlick): the lake mirrors more at grazing angles
-        1 WkMy neg sub 5 exp 0.98 mul 0.02 add /WkF exch def
-        /Mx WkMx def /My WkMy def /Mz WkMz def /CamY WkCam def
-        Cr WkR Tr mul add WkF mul  Water 0 get SkyAmb 0 get mul 0.5 mul 1 WkF sub mul add
-        Cg WkG Tr mul add WkF mul  Water 1 get SkyAmb 1 get mul 0.5 mul 1 WkF sub mul add
-        Cb WkB Tr mul add WkF mul  Water 2 get SkyAmb 2 get mul 0.5 mul 1 WkF sub mul add
-    } ifelse
-} bind def
 
 Plan {
     320 200 fc-map-plan

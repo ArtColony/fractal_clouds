@@ -32,7 +32,9 @@
 %   WaterRise null   a number: the lake this far above the ground under the
 %                    camera (sets WaterY during setup)
 %   Rivers    false  carve rivers along the erosion's flow and fill them
-%                    (needs Erode). Any of these three loads lib/fc_water.ps,
+%                    (needs Erode)
+%   MapWater  false  fill the lakes of a terrain map (MapOn, fc_map.ps) at
+%                    their levels. Any of these four loads lib/fc_water.ps,
 %                    which wraps the hit and surface hooks below
 %
 % Hooks: fc-pixel calls these by name, so a piece can redefine any of them
@@ -62,6 +64,7 @@
 /WaterY null fc-default
 /WaterRise null fc-default
 /Rivers false fc-default
+/MapWater false fc-default
 TreesOn { /TreeLine -1000 fc-default } if     % fc_trees paints the forest
 
 (lib/fc_terrain.ps) run
@@ -124,7 +127,7 @@ Profile { (lib/fc_bench.ps) run } if
 /fc-pixel { fc-landscape-pixel } bind def
 
 % water wraps the hooks above, so it loads after them
-WaterY null ne WaterRise null ne or Rivers or { (lib/fc_water.ps) run } if
+WaterY null ne WaterRise null ne or Rivers or MapWater or { (lib/fc_water.ps) run } if
 
 /fc-landscape {                                  % pw ph -> -
     LnSetUp not { fc-landscape-setup } if
