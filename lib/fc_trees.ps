@@ -402,7 +402,10 @@ FsSpecies {
                     } ifelse
                 } { 0 } ifelse
             } {
-                FcKind 1 eq { Fchd FcRt lt { FcH 0 } { -1 0 } ifelse } {
+                FcKind 1 eq {
+                    % tapered, as the ray test below has it
+                    Fchd FcY FcH div 0 fc-max 1 fc-min 0.65 mul 1 exch sub FcRt mul lt { FcH 0 } { -1 0 } ifelse
+                } {
                     Fcdx FcLa cos mul Fcdz FcLa sin mul add abs FcR lt {
                         Fcdz FcLa cos mul Fcdx FcLa sin mul sub /Fcac exch def
                         Fcac abs FcRt lt { FcRt dup mul Fcac dup mul sub sqrt 0 } { -1 0 } ifelse
@@ -459,7 +462,7 @@ FsSpecies {
 % every other crown is at least half a cell away. Leaves FcHc, how far the
 % point is (horizontally) from the nearest crown: 0 or less inside one,
 % and FcIn, FcTs and the records fc-tree-cell describes.
-/FcY 1000 def /FcIn 1000 def /FcRay false def /FcA 1 def /FcLa 0 def
+/FcY 1000 def /FcIn 1000 def /FcRay false def /FcA 1 def /FcLa 0 def /FcIKind 0 def
 /fc-crowns {
     /FcHs exch def /FcD exch def /FcZ exch def /FcX exch def
     /FcBy -1 def /FcHc FsCell 0.5 mul def /FcIn 1000 def /FcTs -1 def
@@ -566,7 +569,8 @@ FsSpecies {
         FsD 0.001 gt FsW 0 gt and {
             /FcY My FsHit mul CamY add FsX FsZ FsO fc-height sub def
             /FcPx FsHit PixAng mul def
-            FsX FsZ FsD FsHsc fc-crowns FsW mul 0.05 gt FsTrunks not FcY FcIn 0.3 mul ge or and {
+            FsX FsZ FsD FsHsc fc-crowns FsW mul 0.05 gt FcIn 100 lt FcIKind 2 eq and FsTrunks and or   % (a log is lower than 0.05)
+                FsTrunks not FcY FcIn 0.3 mul ge or and {
                 /FsMat 1 def
                 % and which part: a crown's top, its underside, a snag or a log
                 FcIn 100 lt {
@@ -626,10 +630,19 @@ FsSpecies {
     /Fwx Mx Fwt mul def /Fwy My Fwt mul CamY add def /Fwz Mz Fwt mul def
     /FsO Fwt fc-terrain-oct def /FcPx Fwt PixAng mul def
     Fwx Fwz fc-forest-map /Fwhs exch def /Fwd exch def
+    FsTrunks { /FcY Fwy Fwx Fwz FsO fc-height sub def } if     % (for FcIn)
     Fwx Fwz Fwd Fwhs fc-crowns /Fw0 exch def
     Fw0 0 lt { false } {
     % the crown that was hit, and the hit relative to its trunk
-    /FcH FcBH def /FcR FcBR def /FcK FcBK def /FcSp FcBSp def
+    % (with trunks, the tree whose solid the hit is on: under a lifted
+    % crown that need not be the highest one)
+    FsTrunks FcIn 100 lt and FcIKind 0 eq and {
+        /FcH FcIH def /FcR FcIR def /FcK FcIK def /FcSp FcISp def /Fw0 FcIt def
+        /FcBx FcIx def /FcBz FcIz def
+    } {
+        /FcH FcBH def /FcR FcBR def /FcK FcBK def /FcSp FcBSp def
+    } ifelse
+    /FwSp FcSp def                       % (fc-tree-sunvis overwrites FcSp)
     /FcEnv FcSp /env get def /FcTiers FcSp /tiers get def
     /Fwdx FcBx def /Fwdz FcBz def
     % normal from the smooth envelope, not by differencing the stepped
@@ -680,7 +693,7 @@ FsSpecies {
     % warm olive where the sun reaches, blue-green in the shade
     0 1 2 { /Fwi exch def
         Fwa Fwi get SunCol Fwi get Fwl mul 1.5 mul mul
-        Fwa Fwi get FcSp /shade get Fwi get mul FcSp /alb get Fwi get div
+        Fwa Fwi get FwSp /shade get Fwi get mul FwSp /alb get Fwi get div
             SkyAmb Fwi get Fws mul SkyLight mul Bounce Fwi get Fwb mul 0.35 mul add mul
         add
     } for
