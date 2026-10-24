@@ -28,6 +28,10 @@
 % bands of scripts/render_bands.sh stitch into exactly the image of one
 % uncropped PixSeed render, whatever the cut points. (Off, the random
 % stream runs on from pixel to pixel, as gallery renders always have.)
+% With AA off there is nothing to precompute. While fc-pixel runs, FrI and
+% FrJ hold the pixel's column and row in the full frame (0 at the top
+% left) and FrU, FrV its centre's u, v, also for the precomputed pixels:
+% a per-pixel hash (for jitter, say) should read those.
 %
 % /RowTimes true (default false) prints `fc-row-t0 MS` (usertime when the
 % render starts, i.e. after the bakes) and then `fc-row J MS` after each
@@ -37,25 +41,30 @@
 /PixSeed where { pop } { /PixSeed false def } ifelse
 /RowTimes where { pop } { /RowTimes false def } ifelse
 
-% i j -> -: srand from a hash of the pixel position (xorshift, kept to 31
-% bits): a plain j*65536+i seed would give rand's first draws a lattice
-% pattern, since rand is a linear congruential generator
+% i j -> -: srand from a hash of the pixel position (one xorshift round,
+% then two multiply-xorshift rounds, kept to 31 bits). rand is a linear
+% congruential generator and xorshift is linear too, so without the
+% multiplies neighbouring pixels' first draws correlate (faint streaks)
 /fc-pix-srand {
     16 bitshift add 16#2545F491 xor
-    2 {
-        dup 13 bitshift xor 16#7fffffff and
-        dup -17 bitshift xor
-        dup 5 bitshift xor 16#7fffffff and
-    } repeat
+    dup 13 bitshift xor 16#7fffffff and
+    dup -17 bitshift xor
+    dup 5 bitshift xor 16#7fffffff and
+    16#45D9F3B mul 16#7fffffff and dup -15 bitshift xor
+    16#45D9F3B mul 16#7fffffff and dup -16 bitshift xor
     srand
 } bind def
 
-% i j -> key: the depth key of pixel i, j's centre sample (colour dropped)
+% i j -> key: the depth key of pixel i, j's centre sample (colour dropped),
+% with FrI FrJ FrU FrV set to that pixel while fc-pixel runs, then restored
 /fc-pix-key {
-    2 copy fc-pix-srand
-    IH 1 sub exch sub 0.5 add IH div 2 mul 1 sub FrAsp mul
-    exch 0.5 add IW div 2 mul 1 sub exch
-    /FcKey -1 def fc-pixel pop pop pop FcKey
+    FrI FrJ FrU FrV 6 4 roll
+    /FrJ exch def /FrI exch def
+    /FrU FrI 0.5 add IW div 2 mul 1 sub def
+    /FrV IH 1 sub FrJ sub 0.5 add IH div 2 mul 1 sub FrAsp mul def
+    FrI FrJ fc-pix-srand
+    /FcKey -1 def FrU FrV fc-pixel pop pop pop FcKey
+    5 1 roll /FrV exch def /FrU exch def /FrJ exch def /FrI exch def
 } bind def
 
 /fc-byte { 255 mul round cvi dup 255 gt { pop 255 } if dup 0 lt { pop 0 } if } bind def
@@ -77,7 +86,8 @@
     IH mul round cvi 0 fc-max /FrJ0 exch def   IW mul round cvi 0 fc-max /FrI0 exch def
     /FrCW FrI1 FrI0 sub 1 fc-max def /FrCH FrJ1 FrJ0 sub 1 fc-max def
     /FrRow FrCW 3 mul string def /FrJ FrJ0 def
-    PixSeed FrJ0 0 gt and {                       % keys of the row above the crop
+    /FrI FrI0 def /FrU 0 def /FrV 0 def
+    PixSeed AA and FrJ0 0 gt and {                % keys of the row above the crop
         FrI0 1 FrI1 1 sub { /FrI exch def FrKeyUp FrI  FrI FrJ0 1 sub fc-pix-key  put } for
     } if
     RowTimes { (fc-row-t0 ) print FrT0 = } if
@@ -88,7 +98,7 @@
     {
         /FrV IH 1 sub FrJ sub 0.5 add IH div 2 mul 1 sub FrAsp mul def
         /FrKeyLeft -2 def
-        PixSeed FrI0 0 gt and { /FrKeyLeft FrI0 1 sub FrJ fc-pix-key def } if
+        PixSeed AA and FrI0 0 gt and { /FrKeyLeft FrI0 1 sub FrJ fc-pix-key def } if
         FrI0 1 FrI1 1 sub {
             /FrI exch def
             /FrU FrI 0.5 add IW div 2 mul 1 sub def

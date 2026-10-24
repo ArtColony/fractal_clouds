@@ -65,7 +65,8 @@ t_start=$(date +%s)
 if [ -n "$auto" ]; then
   probe_dpi="${PROBE_DPI:-$(python3 -c "import sys; print(max(18, float(sys.argv[1]) / 8))" "$dpi")}"
   res=1                                    # the last -D Res=... among the defines
-  for a in "$@"; do case "$a" in Res=*) res="${a#Res=}" ;; esac; done
+  for a in "$@"; do case "$a" in Res=*) res="${a#Res=}" ;; -DRes=*) res="${a#-DRes=}" ;; esac; done
+  [[ "$res" =~ ^[0-9]*\.?[0-9]+$ ]] || { echo "render_bands: --auto needs Res as a plain number, not $res" >&2; exit 2; }
   echo "render_bands: probe at ${probe_dpi} dpi for $auto bands"
   cp "$piece" "$tmp/${name}.ps"
   DPI="$probe_dpi" OUT="$tmp/probe" ${wrap[@]+"${wrap[@]}"} scripts/render.sh "$@" \
@@ -86,7 +87,7 @@ if t0 is None or not rows:
 cost = [b - a for a, b in zip([t0] + rows, rows)]
 if sum(cost) <= 0: cost = [1.0] * len(cost)   # too fast to time: split rows evenly
 ph = len(cost)                               # probe rows (the whole frame)
-H = max(1, int(page_h * dpi / 72 * res + 0.5))   # final image rows (fc-render's IH; PostScript rounds halves up)
+H = max(1, int(page_h * dpi / 72 * res + 0.5))   # final image rows (IH in fc-render; PostScript rounds halves up)
 n = max(1, min(n, H))
 cum = [0.0]
 for c in cost: cum.append(cum[-1] + c)
