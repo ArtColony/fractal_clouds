@@ -553,9 +553,7 @@ FsSpecies {
                 /Fsm Fsa Fsb add 2 div def
                 Fsm fc-forest-f 0 lt { /Fsb Fsm def } { /Fsa Fsm def } ifelse
             } repeat
-            % the inside end: the bracket's middle can fall just outside a
-            % crown's steep side (whorl ends, the skirt) and read as ground
-            /FsHit FsTrunks { Fsb } { Fsa Fsb add 2 div } ifelse def
+            /FsHit Fsa Fsb add 2 div def /FsHin Fsb def
             exit
         } if
         /FsTp FsT def
@@ -564,7 +562,11 @@ FsSpecies {
     /FcRay false def
     FsHit 0 gt TreesOn and FsKind 0 eq and {
         % which surface was hit: a tree standing above the ground, or the
-        % ground (perhaps in the gap under a lifted crown)?
+        % ground (perhaps in the gap under a lifted crown)? With trunks, ask
+        % at the bracket's inside end: its middle can fall just outside a
+        % crown's steep side (whorl ends, the skirt) and read as ground. A
+        % ground hit keeps the middle (so the terrain is as it was).
+        /FsHm FsHit def FsTrunks { /FsHit FsHin def } if
         /FsX Mx FsHit mul def /FsZ Mz FsHit mul def
         FsX FsZ fc-forest-map /FsHsc exch def /FsD exch def
         FsHit fc-forest-w /FsW exch def
@@ -588,6 +590,7 @@ FsSpecies {
                 } if
             } if
         } if
+        FsMat 0 eq { /FsHit FsHm def } if
     } if
     FsHit
 } bind def
