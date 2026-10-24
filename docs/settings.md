@@ -501,9 +501,14 @@ sea (their load is lost).
 | `SkyLight` | 1.15 | Strength of that sky light. | 1.15 |
 | `Bounce` | [0.40 0.36 0.30] | Warm light reflected up from the ground below. | |
 | `BumpAmp` | 0.55 | How strongly steep rock breaks into lit and shaded facets. | 0, 0.55 |
+| `CrevAmp` | 0 | Crevices (#21), 0–1: darkens bare steep rock where it is concave at pixel scale (cracks, gullies), from the Laplacian over the normal's two-pixel footprint. Costs two more `fc-height` samples per steep shaded pixel. | 0 |
+| `CrestAmp` | 0 | Brightens sharp convex edges on bare steep rock (same curvature). | 0 |
+| `CrevK` | 0.6 | Curvature (change of slope across two pixels) that gives the full `CrevAmp` / `CrestAmp`. Smaller is harsher. | |
 | `StrataAmp` | 0 | Rock strata on cliffs (#21), 0–1: steep bare rock is shaded as a staircase of ledges and steep faces, with a dark recess at the foot of each face and vertical joints that split each bed into blocks. Shading only (the geometry and the bakes don't change); fades out where a bed is under about 3 pixels high, and takes over half of `BumpAmp` on cliffs. 0 is off. | 0 |
 | `StrataStep` | 2.5 | Height of one bed, world units. | |
-| `StrataTread` | 0.55 | Fraction of each bed that is ledge; the rest is the face. | |
+| `StrataTread` | 0.55 | Fraction of each bed that is ledge, on average (±0.2 per bed); the rest is the face. | |
+| `StrataWarp` | 0.35 | How much the beds pinch and swell (a fine noise added to the stratum coordinate). | |
+| `LedgeSnow` | 0 | Snow along the ledges' lips, from 14 below the snowline up. | |
 | `StrataDip` | [0.18 0.08] | The beds' tilt: their rise per unit x and z. | |
 | `StrataSteep` | [0.45 0.8] | Beds show fully where the ground's normal `Ny` is below the first value, not at all above the second. | |
 | `StrataPatch` | 0.5 | About what share of the cliffs shows bedding, in broad patches (1: all of them). | |

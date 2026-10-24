@@ -373,10 +373,11 @@
         0 JointW Kjf 1 Kjf sub 2 copy gt { exch } if pop fc-smooth 1 exch sub JointAmp mul
         2 copy lt { exch } if pop Ksn mul 1 exch sub /Kcr exch def
         /Alb [ Alb { Kcr mul } forall ] def
-        % snow lies on the ledges, from a little below the snowline
+        % snow lies along the ledges' lips, from a little below the snowline
         LedgeSnow 0 gt {
             SnowLine 14 sub Kv 16 mul add  SnowLine Kv 16 mul add  Kh fc-smooth
             Kst Ksw div neg 0 fc-max mul Ksn mul LedgeSnow mul
+            1 0 Ktr 0.4 mul Kuf fc-smooth sub mul      % a strip along the lip only
             dup 0 gt { Snow exch Alb 3 1 roll mix3v /Alb exch def } { pop } ifelse
         } if
     } if
