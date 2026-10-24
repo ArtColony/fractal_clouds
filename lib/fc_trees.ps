@@ -366,7 +366,7 @@ FsSpecies {
             FcKind 1 eq {
                 % a snag: a bare trunk, broken off part way up
                 /FcRt FcRt 1.6 mul def /FcR FcRt def
-                /FcH FcH FsR 7 get FcK get 0.4 mul 0.45 add mul def
+                /FcH FcH FsR 7 get FcK get 0.4 mul 0.25 add mul def
             } {
                 % fallen: a log FcR each way from where it stood, pointing FcLa
                 /FcR FcH 0.4 mul 0.6 fc-min def
@@ -421,6 +421,15 @@ FsSpecies {
                 Fcqb dup mul Fchd dup mul FcRt dup mul sub FcA mul sub /Fcqd exch def
                 Fcqd 0 gt {
                     Fcqb neg Fcqd sqrt sub FcA div /Fcqs exch def
+                    % a snag tapers to its broken top: once more, with the
+                    % radius at the height the ray met the base radius
+                    FcKind 1 eq {
+                        Fcqb dup mul Fchd dup mul
+                        FcY My Fcqs mul add FcH div 0 fc-max 1 fc-min 0.65 mul 1 exch sub FcRt mul
+                        dup mul sub FcA mul sub dup 0 gt {
+                            sqrt Fcqb neg exch sub FcA div /Fcqs exch def
+                        } { pop /Fcqs -1 def } ifelse
+                    } if
                     Fcqs 0 gt FcTs 0 lt Fcqs FcTs lt or and {
                         FcY My Fcqs mul add dup 0 gt exch Fcyt lt and {
                             /FcTs Fcqs def /FcTcx FcX Fcdx sub def /FcTcz FcZ Fcdz sub def
@@ -529,7 +538,9 @@ FsSpecies {
                 /Fsm Fsa Fsb add 2 div def
                 Fsm fc-forest-f 0 lt { /Fsb Fsm def } { /Fsa Fsm def } ifelse
             } repeat
-            /FsHit Fsa Fsb add 2 div def
+            % the inside end: the bracket's middle can fall just outside a
+            % crown's steep side (whorl ends, the skirt) and read as ground
+            /FsHit FsTrunks { Fsb } { Fsa Fsb add 2 div } ifelse def
             exit
         } if
         /FsTp FsT def
