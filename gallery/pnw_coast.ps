@@ -6,6 +6,7 @@
 % forested headlands; driftwood along the top of its cobble beach, sea
 % stacks off the points, low overcast, and sea fog lying in the cove and
 % drifting through the spruce and cedar on the cliff tops.
+%   -D View=2     on the beach among the driftwood
 %   -D Plan=true  the map from above, the camera marked
 % Preview: DPI=36 scripts/render.sh gallery/pnw_coast.ps
 
@@ -27,8 +28,8 @@
     (            )
     (%%%%#  #%%%%)
     (%%%%#==#%%%%)
+    (%%%%%==%%%%%)
     (%%%%%++%%%%%)
-    (%%%%%%%%%%%%)
     (%%%%%%%%%%%%)
     (%%%%%%%%%%%%)
     (%%%%%%%%%%%%)
@@ -44,13 +45,25 @@
 ] def } ifelse
 /MapPlanN where { pop } { /MapPlanN 240 def } ifelse
 
-% --- the camera: above the western cliffs, looking across the cove ----------------------------
-/TerrOX where { pop } { /TerrOX -176 def } ifelse
-/TerrOZ where { pop } { /TerrOZ -62 def } ifelse
-/Yaw where { pop } { /Yaw 90 def } ifelse
-/HFov where { pop } { /HFov 66 def } ifelse
-/CamAbove where { pop } { /CamAbove 8 def } ifelse
-/Pitch where { pop } { /Pitch -11 def } ifelse
+% --- the cameras ------------------------------------------------------------------
+% View 1: above the western cliffs, looking across the cove and its fog;
+% View 2: on the cove's beach among the driftwood, looking along it east
+/View where { pop } { /View 1 def } ifelse
+View 2 eq {
+    /TerrOX where { pop } { /TerrOX -40 def } ifelse
+    /TerrOZ where { pop } { /TerrOZ -104 def } ifelse
+    /Yaw where { pop } { /Yaw 70 def } ifelse
+    /HFov where { pop } { /HFov 60 def } ifelse
+    /CamAbove where { pop } { /CamAbove 0.45 def } ifelse
+    /Pitch where { pop } { /Pitch -2 def } ifelse
+} {
+    /TerrOX where { pop } { /TerrOX -176 def } ifelse
+    /TerrOZ where { pop } { /TerrOZ -62 def } ifelse
+    /Yaw where { pop } { /Yaw 90 def } ifelse
+    /HFov where { pop } { /HFov 66 def } ifelse
+    /CamAbove where { pop } { /CamAbove 8 def } ifelse
+    /Pitch where { pop } { /Pitch -11 def } ifelse
+} ifelse
 /TMax where { pop } { /TMax 1200 def } ifelse
 /SunAzim where { pop } { /SunAzim -40 def } ifelse
 Plan { /Erode where { pop } { /Erode false def } ifelse } if
