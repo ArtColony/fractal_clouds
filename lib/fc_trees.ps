@@ -134,7 +134,11 @@ FsSpecies {
 /FcHmulMax 0 FsSpecies { /hmul get fc-max } forall def
 /FcRtMax 0 FsSpecies { /trunk get fc-max } forall FcHmulMax mul FsHMax mul 1.6 mul 1.02 mul def
 /FcRmax FsCell 0.55 mul 0.6 fc-max FcRtMax fc-max def
-/FcTopMax FsHMax FcHmulMax mul 1.001 mul def
+% and the tallest top for fc-tree-sunvis: FcH, or FcB FcH where a lifted
+% base is over 1 (a custom table's base near 1; FcB is at most 1.25 times
+% the larger of base and baseDense)
+/FcTopMax 0 FsSpecies { dup /base get 1 index /baseDense get fc-max 1.25 mul 1 fc-max
+    exch /hmul get mul fc-max } forall FsHMax mul 1.001 mul def
 /FcLmax FsCell 0.55 mul FsHMax FcHmulMax mul 1.001 mul 0.28 mul fc-max def
 
 % --- hash: a permutation of 0..255, and random tables indexed by it -------
