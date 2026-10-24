@@ -389,8 +389,8 @@ ripples as wind chop) and `fc-water-colour` (colour by depth), and wraps
 (the march under the sea stops about `6 WaterClear` past the surface, where
 the bed no longer shows). The chop is the lake's ripples, so a sea raises
 `RippleAmp` (0.07 in `spikes/ocean_shore.ps`) and points `WindDir`. Waves
-change the shading only: the hit is still the flat plane (#38's write-up,
-`docs/prs/38-ocean/`, has the numbers). Depth below is sea level minus the
+change the shading only: the hit is still the flat plane (`docs/techniques.html`
+§12, The sea, has the numbers). Depth below is sea level minus the
 ground's height straight under the surface point, not `fc-water-colour`'s
 depth along the ray. With `Ocean` false nothing here loads.
 

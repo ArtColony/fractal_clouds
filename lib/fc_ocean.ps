@@ -15,9 +15,11 @@
 %   fc-terrain-material   sand on the beach and the sea bed
 %
 % Waves change the shading only: the hit is fc_water's flat plane. At the
-% views the issue asks for (a camera 1-3 units up, water from ~10 units
-% out) a swell of slope 0.1 and wavelength 12 stands about 0.2 units high,
-% under a degree seen from the nearest water; see docs/prs/38-ocean.
+% views the issue asks for (a camera 1-4 units up, water from ~10 units
+% out) a swell of slope 0.1 and wavelength 12 stands about 0.2 units high;
+% near the camera the view ray falls more steeply than any wave face, and
+% farther out a crest would shift what it hides by under two pixels (see
+% docs/techniques.html section 12, The sea).
 %
 % Depth here is sea level minus the ground's height (SeaDepthOct octaves)
 % straight under the surface point, not fc_water's depth along the ray.
@@ -215,7 +217,8 @@
                 My neg 0 fc-max 1 exch sub 5 exp 0.98 mul 0.02 add mul /OcW exch def
                 OcW 0.01 gt {
                     /OcB exch def /OcG exch def /OcR exch def
-                    OcT OcY fc-water-reflect-at
+                    % (a little above the ground, so the march doesn't meet the sand it leaves)
+                    OcT OcY 0.05 add fc-water-reflect-at
                     OcB sub OcW mul OcB add 3 1 roll
                     OcG sub OcW mul OcG add 3 1 roll
                     OcR sub OcW mul OcR add 3 1 roll

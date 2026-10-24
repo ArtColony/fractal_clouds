@@ -566,13 +566,18 @@ T = exp(−(t_bed − t_water) / WaterClear)</div>
 <p><b>Glitter and wet sand.</b> The reflected ray keeps only the normal's slope (above), so the sun would never glint off a wave that tilts sideways; glitter is added as a Beckmann highlight on the full normal instead. Its width grows with the slope the waves lose to distance, so near the camera single facets catch the sun and far out they merge into a smooth path. Ground less than <code>WetSand</code> above the water is wet sand: it is shaded as ground, then mixed with a reflection off a level film, by Fresnel and <code>WetMirror</code>, which is the bright band a wave leaves as it pulls back.</p>
 
 <figure>
-  <img src="prs/38-ocean/open_sea.png" alt="Open sea under a low sun: blue-green swell with lighter wave backs and a glitter path." loading="lazy">
-  <figcaption>Open sea toward the sun, a full-detail crop of <code>spikes/ocean_shore.ps</code>.</figcaption>
+  <img src="prs/38-ocean/open_sea.png" alt="Open sea: blue-green swell troughs and pale wave backs, smoothing out toward the horizon." loading="lazy">
+  <figcaption>Open sea, a full-detail crop (160×40 px, 328 s on a loaded machine) of <code>spikes/ocean_shore.ps</code> <code>-D View=2</code>, shown at 2×: the swell and chop fade into a smooth, lighter far sea with no sparkle.</figcaption>
+</figure>
+
+<figure>
+  <img src="prs/38-ocean/glitter.png" alt="The sea toward a low sun: a glitter path, merged far out and broken into glints nearer." loading="lazy">
+  <figcaption>Toward the sun (View 1, 128×64 px, 174 s): the glitter path, smooth near the horizon and breaking up nearer.</figcaption>
 </figure>
 
 <figure>
   <img src="prs/38-ocean/surf_line.png" alt="Surf: lines of foam breaking onto a sand beach, with a mirror-bright band of wet sand." loading="lazy">
-  <figcaption>The surf line of the same frame: breakers, swash, shallows over sand and wet sand.</figcaption>
+  <figcaption>The surf line (View 2, 160×60 px, 136 s): breaker foam and its lace, the swash, the wet band mirroring the sky, and dry sand.</figcaption>
 </figure>
 
 <!-- ===================================================================== -->
