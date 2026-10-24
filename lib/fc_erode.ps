@@ -62,6 +62,7 @@
 
 /fc-erode-bake {
     /EbT0 usertime def
+    /fc-erode-lookup /fc-erode-lookup1 load def      % a rebake without ErFar drops the far map
     /ErX0 Yaw sin ErDist mul ErSize 2 div sub def
     /ErZ0 Yaw cos ErDist mul ErSize 2 div sub def
     /ErBaking true def
@@ -99,7 +100,8 @@
     /ErLim ErN 2 sub def
     /EtRev true def
     /EbR ErThermal 0 gt { ErRounds } { 1 } ifelse def
-    ErThermal 0 gt { /ErLoose ErN ErN mul array def 0 1 ErN ErN mul 1 sub { ErLoose exch 0 put } for } if
+    /EdL ErThermal 0 gt def
+    EdL { /ErLoose ErN ErN mul array def 0 1 ErN ErN mul 1 sub { ErLoose exch 0 put } for } if
     1 1 EbR { /Ebk exch def
         ErDrops Ebk mul EbR idiv  ErDrops Ebk 1 sub mul EbR idiv sub
         { fc-erode-drop } repeat
@@ -154,6 +156,7 @@
         ErMap Ei 1 add 2 copy get Eamt Efx mul 1 Efy sub mul add put
         ErMap Ei ErN add 2 copy get Eamt 1 Efx sub mul Efy mul add put
         ErMap Ei ErN add 1 add 2 copy get Eamt Efx mul Efy mul add put
+        EdL { fc-erode-scree } if            % with thermal: deposits are scree, erosion takes scree first
         /Espd Espd dup mul Edh ErGravity mul sub dup 0 lt { pop 0 } if sqrt def
         /Ewat Ewat 1 ErEvap sub mul def
     } repeat
@@ -184,6 +187,13 @@
 % angle of repose; with all ground loose (ErWeather large) it is the plain
 % rule, which flattens every steep slope. Passes alternate their scan
 % direction so material doesn't creep one way. Draws no random numbers.
+/fc-erode-scree {                                % the droplet's change, into the scree depth
+    ErLoose Ei 2 copy get Eamt 1 Efx sub mul 1 Efy sub mul add 0 fc-max put
+    ErLoose Ei 1 add 2 copy get Eamt Efx mul 1 Efy sub mul add 0 fc-max put
+    ErLoose Ei ErN add 2 copy get Eamt 1 Efx sub mul Efy mul add 0 fc-max put
+    ErLoose Ei ErN add 1 add 2 copy get Eamt Efx mul Efy mul add 0 fc-max put
+} bind def
+
 /fc-erode-thermal {                              % passes -> -
     /EtT ErTalus sin ErTalus cos div ErTex mul TerrH div def   % normalised height step at the talus angle
     /EtC ErThermalRate 0.5 mul def               % half the excess levels a pair
