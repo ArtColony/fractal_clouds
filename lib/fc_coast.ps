@@ -84,6 +84,7 @@
 } bind def
 
 /fc-coast {                                      % h -> h (Hmx Hmz Ho)
+    XcMatOn not { fc-coast-material-install } if
     /XcH exch def
     Hmx Hmz fc-coast-dist /XcK exch def /XcD exch def
     XcD CoastBeachW gt XcH MapSea CoastBerm add CoastFlat add gt and { XcH } {
@@ -158,9 +159,10 @@
 % --- beaches ---------------------------------------------------------------------
 % fc-terrain-shade's material hook (after any earlier one): sand, and cobbles
 % in patches, on gentle ground near the water and under the shallows
-/XcMatPrev /fc-terrain-material where { pop /fc-terrain-material load } { { } } ifelse def
-/fc-terrain-material {
-    XcMatPrev
+% With trees, fc_trees.ps (loaded later) replaces the hook outright, so the
+% beach is installed on the first fc-coast call instead (setup, after every
+% library has loaded), running before the trees' and the water's hooks.
+/fc-coast-material {
     Kh MapSea sub /XcE exch def
     XcE CoastBerm 1.6 add lt XcE -4 gt and {
         Kx TerrOX add Kz TerrOZ add fc-coast-dist /XcMk exch def /XcMd exch def
@@ -180,3 +182,14 @@
         } if
     } if
 } bind def
+/XcMatOn false def
+/fc-coast-material-install {
+    /XcMatOn true def
+    /XcMatPrev /fc-terrain-material where { pop /fc-terrain-material load } { { } } ifelse def
+    TreesOn {
+        /fc-terrain-material { fc-coast-material XcMatPrev } bind def
+    } {
+        /fc-terrain-material { XcMatPrev fc-coast-material } bind def
+    } ifelse
+} bind def
+/TreesOn where { pop TreesOn } { false } ifelse not { fc-coast-material-install } if

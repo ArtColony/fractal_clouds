@@ -418,6 +418,13 @@
 % coastline (Catmull-Rom) and the nearest land's height (bilinear); past
 % MapRect the edge texels carry on
 /fc-map-coast-at {
+    % how far past the rectangle: there the terrain feathers to
+    % MapBackground, so the coast is put mid-feather (#39 review)
+    /MpCoz exch def /MpCox exch def
+    MpX0 MpCox sub  MpCox MpX1 sub  2 copy lt { exch } if pop
+    MpZ0 MpCoz sub  2 copy lt { exch } if pop  MpCoz MpZ1 sub  2 copy lt { exch } if pop
+    /MpCo exch def
+    MpCox MpCoz
     MpZ0 sub MpTz div dup 0 lt { pop 0 } if dup MapN 1.0001 sub gt { pop MapN 1.0001 sub } if 1 add /MpCz exch def
     MpX0 sub MpTx div dup 0 lt { pop 0 } if dup MapN 1.0001 sub gt { pop MapN 1.0001 sub } if 1 add /MpCx exch def
     /MpCi MpCx floor cvi def /MpCj MpCz floor cvi def
@@ -432,6 +439,11 @@
         /MpCk MpCk MpW2 add def
     } forall
     /MpCk MpCj MpW2 mul MpCi add def
+    MpCo 0 gt {
+        MapFeather 0.5 mul MpCo sub
+        MapBackground 0 get MapBackground 1 get TerrH mul 0.64 mul add MpFloor add MapSea lt
+        { 2 copy gt { exch } if pop } { neg 2 copy lt { exch } if pop } ifelse
+    } if
     MapCoastC MpCk get 1 MpCu sub mul MapCoastC MpCk 1 add get MpCu mul add 1 MpCv sub mul
     MapCoastC MpCk MpW2 add get 1 MpCu sub mul MapCoastC MpCk MpW2 add 1 add get MpCu mul add MpCv mul add
 } bind def

@@ -312,7 +312,7 @@ sea (their load is lost).
 | `CoastStackOut` | 45 | How far offshore they stand (from 10 out). | |
 | `CoastStackScale` | 0.045 | 1 / their spacing. | |
 | `CoastRocks` | 0.5 | Rocks in the surf, from 14 units out to the waterline, 0–1. 0: none. | |
-| `CoastReef` | null | `[out width depth]`: a patchy reef `width` wide, `out` offshore, its top about `depth` under the water; off low shores only. | [70 50 0.5] |
+| `CoastReef` | null | `[out width depth]`: a patchy reef `width` wide, its inshore edge `out` offshore, its top about `depth` under the water; off low shores only. | [70 50 0.5] |
 | `CoastSand`, `CoastCobble` | sRGB | The beach's colours; cobbles are mottled. | |
 | `CoastCobbles` | 0.3 | How much of the beaches is cobble, 0–1. | |
 | `CoastSandW` | 40 | How far inland the beach material reaches. | |
@@ -490,7 +490,7 @@ These are procedures, not settings. Redefine them **after** loading
 | `fc-landscape-sky` | `dx dy dz → r g b` | `fc-sky` above the horizon, the haze colour below it. |
 | `fc-landscape-grade` | `r g b → r g b` | Nothing. Linear light, just before the tone curve; a place for a colour grade or vignette. |
 | `fc-forest-dens` | `x z h ny curv → density height-scale` | `fc_trees`' rules. Wrap it to keep trees off some ground, as `fc_water` does. Redefine it before `fc-landscape-setup`. |
-| `fc-terrain-material` | reads and changes `Alb KlMul KskyMul KbMul` | Defined by `fc_trees`. Without trees it doesn't exist, and a piece can define it to paint the ground. |
+| `fc-terrain-material` | reads and changes `Alb KlMul KskyMul KbMul` | Defined by `fc_trees` (forest floor), and chained onto by `fc_coast` (beaches) and `fc_water` (shores). With none of them it doesn't exist, and a piece can define it to paint the ground. |
 | `fc-terrain-base` | `x z → lift mask pin` | Defined by `fc_map.ps` (`MapOn`); otherwise absent and the noise massif is used. Map coordinates in; the lift in world units, the massif mask 0–1 and the pin 0–1 out. A piece can define its own (an analytic island, say) before `fc-landscape-setup`. |
 | `fc-pixel` | `u v → r g b` | `fc-landscape-pixel`. Replace it entirely for a different scene. |
 
