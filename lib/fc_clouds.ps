@@ -52,6 +52,7 @@
 /AmbBot [ 0.34 0.38 0.48 ] fc-colour
 /PixAng 0.0035 fc-default
 /CloudLayers null fc-default         % null: the one layer above
+/CloudDense 0 fc-default             % > 0: a step deeper than this (optical depth) is shortened, to half at most
 
 % --- presets ----------------------------------------------------------------
 % Every key a layer has, with the values the presets start from: the gallery
@@ -272,19 +273,26 @@
 } bind def
 
 % --- density -------------------------------------------------------------------
-% fBm of folded noise, |2n - 1| per octave: rounded lumps with creases
-/fc-cloud-billow3 {                              % x y z oct -> v
-    /CbO exch def /CbZ exch def /CbY exch def /CbX exch def
-    0 1 0                                        % sum amp norm
-    CbO {
-        CbX CbY CbZ fc-noise3 2 mul 1 sub abs 2 index mul
-        4 -1 roll add 3 1 roll
-        1 index add exch 0.5 mul exch
-        /CbX CbX 2.03 mul 5.3 add def
-        /CbY CbY 2.03 mul 1.7 add def
-        /CbZ CbZ 2.03 mul 9.1 add def
-    } repeat
-    exch pop div
+% The layer's noise: fc-fbm3 (or, with Billow, fBm of folded noise,
+% |2n - 1| per octave: rounded lumps with creases), with the same arithmetic,
+% but it stops early once even full values in the octaves still to come
+% couldn't lift the sum to ClFbT (the density would be 0): most samples in
+% clear air need only the first octave or two. Returns -1 then.
+/fc-cloud-fbm {                                  % x y z oct -> v
+    /CfO exch def /CfZ exch def /CfY exch def /CfX exch def
+    /CfS 0 def /CfA 1 def /CfN 0 def /CfK 0 def /CfOut false def
+    /CfTot 2 2 CfO neg exp 2 mul sub def         % the weights' sum, 1 + 1/2 + ...
+    {
+        CfK CfO ge { exit } if
+        CfX CfY CfZ fc-noise3 ClBillow { 2 mul 1 sub abs } if CfA mul CfS add /CfS exch def
+        CfN CfA add /CfN exch def /CfA CfA 0.5 mul def
+        /CfX CfX 2.03 mul 5.3 add def            % odd offsets decorrelate octaves
+        /CfY CfY 2.03 mul 1.7 add def
+        /CfZ CfZ 2.03 mul 9.1 add def
+        /CfK CfK 1 add def
+        CfK CfO lt { CfS CfTot add CfN sub CfTot div ClFbT lt { /CfOut true def exit } if } if
+    } loop
+    CfOut { -1 } { CfS CfN div } ifelse
 } bind def
 
 % rain under the base: the cloud a little way up, in vertical shafts that
@@ -321,13 +329,17 @@
             Dz ClWc mul Dx ClWs mul sub
             /Dnz exch def /Dnx exch def
         } { /Dnx Dx def /Dnz Dz def } ifelse
-        Dnx ClScale mul ClSx mul Dy ClScale mul ClSy mul Dnz ClScale mul ClSz mul Doct
-        ClBillow { fc-cloud-billow3 } { fc-fbm3 } ifelse
-        ClThr sub 1 Dprof sub ClPamp mul sub
         % low-frequency coverage, so clouds gather into groups with gaps
         ClCovA 0 gt {
-            Dx ClCovS mul 41.3 add Dz ClCovS mul 7.9 add fc-noise2 0.5 sub ClCovA mul add
-        } if
+            Dx ClCovS mul 41.3 add Dz ClCovS mul 7.9 add fc-noise2 0.5 sub ClCovA mul
+        } { 0 } ifelse /Dcov exch def
+        % the noise value below which the density is 0 (with a margin, so
+        % fc-cloud-fbm's early out never changes a result)
+        /ClFbT ClThr 1 Dprof sub ClPamp mul add Dcov sub ClShaped { Dsh sub } if 0.000001 sub def
+        Dnx ClScale mul ClSx mul Dy ClScale mul ClSy mul Dnz ClScale mul ClSz mul Doct
+        fc-cloud-fbm
+        ClThr sub 1 Dprof sub ClPamp mul sub
+        ClCovA 0 gt { Dcov add } if
         ClShaped { Dsh add } if
         dup 0 lt { pop 0 } { ClGain mul } ifelse
         } ifelse
@@ -459,17 +471,26 @@
     ClBoxed { fc-cloud-box } if
     Ct0 Ct1 lt {
         /Cph Mx SunDir 0 get mul My SunDir 1 get mul add Mz SunDir 2 get mul add fc-phase def
-        % step length grows with distance; the first step is jittered
+        % step length grows with distance; the first step is jittered by
+        % a hash of the pixel (fc-cloud-jitter), a new value per layer
         /Cdt0 Ct1 Ct0 sub ClSteps div def
         /Ct Ct0 def
         /Cdt Cdt0 Ct 0.012 mul add def
-        /Ct Ct Cdt fc-rnd mul add def
+        /Ct Ct Cdt ClJit mul add def
+        /ClJit ClJit 0.7548777 add dup floor sub def
         {
             Ct Ct1 ge { exit } if
             /Cdt Cdt0 Ct 0.012 mul add def
             /Px Mx Ct mul def /Py My Ct mul CamY add def /Pz Mz Ct mul def
             Px Py Pz Ct fc-cloud-oct fc-layer-density dup 0 gt {
                 /Cd exch def
+                % CloudDense: shorten a dense step (to half at most), so no
+                % one sample takes too much of the light
+                CloudDense 0 gt {
+                    ClSig Cd mul Cdt mul dup CloudDense gt {
+                        CloudDense exch div dup 0.5 lt { pop 0.5 } if Cdt mul /Cdt exch def
+                    } { pop } ifelse
+                } if
                 /Ca 1 2.71828 ClSig Cd mul Cdt mul neg exp sub def
                 ClFade { Ct ClF0 gt { /Ca Ca TMax Ct sub ClF1 mul mul def } if } if
                 Px Py Pz Cd Cph fc-cloud-light Ct fc-haze
@@ -506,6 +527,7 @@
 /fc-clouds {                                     % tlimit -> -
     /Ctl exch def
     /Cr 0 def /Cg 0 def /Cb 0 def /Tr 1 def
+    /ClJit fc-cloud-jitter def
     FcClCompiled not { fc-clouds-compile } if
     CloudLayers null eq { fc-cloud-march } {
         % nearest band first: up the list for a rising ray, down it otherwise
@@ -515,4 +537,93 @@
     } ifelse
 } bind def
 
+% The march's first-step jitter, 0..1: a 64 x 64 blue-noise tile (void and
+% cluster; docs/prs/27-cloud-jitter/blue_noise.py makes it) looked up at the
+% pixel fc-render is on (FrI, FrJ). Neighbouring pixels get well-spread
+% offsets, so the error reads as a fine even dither, not grain; and every
+% render of a pixel, whole frame, crop or band, gets the same one. Each
+% further fc-clouds call in the same pixel (extra AA samples, water
+% reflections) steps on by the golden ratio (the count restarts at each new pixel or new render, told apart by
+% fc-render's start time FrT0). Before any fc-render (no FrI) it falls back
+% to fc-rnd; after one, a stray call outside it counts as one more
+% sample of the last pixel.
+/ClBlue <
+2c7687b8e37ecce84f7721e4b9cf9a0c6ab239a01684049748d4305b12829903faa330ee66132b5d97f67a31abfc4fbfaf0a9f194fabd24515bc62789e10445f
+a940f12138149cbb32d485a137f25481e11b8d2bedaabfe5681ab98be3ac2ad58f5e4f83aad9c88a0bd148e0c511728be6427edc89f7357385ec3dc8fd69d495
+13cf62a1d76d43891af657690f7523c543f6ba71ca3f5e237ef83c0a71ca546a3ae023bd004172eb37b3245e931eed2b5bd06c26c3055db49bd9034c26b57ff5
+51be068e54fec760aa01bddc41ace994640259dd4e0ad28fa652d895ea451befb10dc978e456a11a6782a2f16b3ed4a79712eeb83ea3e51c2b6aa990e5571b36
+7082ed2eb40d24ea954928ca8b18b72fd5a78625987afb3113c6b16325a1bd76879d48fb9333b9d7f950c1077bbb4c04773653936579cc52fbc3387b0bc6a2da
+25ab4468de9a813a71e17d9bfa5b4c7a103dc3e916b469e24474013580ff0633db622c1b68850928964016db31e586b2fbc7ac1bf50f468f82135bf2b1428aea
+95d319c4764bafcd0fb462340b6fc1ee9dfc6b4a36a255bd859bf4df4e90c85716f2b4cea7ecc65e77d08ca9599a246344df2c80d2329ee2b924dc9b712f6401
+b85cfb3705f05a2df9511eeca6ce278f5f1cb07ed8f10e1f2bcf591cb468d7a5428c71510f3b4baee82168ff0dcceb18708b0a5be8b36e003e66d14a1dccf84d
+a02b7d8fa5d4148e9fc1d6863be40544de30cf078b61c992e86da4c23e2a117bbae3239af67edf9e0435b74b753cbd55d5a2c2984920cb59eeab830ebcdf7714
+c8e846bf2064e47b6a0345759756b383be735498274278ae374a138875f599e90937d25cbf2e186b86f2c5a027849402f4263c67fe88a57c2d96fa358fa63d87
+6a0adc7052b64032f2ac28baff1a659f0fe7a6f8b7e203fd5ed4ef05ddac5d496c86ad01748fd6b2574111d95bf0ae337db4e3770736dc19bf0a516d5d25f156
+33ae189dee88c51cd057e0126d32ccf43d4c1f6839c2509f1a7db6945335cd21c4f04edd3dfd4924cc967c661be147ca614f12a9c556f14774e6b0c8eb04b4d3
+7d92f63b2a08a84b91809cc84b8ddb257fc3910a85da6f8e30c643286e19fc8ea32f169765a40dbce32ff7a7c009719f1ef891d8179ab563d53f149d7945981f
+c34f60ca77d967f80f3861e7a97900af60d7eba95c1425b3f465a8e6d3bb7b0b6177b7c920ed7a5c70024e873d912cd482ba436d2e801e8da22984d030e165fc
+40db0085b25797e473be230c3ff056993617762dceee4777de0815825b9d3ab0e242f45683d0348dacec1fd0b1fd53e60b35eb5acff73ac604fd614d1abe8810
+ab2e9ee82213422eaed5ed83b82cc66ffcb65240ba95a3c9553c98f94700ed50d50f922c05b14312c69d366c5b1178c264ae8801a54be46c53d9b991f4a75474
+eeba694ad3febc89035346a264911de108a188f36a02331d88bd6bcc218dc528866fbe9fe867d9fb547fdbb7e326a4419423dd76c010b17d32a922703b05dd24
+c97d0e8e35a37c5fcd997017f9cf4f8044d42512e07cff60e9a72be2b37565a61a5bff374c7493291c6345079781cbf11550fc992a608f16eb980be380cf9c5e
+183af259c26e17e126f334dc07ac38bd6596c55aab4d8fcf094a7e165634f3df40d1ad20e00dc2a3b9f38c19ed4c3170d5b5396a46dbf33fca5b47c1662c438c
+5099d1ad05eb4f3daa8ec17a598ae613f22e73d83abe2871b239f792d69f12b99003788bcb57833ed73073cfbc67ac0a5983c308cea220b87385f9ac11e7b5fd
+6bde22773094c8820e661db343286fa554b20a8a19e59b13d85cc0680546805230ed6545b418f96d00ae519f3b1ef990e59f1ceb8b7b5503d62634935372a308
+81b845f8631cb6f6d652eccba0fed52083df49faa66743ef85a422ebadcdfb6e9ac725a3e5329c5eea9210e05c87c0442775355eaf2dff6a9bb214ebc820d733
+c314a789cd9f47712d9b3a0363920ec23e99c95f2480c7542f0c763f882b1cbf0eda5af3087ed12347c77af22bd206dea94ff5d71149c039dd4d647b3e89f05f
+2ae4560938e85a08af8778e24c317d5af5047735ecba0295fcdfc99955e761a64b8338916f50bdb086361cb76ea37c6215c7b76e92e7a70a8bf2cea1bd024a94
+fa3d74d5ba7f25dfc3fb22bad2aceab8692ab08d17d53b6db54a6417b6d63a74f7b71bacd64013e265f758950e4e37fc9682013f237eca5a76230f2e586dd1b0
+0e9d658f18f96b924317556c1089451ba0e4d04d9b5a7ba81e8d36f1067d9427e30168c42afe769604a8d742c1e6afd52d59a5f0649e18e242b995fce3a81b79
+47c9ee2e4fad35a061daa7ee992772cb5338126cdcf729e90ec1db6fa9c41048cd9e56ed8aa21f52ce2d74ec23846a1d48e9cf34bc51f931ac62d87f388d27dd
+86bc03a5dcc510d0007d2fc73ddbf30791fc82bc06ad46cc5481a0244eff5db286327a441060e9c23e8b0d9f5fca0490ba740e89dc076f85c404481551c2f45c
+3371215e784286f5b54a90660c5cb27bc25fa542238a63982ff85f418a1ada6cef1fd4bade3781b06bfab84f31f740dfa16128af4596d327a0e872b39c680fad
+d853ff98e41a6e58e821bffe839e32481fdf2eec79c315e17501b7d1e79c2d3ea8950b66ab980727da157ce293ab7919f24fc9fe7a1dee5d3b8ef525cde44095
+16ceb3398cbd2a9d3872e11851d5e9a86d1399ce57f3b23bd4a8193572bf7f04c852fa294cf4cd5a47a4631fc40958d33984129d3667abcb1154d632830177ec
+2d7f074af20bd7b08806a840b8260289f9b74d7236098f6b4f83ef920c56f363e48473c08b1870bc8fef39d0466ebe8c24b570e5bf4c0b82bb6d17a65dbc4ea4
+5f9169a9ca566746f8cd5d946878ce3b61d90d86dda129fd1dc54366cdab25b6461436a5d6407de82f02b386fd2ca2ed64de005829f593de47fbb13e91f321c5
+f9dd1eeb308322e0177b2fdbf69bbf552a92c61fad49c05d9be52ba24cd9108d9edc5fec0a57219cd853759a0fdc4e159645cba888d37332219879e609d97238
+0dbb419a72c3a593b950c409204914efb27941f667e97e11b47505f8813874fc2ec92094b3fec5a91169f4265eac7f33b1fa7a3c1960af03ea58c8296547b489
+5079ce5a15fd3a0c6fec3da28be671a608e09d583006d33fdd5590bb1be7c16650af79446d3263853ccbb943eac868d40756229be7bc41a069be0f87a2cd199d
+ad29e705b14ce45e28ae8159cb632784386918ccb971978720336cd05e4197018713e3cf058eda4d1be193098b1d3bef89c36ed80d51f8d08b394cdbfe315cee
+6b3a8596da788bd19afa1ae134b5d7ffc44dee8a25fb50c4f0afe212a829b3d2ef3c9f53f6b928edb07a31a558bd789f2ab7f2369080291576f2ae1d6f8002d8
+20c8f4652f1ebf014468bc0d9545025790b30b7aab39a21564469d8451f37c1f5bbd2c821773a10d5d6dfb48d6e6104d621848a567c7b55fe0069254b83ec18e
+a70b55bb46aaf7357cc94f74efaa7e21a031d246dd5c00d77c27ff07c370da46916be8ac60c74595d0be0181276aa9ff93df7c08e91d994932a3c92be299f34a
+de7d9f15d46e589edc228d2ed3196bdfeb73621d8ee86eb694cc5b3d903011a3f708cc223bdef12e521feb9ab637cf06c430aed1583efdd6816cee5e17750f61
+2dfd3f91ec0984e711adf39d60ba4bc13e12fab9c62a42f7341abca5e7ce62b237764d9989047bae8c3edb5f158e55833f73f7248770ab0cc2214189aacd37b3
+6ccf2475c32b4bb7653f560439fb8a2a96ad814e9b0c85a952ec7769224b87e01cbed8fd57bb6714f96fa6c378e4f31eb75d994bbfe3168f53b4d80afa50e78c
+0059addb5fa68c1dd479c2e382a40bce5ed70433f075d0630f8cd503b5fa0d9759832d12a3e534d3c6290e4e2f439e6cda13cd01a12b3b64f379349b66811cc0
+96ee4c183af1cc34fd9528b3166fea521ef569a758de19b2e32c439e577d3bc8f269af4172214a9b587d94f6d503ad28ed90396ad87cebc9a404e44aba29a444
+c81086ba7b0699700d4dd96745c72d7ab78b42c424923849a07cc1f132d9a9274800d08fc0f585b306ecaa67ba89c85a4881bcf051b09547265d8dcc11daf67a
+e533a0f966de46be5ba71c8aefaa973be0a014e77fbb6cc7fc096e1d9265bb74e29cea5b0ed7631ae1452138531773e20aa42e1e600c1a71bbfd18ae74553a62
+256fd31c51ab24eb7ecaf7365709d1610e712fd25102ea205d8e50cbe60715528a1e367d2aa83b76be8fccdc80fc983cb2f777d48cf4dd33d1843e69f09506ab
+b6584093cb308ab43d039874df227ffdc24defac629a84a731dbb43ca184fec3a666b5c5ef5296ff2d5f7108a33061d7144dc59c40b9a67e55e19e2ec020d688
+fe0de28004f56d11e3642bc1b78e47b128947a3c11f843d30ef57f286047d42d3ef60c466e05cdae114ef4b61bedc0248e6d5b07276b4b0221b20f4fe67b47c5
+2f75a5c1609cd655a285d250166ae80059db1cb9cc277556bf6914aaed1c97795ad193e5a18a1fdf7fc7973f8a4a79aacee534ff87caeb98f966ca89a860169b
+51e9224a39b81944ff20aa40f39e34a684f668a088e0b193379c4eceb86fdf02af198126d8593f6734a425d26ade58004282a1b1d713385abe773d07f537dd6a
+8eb0cb10ef8d7bc63172e60a7cd961c640d00b334a5e051de4f076078d5439bff06b4e33bd78f1b8e9035de610b02c94ef0f1f50627aaa902bd9e99426bbce02
+3f7e62da70285ade96b55fca952c12b8225278e8c0ff6fc9842444da2ffa9d2487a4cbfb14ab0c934887bd77379cfbc265b675e92ec2e00a481baf5372829ff8
+1ded9833a4f9ad150249881e53fc738cf099b017922ca83fb564a3c180166648e50a3d639a522cd17018f850ca811a49d93acf984519f56f849e63d213455b2c
+c50c54bd084dd169f4c136eab1a348d2086cdd4480d65010f5d10d57e9add3c659b676da8cc6f660b1d92ba909ea5c72268afa0486a1b655c7fc32c0efa7e2b5
+8c44d8778820913f7d9ed76e063ce15c28c3376203ee9d5c8e3271973c0578921b30ec230143801e3b9a8c6842bb90a311ad526cca5f3c27e500418a23097666
+fea96ae6c82feabc5619296090b9177b9e86fba4bb2575c41ae149f8bb29de42fd829db06ee4a5beed0554e01fd331f6e3bf351eecdc0e93ab7c6bdf984ed133
+9c26123caf619a0be0aaf2c482f7c934ea4a1c55ce8b3aeab17ca71f895ca66e0fbd5d4ccd34105a73c77efeb06d4f06795d9a7faf2d74d34d1ebc58b2f48416
+cb59f07f0051fc6c35784d0c412267aad512b46be10b4b672d00d968cdf04cc49639d816f1889646da2fa10e399787cc41db16f4498dc064ea9ccf13293d61bb
+498db6dea2cf8523b78cd2a4e7965301748ff1317eaaf8d29bbe5538147f08e625f56aa829ba64f7ae154c62c2e91ab52a68c4a25912fe400635f87291db03e8
+371b702e4118c148da135c2c70b4dd3dc05c9c432194145a8642fe90b69f31ae578d097e54d4052383cb90f1267657a5f291013ad623b387a65e8047c4a46c7c
+fa9ad564f69373eea03cf9c77f17ff8826e708cbb8dc72c7260ce76d20dc627ad044e3c63ca076e53a6bddb641d30de0814b73b8e67b69c92ae1b00bf05322ae
+08c64e0cac582a0766b19206496131a7d24e79fb635135f1af78a1c54bf43fc01771b51d91fe4bbea81b5602859c653622cafa6030970cf154941fd63289bfe2
+> def
+/ClJI -1 def /ClJJ -1 def /ClJT -1 def /ClJk 0 def
+/fc-cloud-jitter {                               % - -> j
+    /FrI where {
+        pop
+        FrI ClJI ne FrJ ClJJ ne or FrT0 ClJT ne or {
+            /ClJI FrI def /ClJJ FrJ def /ClJT FrT0 def /ClJk 0 def
+        } { /ClJk ClJk 1 add def } ifelse
+        ClBlue FrJ 63 and 64 mul FrI 63 and add get 0.5 add 256 div
+        ClJk 0.618034 mul add dup floor sub
+    } { fc-rnd } ifelse
+} bind def
+
+% 0..1 from the random stream (the erosion bake draws on it)
 /fc-rnd { rand 2147483647 div } bind def

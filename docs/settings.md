@@ -231,7 +231,7 @@ heights in `/Clear`, `/Overcast` and `/Storm` assume the standard terrain
 
 | Setting | Default | What it does | Used |
 |---|---|---|---|
-| `Seed` | 5 | Seeds everything: both noises, the trees and the march jitter. A new seed is a new range. | 5 |
+| `Seed` | 5 | Seeds everything: both noises, the trees and the erosion. A new seed is a new range. (The cloud march's jitter is read from a blue-noise tile at the pixel, not seeded: the same in every band or crop.) | 5 |
 | `TreesOn` | false | Loads `lib/fc_trees.ps` and marches the forest. It also turns off `fc_terrain`'s painted forest (`TreeLine` −1000) unless the piece sets `TreeLine`. | false, true |
 | `Erode` | true | Bakes droplet erosion over the view (`fc_erode.ps`). Off skips the bake (about 1.5 min at `ErN` 1024); valleys then lack drainage channels and debris fans. | true |
 | `CamLift` | 0 | If above 0, the camera sits at this fraction of `TerrTop`, but at least `CamAbove` over the ground below it (a high viewpoint). | 0, 0.72 |
@@ -279,7 +279,7 @@ table is in `docs/techniques.html`, section 16.
 | `Res` | 1 | Image pixels per device pixel. 0.25 or 0.5 make fast composition checks. | 0.25, 0.5, 1 |
 | `AA` | false | Antialias depth edges: 4 extra samples on pixels where the hit distance jumps (a few percent of pixels). Pieces turn it on. | false, true |
 | `Crop` | (none) | `[x0 y0 x1 y1]`, fractions of the frame from the top left: render only that patch, at the full frame's detail. | many |
-| `PixSeed` | false | Reseed the random stream per pixel (from a hash of its position) and (with `AA`) give a crop the depth keys of the row above it and the pixel to its left, so a pixel comes out the same however the frame is cropped. While `fc-pixel` runs, `FrI`/`FrJ` (column, row from the top left) and `FrU`/`FrV` hold the pixel's position, also for those precomputed keys. `render_bands.sh` turns it on: its bands stitch into exactly one uncropped `PixSeed` render. | (bands) |
+| `PixSeed` | false | Reseed the random stream per pixel (from a hash of its position) and (with `AA`) give a crop the depth keys of the row above it and the pixel to its left, so a pixel comes out the same however the frame is cropped. While `fc-pixel` runs, `FrI`/`FrJ` (column, row from the top left) and `FrU`/`FrV` hold the pixel's position, also for those precomputed keys. `render_bands.sh` turns it on: its bands stitch into exactly one uncropped `PixSeed` render. Nothing in the gallery pieces draws on the random stream per pixel (#27), so that equals a plain render. | (bands) |
 | `RowTimes` | false | Print `fc-row-t0 MS` when the render starts (after the bakes) and `fc-row J MS` after each row: the probe of `render_bands.sh --auto`. | (probe) |
 
 Resolution comes from the page size times `DPI` (a `render.sh` variable):
@@ -359,6 +359,7 @@ changes `Pitch`, `Yaw` or `HFov` afterwards calls `fc-camera-update` and then
 | `DensOct` | 5 | Most noise octaves, for near clouds; distant clouds use fewer. | 5 |
 | `ShadOct`, `ShadStep` | 3, 3.2 | Octaves and spacing of the two probes toward the sun. | |
 | `CloudSteps` | 96 | Most samples per ray. | |
+| `CloudDense` | 0 | If above 0, a march step whose optical depth (`Sigma · density · step`) exceeds it is shortened to that depth, to half its length at most, so no one sample decides much of a pixel's light. Off by default: with the blue-noise jitter it lowered the per-pixel error inside the storm by a quarter but not the visible (blurred) grain, for 7–10% more time (#27). Applies to every layer. | 0, 0.3 |
 | `AmbTop`, `AmbBot` | derived (or [0.62 0.72 0.88], [0.34 0.38 0.48] without `SkyModel`) | Ambient light at the layer's top and bottom (sRGB). With the sky model, 1.2 and 0.31 of the derived `SkyAmb` unless the piece sets them. | |
 | `CloudLayers` | null | null marches the one layer the settings above describe. Otherwise an array of layers (below), marched one after another, nearest band first. | null, `[/Cumulus /Altocumulus /Cirrus]` |
 
@@ -413,7 +414,7 @@ single layer, `CloudLayers` null, keeps its old cut-off).
 | `RainDens` | 0.15 | Their density, as a fraction of the cloud's. |
 | `Shape` | null | A procedure `x y z oct → dd` (`oct`: the octaves the sample wants, fewer with distance) added to the density before the gain: a positive value adds cloud, a negative one cuts it. Only called inside the band (`Lo < y < Hi`), so a placed object needs a band tall enough to hold it. For placed objects such as a cumulonimbus (#15). Costs a call per sample. It is called before the noise: a value of −1 or less means nothing is there, and the noise is skipped (keep the threshold and coverage such that the noise can't lift −1 above 0). |
 | `RainShafts` | 0 | Above 0: the rain is broken into shafts by 2-D noise with this many cells per unit (the storm uses 0.06); 0 is the old solid curtain. |
-| `Bounds` | null | `[x0 z0 x1 z1]`, world x and z (the camera stands at x = z = 0): the layer is empty outside this box, and each ray marches only the part of the band inside it, with all its `Steps`. For a placed object, so a tall band doesn't make every sky ray march its whole height. Rays that miss the box draw no jitter (`fc-rnd`), so setting it shifts the global random stream for every later draw, not only that layer's grain. |
+| `Bounds` | null | `[x0 z0 x1 z1]`, world x and z (the camera stands at x = z = 0): the layer is empty outside this box, and each ray marches only the part of the band inside it, with all its `Steps`. For a placed object, so a tall band doesn't make every sky ray march its whole height. |
 | `RainMask` | null | A procedure `x z → 0..1` multiplying the rain (after `RainShafts`). A layer with one also lights its rain with `AmbBot`, as under the base, rather than the ambient a quarter of the way up. The storm uses it to fade the rain toward the edge of the tower's foot. |
 | `Probes` | 1 | A whole number, at least 1: density probes per layer for the ground's cloud shadow and `fc-cloud-sky`, spread evenly over the band above the point. 1 keeps the old single probe at the middle; a tall object needs more (the storm uses 3) or its anvil casts no shadow. |
 | `LightDepth` | null | A procedure `x y z → od`: optical depth toward the sun added to the two short sun probes', for a placed object's shadow on itself at a larger scale than the probes reach (#15). Called once per lit sample. |
