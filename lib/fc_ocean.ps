@@ -28,7 +28,7 @@
 /SwellLen 12 fc-default              % longest swell wavelength, world units
 /SwellSpread 30 fc-default           % degrees the components' headings spread around WindDir
 /SwellShoal 0.8 fc-default           % extra steepness in the surf zone
-/SeaShallow [ 0.16 0.62 0.60 ] fc-colour   % the water's own colour over shallows, sRGB
+/SeaShallow [ 0.10 0.70 0.66 ] fc-colour   % the water's own colour over shallows, sRGB
 /SeaDeep [ 0.03 0.11 0.13 ] fc-colour      % ... and over deep water
 /SeaDepth 1.5 fc-default             % depth over which shallow turns deep (1/e), world units
 /SeaDepthOct 5 fc-default            % terrain octaves for the depth
@@ -36,10 +36,10 @@
 /FoamCrest 0.55 fc-default           % swell height (-1..1) where crests start to foam; > 1: none
 /FoamScale 1.2 fc-default            % 1 / foam lace size
 /SurfDepth 0.35 fc-default           % water shallower than this breaks
-/SurfBands 3 fc-default              % breaker lines across the surf zone
-/SurfTrail 0.35 fc-default           % foam trail behind a breaker, as a fraction of the spacing
+/SurfSpacing 1.5 fc-default          % distance between breaker lines, world units
+/SurfTrail 0.3 fc-default            % foam trail behind a breaker, as a fraction of the spacing
 /SurfFoam 1 fc-default               % surf foam cover, 0..1
-/WetSand 0.3 fc-default              % height above the water of the wet band; 0: none
+/WetSand 0.1 fc-default              % height above the water of the wet band; 0: none
 /WetMirror 0.75 fc-default           % how mirror-like the wet band is, 0..1
 /GlitterGain 1 fc-default            % sun glitter; 0: none
 /GlitterRough 0.06 fc-default        % slope spread the waves don't resolve
@@ -112,7 +112,8 @@
 /fc-water-colour {                               % t depth -> r g b
     pop pop
     2.71828 OcD 0 fc-max SeaDepth div neg exp /OcM exch def
-    SunDir 1 get 0 fc-max 0.4 mul /OcSy exch def
+    % sky light, and sunlight (more of it over a bright bed)
+    SunDir 1 get 0 fc-max OcM 0.6 mul 0.3 add mul /OcSy exch def
     0 1 2 { /OcI exch def
         SeaDeep OcI get SeaShallow OcI get SeaDeep OcI get sub OcM mul add
         SkyAmb OcI get 0.5 mul SunCol OcI get OcSy mul add mul
@@ -130,7 +131,7 @@
         OcX OcCw mul OcZ OcSw mul add FoamScale mul 0.5 mul 3.3 add
         OcZ OcCw mul OcX OcSw mul sub FoamScale mul 1.7 add fc-noise2
         OcX FoamScale mul 2.3 mul 0.6 add OcZ FoamScale mul 2.3 mul 9.1 add fc-noise2 0.4 mul add
-        0.7 div /OcNs exch def
+        1.4 div /OcNs exch def
         1 OcF sub dup 0.12 sub exch 0.12 add OcNs fc-smooth
         OcFf mul OcF 1 OcFf sub mul add
     } { OcF } ifelse
@@ -163,10 +164,15 @@
     FoamCrest 0.15 add FoamCrest 0.35 add OcH fc-smooth 0.8 mul
     % ... the breakers in the surf zone: a sharp front on the shoreward
     % side, the trail fading out to sea ...
-    SurfFoam 0 gt SurfBands 0 gt and OcD SurfDepth lt and {
+    SurfFoam 0 gt OcD SurfDepth lt and {
         /OcDd OcD 0 fc-max def
+        % distance to the waterline: depth over the bed's slope
+        OcX 0.5 add OcZ SeaDepthOct fc-height OcX 0.5 sub OcZ SeaDepthOct fc-height sub
+        dup mul
+        OcX OcZ 0.5 add SeaDepthOct fc-height OcX OcZ 0.5 sub SeaDepthOct fc-height sub
+        dup mul add sqrt 0.005 fc-max /OcSl exch def
         SurfDepth SurfDepth 0.7 mul OcDd fc-smooth
-        OcDd SurfDepth div SurfBands mul
+        OcDd OcSl div SurfSpacing div
         OcX 0.06 mul 4.1 add OcZ 0.06 mul 0.3 add fc-noise2 0.9 mul add
         dup floor sub SurfTrail div neg 2.71828 exch exp mul SurfFoam mul
         fc-max
@@ -229,7 +235,7 @@
             SandHeight SandHeight 0.6 mul 3 -1 roll fc-smooth
             0.72 0.85 Ny fc-smooth mul /OcSd exch def
             OcSd 0 gt {
-                Kx 2.1 mul 0.4 add Kz 2.1 mul 3.3 add fc-noise2 0.15 mul 0.92 add /OcSm exch def
+                Kx 2.1 mul 0.4 add Kz 2.1 mul 3.3 add fc-noise2 0.5 sub 0.3 mul 0.15 0.35 Ke fc-smooth 1 exch sub mul 1 add /OcSm exch def
                 Alb [ SandCol { OcSm mul } forall ] OcSd mix3v /Alb exch def
             } if
         } if
