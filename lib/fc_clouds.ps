@@ -77,6 +77,8 @@
     /Rain 0                          % rain shafts this far below the base
     /RainDens 0.15                   % their density, as a fraction of the base's
     /RainShafts 0                    % > 0: break the rain into shafts this many per unit (#15)
+    /RainMask null                   % { x z -> 0..1 } scales the rain; its rain is then lit
+                                     % with AmbBot, as under the base (#15)
     /Shape null                      % { x y z oct -> dd } added to the density (#15)
     /Bounds null                     % [ x0 z0 x1 z1 ]: the layer is empty outside this
                                      % box (world x z), and rays march only its inside (#15)
@@ -126,6 +128,7 @@
     64 dict begin
     /ClLo ClD /Lo get def /ClHi ClD /Hi get def /ClDy ClHi ClLo sub def
     /ClRain ClD /Rain get def /ClRainD ClD /RainDens get def /ClRainSh ClD /RainShafts get def
+    /ClRainM ClD /RainMask get def /ClRainMd ClD /RainMask get null ne def
     /ClMLo ClLo ClRain sub def                   % the march starts here
     ClD /Profile get aload pop                   % (a layer key, not the
     /ClPb exch def /ClPa exch def                %  fc_landscape setting)
@@ -162,7 +165,7 @@
 /fc-cloud-binder-globals {                       % - -> binding
     64 dict begin
     /ClLo CloudLo def /ClHi CloudHi def /ClDy CloudHi CloudLo sub def
-    /ClRain 0 def /ClRainD 0 def /ClRainSh 0 def /ClMLo CloudLo def
+    /ClRain 0 def /ClRainD 0 def /ClRainSh 0 def /ClRainMd false def /ClMLo CloudLo def
     /ClPa 6 def /ClPb 1.6 def /ClPamp 0.35 def
     /ClBillow false def
     /ClScale NoiseScale def /ClSx 1 def /ClSy 1.6 def /ClSz 1 def
@@ -295,6 +298,7 @@
             Dx ClRainSh mul 17.3 add Dz ClRainSh mul 4.1 add fc-noise2 0.35 sub 2 mul
             dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if mul
         } if
+        ClRainMd { Dx Dz ClRainM mul } if
     } ifelse
 } bind def
 
@@ -404,7 +408,8 @@
 /fc-cloud-light {                                % x y z d phase -> r g b
     /Lph exch def /Ld exch def /Lz exch def /Ly exch def /Lx exch def
     % rain is lit as the cloud base above it: probe from there
-    ClRain 0 gt { Ly ClLo lt { /Ly ClLo ClDy 0.25 mul add def } if } if
+    /Lrn false def
+    ClRain 0 gt { Ly ClLo lt { /Ly ClLo ClDy 0.25 mul add def /Lrn ClRainMd def } if } if
     0
     1 1 2 {
         ClSStep mul /Ls exch def
@@ -420,7 +425,7 @@
     % from going flat grey
     2.71828 Lod 0.25 mul neg exp 0.45 mul add
     /Lsun exch def
-    Ly ClLo sub ClDy div dup 0 lt { pop 0 } if /Lh exch def    % (rain was moved into the band above)
+    Ly ClLo sub ClDy div dup 0 lt { pop 0 } if Lrn { pop 0 } if /Lh exch def    % (rain was moved into the band above)
     0 1 2 {
         /Li exch def
         SunCol Li get Lsun mul
