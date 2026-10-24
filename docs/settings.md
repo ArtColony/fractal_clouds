@@ -29,6 +29,134 @@ means only the default has been rendered.
 
 See `docs/techniques.html` for how each part works.
 
+## Presets and scene files (`lib/fc_presets.ps`)
+
+A **preset** is a named dictionary of settings; a **scene file** is the same
+kind of dictionary in a `.ps` of its own. Applying either sets each setting
+only if nothing has defined it yet, so the order of precedence is: `-D` on
+the command line, then the piece's own settings, then presets (earlier in
+the list first), then the library's defaults. So a piece's settings must come
+**before** the `fc-presets` line to win: written after it, they are skipped
+like any setting made after loading. Apply the presets **before**
+`(lib/fc_landscape.ps) run`, for the same reason every setting is:
+
+```postscript
+/Yaw where { pop } { /Yaw -27 def } ifelse      % the piece's own settings
+(lib/fc_presets.ps) run
+[ /Evening /Clear /Alpine ] fc-presets          % time of day, weather, terrain
+(lib/fc_landscape.ps) run
+320 200 fc-landscape
+showpage
+```
+
+| Procedure | Stack | What it does |
+|---|---|---|
+| `fc-preset` | `/Name → –` | Apply one preset. An unknown name prints `fc_presets: no preset called Name` and stops with `undefined`. |
+| `fc-presets` | `[/Name …] → –` | Apply several in order. Where two set the same setting, the earlier wins, so list the most specific first (a season before the terrain). |
+| `fc-settings` | `dict → –` | Apply a dictionary of settings. Its `/Presets` key (an array of preset names) is applied after its other keys, so a dictionary's own values beat its presets; presets may list presets the same way. |
+
+A new preset is one entry (`FcPresets` is an ordinary dictionary in
+`userdict`, so a piece can add its own before using it):
+
+```postscript
+FcPresets /Dusk << /SunElev 2 /SunAzim 70 /Exposure 2.4 >> put
+```
+
+A few settings override each other when both exist: a number in `SunElev`
+beats `SunDir`, and `CloudLayers` beats `CloudLo` and `CloudHi`. So a preset
+skips `SunDir`, `SunElev` and `SunAzim` when the piece set `SunDir` (a null
+`SunElev` does not count), and the other way round; the same for the moon's
+three; and `CloudLayers` when the piece set `CloudLo` or `CloudHi`, and the
+other way round. The piece wins, as with every other setting. `Threshold` and
+`CoverAmp` are not rivals (a layer list reads its own values), so they are
+set either way. `/CloudLayers null` in the piece keeps its single layer. Don't put rivals in one dictionary
+(`SunDir` and `SunElev` in a scene): the order a dictionary is read in is
+not defined, so only one of them survives.
+
+`/Dawn`, `/Noon` and `/Night` set only the sun (and moon) and rely on the sky
+model for the colours, so they need `SkyModel` on: don't combine them with
+`/Evening` or a piece's `Zenith` or `Horizon` (the sun would move but the
+blend sky stays). A preset that sets `Zenith` or `Horizon` (`/Evening`)
+turns `SkyModel` off, like any piece that sets them. Settings are made with
+`def` in the current dictionary, so apply presets outside any `begin`/`end`.
+
+### Scene files
+
+A scene file holds one dictionary and `fc-settings`:
+
+```postscript
+<<
+    /Presets [ /Evening /Clear /Alpine ]
+    /Seed 5  /Pitch 2  /Yaw -27  /HFov 55
+    /WaterRise 1.4
+>> fc-settings
+```
+
+`scenes/scene.ps` is a driver that loads `lib/fc_presets.ps`, the scene
+named by `Scene`, and the landscape, so one scene renders at any size or crop
+with no piece to edit:
+
+```
+scripts/render.sh -D "Scene=(scenes/evening_lake.ps)" scenes/scene.ps
+DPI=144 scripts/render.sh -D "Scene=(scenes/evening_lake.ps)" -D "Crop=[0.3 0.5 0.6 0.8]" scenes/scene.ps
+```
+
+`scenes/evening_lake.ps` renders pixel for pixel the same as
+`gallery/evening_lake.ps` (which is `[ /Evening /Clear /Alpine ]` plus the
+camera and the lake).
+
+### The presets
+
+Presets set only the values in the tables; everything else keeps the
+library's defaults. A preset is a group on one axis, so combine one from each:
+time of day, weather, terrain, and (optionally) season.
+
+| Time of day | Sets | Look |
+|---|---|---|
+| `/Dawn` | `SunElev` 6, `SunAzim` −55, `Exposure` 1.9 | Sky model; low sun ahead and to the left |
+| `/Noon` | `SunElev` 58, `SunAzim` 25 | Sky model; high sun |
+| `/Evening` | `SunDir` [0.50 0.13 −0.55], `SunCol`, `Zenith`, `Horizon`, `SkyAmb`, `Exposure` 1.9 | The hand-picked blend sky of `gallery/evening_lake.ps` (so `SkyModel` is off); a low sun behind the camera on the right |
+| `/Night` | `SunElev` −20, `MoonElev` 32, `MoonAzim` 30, `Exposure` 4 | Sky model; a moon and stars |
+
+| Weather | Sets | Look |
+|---|---|---|
+| `/Clear` | `CloudLo` 62, `CloudHi` 84, `Threshold` 0.60, `CoverAmp` 0.5, `HazeDist` 520 | The single cloud layer above the peaks, in a few groups |
+| `/Overcast` | `CloudLayers` `[ Stratus, Lo 64, Hi 78 ]`, `HazeDist` 450 | A flat grey sheet over the peaks |
+| `/Storm` | `CloudLayers` `[ Nimbostratus, Lo 64, Hi 108 ]`, `HazeDist` 300 | Dark thick cloud with rain below it; thick air |
+
+| Terrain | Sets | Look |
+|---|---|---|
+| `/Alpine` | `TreesOn` true, `SnowLine` 25 | The library's range (`TerrH` 52) with a forest and snow above 33 on average |
+| `/Foothills` | `TreesOn` true, `TerrH` 28, `TerrScale` 0.014, `SnowLine` 80, `FsLine` 40 | Lower, busier hills, forested to the top, no snow |
+| `/Mesa` | `TerrH` 34, `TerrScale` 0.016, `DetailAmp` 0.10, `SnowLine` 100, `Rock`, `Rock2`, `Scree` (reds), `TreeLine` −1000 | Smoother ground in red strata, no snow, and no forest unless a piece sets `TreesOn` (the preset only turns the painted forest off). It does not flatten the summits: the terrain function has no plateau term yet |
+
+| Season | Sets | Look |
+|---|---|---|
+| `/Spring` | `SnowLine` 25, `FsAutumn` 0 | |
+| `/Summer` | `SnowLine` 27, `FsAutumn` 0 | `gallery/alpine_forest.ps`'s early summer |
+| `/Autumn` | `SnowLine` 24, `FsAutumn` 1 | Turns the larches gold and the broadleaves, but only if the stand has them: the default `FsMix [1]` is all spruce, which ignores it, so also set `FsMix` (experimental) |
+| `/Winter` | `SnowLine` −8, `FsAutumn` 0 | Snow on every slope that is not too steep |
+
+| Tone and grade | Sets | Look |
+|---|---|---|
+| `/Filmic` | `ToneCurve` /ACES | The filmic tone curve |
+| `/Classic` | `ToneCurve` /Exp | The original exponential curve and 2.2 power |
+| `/Warm` | `GradeTemp` 0.4 | Warmer white balance |
+| `/Cool` | `GradeTemp` −0.4 | Cooler white balance |
+| `/Muted` | `GradeSat` 0.75, `GradeLift` 0.006 | Less saturated, slightly lifted blacks |
+| `/Matte` | `GradeLift` 0.02, `GradeSat` 0.9 | Milky, lifted blacks |
+| `/SplitTone` | `GradeSplit` 0.5 | Teal shadows, warm highlights |
+| `/CoolMuted` | `GradeTemp` −0.3, `GradeSat` 0.72, `GradeLift` 0.006, `GradeSplit` 0.3 | Muted and cool, for an overcast Pacific Northwest look (#40) |
+| `/Vignette` | `Vignette` 0.3 | Darker edges and corners; deliberately subtle (edges at 70%), raise `Vignette` for more |
+
+Grade presets combine with each other (list the one whose values should win
+first: `[ /CoolMuted /Vignette ]`) and with the other groups. See the colour
+grade section below for what each setting does.
+
+`/Alpine` sets a snow line, so a season listed *before* it wins. The cloud
+heights in `/Clear`, `/Overcast` and `/Storm` assume the standard terrain
+(`TerrTop` 59); with a taller `TerrH`, raise them.
+
 ## Scene (`lib/fc_landscape.ps`)
 
 | Setting | Default | What it does | Used |
@@ -113,13 +241,38 @@ blend sky (`SkyModel` false), exactly as before.
 | `MoonLight` | 0.12 | Moonlight as a fraction of `SunPower` (a day-for-night convention; raise `Exposure` too). | 0.12 |
 | `MoonCol` | [0.60 0.76 1.00] | Moonlight colour above the air, sRGB: blue-grey, as night reads to the eye. | |
 | `Stars` | 1 | Star brightness, where the sky is dark enough. 0 for none. | 1 |
-| `Exposure` | 1.6 | Brightness before the tone curve `1 − exp(−Exposure·L)`. | 1.6, 1.9, 3, 4 (night) |
+| `Exposure` | 1.6 | Brightness before the tone curve. Means the same with either `ToneCurve`: mid-tones land in the same place. | 1.6, 1.9, 3, 4 (night) |
+| `ToneCurve` | /Exp | The tone curve, chosen as `fc_sky.ps` loads. `/Exp`: `1 − exp(−Exposure·L)` per channel, then a 2.2 power (no toe, so shadows stay light). `/ACES`: a filmic curve (Hill's fit of ACES) with a toe and a long shoulder, then the exact sRGB transfer function: deeper, more colourful shadows and softer highlights. Also the `/Filmic` and `/Classic` presets. | /Exp, /ACES |
 | `HazeDist` | 520 | Distance at which haze reaches 63% at height 0. Smaller means thicker air. | 400, 520, 650 |
 | `HazeH` | 45 | Height over which the haze thins by a factor of e. | 45 |
 | `HazeChroma` | 1 with `SkyModel`, else 0 | How far the haze fades each channel at its own rate. 1 takes the haze to be the model's Rayleigh air plus enough neutral aerosol to reach `HazeDist` in green, so blue fades a little sooner and red a little later (about 15% and 4% at `HazeDist` 650: a haze that thick is mostly aerosol); 0 fades every channel over `HazeDist`; 2 or 3 exaggerates the blue distance. `HazeDist` is the green channel's distance. | 0, 1 |
 
 `fc-sun-update` recomputes everything derived after a piece changes
 `SunDir`, `SunElev` or the moon after loading.
+
+## Colour grade (`fc_grade.ps`)
+
+A grade in linear light, applied by the `fc-landscape-grade` hook just
+before the tone curve. `fc_landscape.ps` loads `lib/fc_grade.ps` only when
+one of `GradeTemp`, `GradeSat`, `GradeSplit`, `GradeLift` or `Vignette` is
+away from its neutral value, so a piece without a grade renders exactly as
+before. The steps run in this order: white balance, split toning,
+saturation, vignette, lift. The grade presets below set these.
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `GradeTemp` | 0 | White balance: above 0 warmer (red ×(1 + 0.15·t), green ×(1 + 0.02·t), blue ×(1 − 0.15·t)), below 0 cooler. | −0.4 … 0.4 |
+| `GradeSat` | 1 | Saturation about the luminance (Rec. 709 weights); below 1 mutes. | 0.72, 0.75, 0.9 |
+| `GradeSplit` | 0 | Split toning strength, 0–1: shadows lean toward `GradeShadows`, highlights toward `GradeHighlights`, blended by luminance about `GradePivot`. | 0.3, 0.5 |
+| `GradeShadows` | [0.32 0.45 0.52] | Shadow tint, sRGB; only its hue counts (it is scaled to luminance 1). Teal by default. | |
+| `GradeHighlights` | [0.62 0.52 0.40] | Highlight tint, sRGB, the same way. Warm by default. | |
+| `GradePivot` | 0.25 | Linear luminance at which a pixel is half shadow, half highlight. | |
+| `GradeLift` | 0 | Light added to every channel (a veil, like lens flare): lifted, milky blacks. 0.01 is gentle. | 0.006, 0.02 |
+| `Vignette` | 0 | Darkening toward the frame's edge, following the ray's angle off the view axis as cos⁴: the left and right edges get 1 − `Vignette`, the corners a little darker. Independent of resolution and crop. | 0.3 |
+
+The vignette's view axis is taken as `fc_grade.ps` loads; a piece that
+changes `Pitch`, `Yaw` or `HFov` afterwards calls `fc-camera-update` and then
+`fc-grade-update`.
 
 ## Clouds (`fc_clouds.ps`)
 
@@ -186,18 +339,74 @@ single layer, `CloudLayers` null, keeps its old cut-off).
 | `AmbTop`, `AmbBot` | as the settings | Ambient at the top and bottom (sRGB). |
 | `Rain` | 0 | If above 0, rain shafts reach this far below the base: the cloud a quarter of the way up the band, in vertical columns that thin toward the ground. Extends the march. |
 | `RainDens` | 0.15 | Their density, as a fraction of the cloud's. |
-| `Shape` | null | A procedure `x y z oct → dd` (`oct`: the octaves the sample wants, fewer with distance) added to the density before the gain: a positive value adds cloud, a negative one cuts it. Only called inside the band (`Lo < y < Hi`), so a placed object needs a band tall enough to hold it. For placed objects such as a cumulonimbus (#15). Costs a call per sample. |
+| `Shape` | null | A procedure `x y z oct → dd` (`oct`: the octaves the sample wants, fewer with distance) added to the density before the gain: a positive value adds cloud, a negative one cuts it. Only called inside the band (`Lo < y < Hi`), so a placed object needs a band tall enough to hold it. For placed objects such as a cumulonimbus (#15). Costs a call per sample. It is called before the noise: a value of −1 or less means nothing is there, and the noise is skipped (keep the threshold and coverage such that the noise can't lift −1 above 0). |
+| `RainShafts` | 0 | Above 0: the rain is broken into shafts by 2-D noise with this many cells per unit (the storm uses 0.06); 0 is the old solid curtain. |
+| `Bounds` | null | `[x0 z0 x1 z1]`, world x and z (the camera stands at x = z = 0): the layer is empty outside this box, and each ray marches only the part of the band inside it, with all its `Steps`. For a placed object, so a tall band doesn't make every sky ray march its whole height. Rays that miss the box draw no jitter (`fc-rnd`), so setting it shifts the global random stream for every later draw, not only that layer's grain. |
+| `RainMask` | null | A procedure `x z → 0..1` multiplying the rain (after `RainShafts`). A layer with one also lights its rain with `AmbBot`, as under the base, rather than the ambient a quarter of the way up. The storm uses it to fade the rain toward the edge of the tower's foot. |
+| `Probes` | 1 | A whole number, at least 1: density probes per layer for the ground's cloud shadow and `fc-cloud-sky`, spread evenly over the band above the point. 1 keeps the old single probe at the middle; a tall object needs more (the storm uses 3) or its anvil casts no shadow. |
+| `LightDepth` | null | A procedure `x y z → od`: optical depth toward the sun added to the two short sun probes', for a placed object's shadow on itself at a larger scale than the probes reach (#15). Called once per lit sample. |
 
 The Base column is where every preset starts (the gallery pieces' layer,
 value noise); each preset's own values are in `FcClPresets` in
 `lib/fc_clouds.ps`.
 
 `x y z fc-cloud-shadow` gives the sunlight that reaches a point through
-every layer above it (one density probe per layer, no march), for ground
+every layer above it (`Probes` density probes per layer, one by default; no march), for ground
 shadows and sun shafts. `fc_terrain`'s `CloudShadowsOn` uses it with a
 layer list; with `CloudLayers` null it keeps its old single probe at the
-middle of `CloudLo`–`CloudHi`. Only the direct sun is shaded, not the sky ambient,
-so an overcast darkens the ground only a little.
+middle of `CloudLo`–`CloudHi`. Only the direct sun is shaded there.
+
+`x y z fc-cloud-sky` gives how much of the sky a point sees through the
+clouds overhead, 0..1: `Probes` probes straight up through every layer
+above it. `fc_terrain`'s `CloudSkyDim` dims the ground's sky light and
+bounce by it (off by default, so existing pieces are unchanged).
+
+## Storm (`fc_storm.ps`, #15)
+
+A cumulonimbus placed in the scene like a mountain. Load it *after*
+`lib/fc_landscape.ps`: it builds a storm layer from these settings and puts
+it in front of `CloudLayers`. Set them, like every setting, before the run lines.
+
+- The storm's band runs from `StormBase` to `StormTop + 1.2 DomeR + 1`, rain
+  below it to `StormBase − StormRain`. Other layers must lie wholly above
+  it: layers composite by height, so they can't share its heights.
+- With `CloudLayers` null the storm *replaces* the default single cloud
+  layer: the sky holds only the storm.
+- The scene presets `/Storm` and `/Overcast` (`lib/fc_presets.ps`) set
+  low layers that overlap the storm's band, so combining them with
+  `fc_storm.ps` stops the job with `CloudLayers-overlap`.
+- `CloudSkyDim` dims the ground's sky light, not the tree canopy
+  (`fc_trees.ps` shades crowns itself), so the piece uses the painted forest.
+
+| Setting | Default | Meaning | Storm |
+|---|---|---|---|
+| `StormDist` | 420 | Ground distance from the camera to the tower's foot. | 460 |
+| `StormAzim` | 0 | Its bearing in degrees: 0 is +z (straight ahead at `Yaw` 0), 90 is +x. | −5 |
+| `StormBase` | 70 | The flat, dark base (keep it above the peaks in front, or it hides). | |
+| `StormTop` | 180 | The anvil's flat top. | |
+| `StormR` | 55 | Tower radius at the base. | |
+| `StormFlare` | 0.3 | The tower is this much wider at the top. | |
+| `StormLean` | 0.15 | The tower leans downwind this much per unit height. | |
+| `StormWind` | 0 | Where the anvil spreads, degrees from +x (as a layer's `Wind`). | 200 |
+| `AnvilBot` | 152 | Where the anvil starts to spread from the tower; it widens with height up to the top. | |
+| `AnvilR` | 170 | How far it reaches downwind (upwind: a third of that). | |
+| `AnvilW` | 0.4 | Its half-width across the wind, as a fraction of its reach. | |
+| `DomeR` | 34 | Radius of the overshooting dome, centred 0.2 `DomeR` above the tower top; 0 for none. | |
+| `StormEdge` | 2 | Gain of the envelope against the noise: higher is a tighter, smoother outline, lower more ragged. | |
+| `AnvilEdge` | 4 | The anvil's gain relative to the tower's (smoother). | |
+| `StormShade` | 0.25 | Optical depth per unit length of envelope toward the sun (the layer's `LightDepth`): how dark the far side and the base get. | |
+| `StormShadeN`, `StormShadeStep` | 5, 16 | Its steps toward the sun, starting past the noise's two probes. | |
+| `Virga` | 0.3 | Strength of the streaks hanging under the anvil; 0 for none. | |
+| `VirgaLen` | 26 | How far they hang. | |
+| `StormRain` | 84 | Rain shafts this far below the base (the layer's `Rain`). | |
+| `StormRainDens` | 0.3 | Their density, as a fraction of the cloud's; the rain is masked by `fc-storm-rainmask` (fades toward the edge of the tower's foot, broad shafts streaked by a finer noise). | |
+| `StormGloom` | 0 | Above 0: the air under the storm is in shade. Rays crossing a column of radius `StormGloomR · StormR` below the base fade toward `StormGloomCol`, by this extinction per unit length, weighted by depth below the base and closeness to the axis (it wraps `fc-landscape-grade`). | 0.03 |
+| `StormGloomR` | 2 | That column's radius, in `StormR`. | 2.2 |
+| `StormGloomCol` | [0.10 0.11 0.13] | The shaded air's colour (sRGB). | |
+| `StormLayer` | `<< >>` | Overrides for the storm layer's keys (the cloud-layer keys above), e.g. `<< /Steps 160 >>`. | |
+
+`x y z oct fc-storm-shape` is the layer's `Shape`; `fc-storm-layer` builds
+the layer dict, `fc-storm-bounds` its `Bounds`.
 
 ## Terrain shape (`fc_terrain.ps`)
 
@@ -235,7 +444,7 @@ erosion bake reads the terrain). `fc-map-plan` draws the map from above;
 |---|---|---|---|
 | `MapRect` | [−900 −900 900 900] | `x0 z0 x1 z1`: the area the table covers. Past it the map feathers to `MapBackground` over `MapFeather` units. | [−800 −800 800 800] |
 | `MapN` | 128 | Table resolution (texels across; 12 units each at 1600 wide). Lookups are Catmull-Rom over 4×4 texels, so features narrower than about two texels blur. | 128 |
-| `MapGrid` | null | A painted mask: an array of rows, the far (high `z`) row first, each a string of `MapChars` or an array of numbers 0–1, stretched over `MapRect`. 1 grows full mountains, 0 leaves valley floor. Every row must be the same length (`fc-map-bake` stops with a rangecheck otherwise). The grid sets only the mask, not elevation, and doesn't pin: its mountains keep the usual warp, so they land only roughly where painted. | |
+| `MapGrid` | null | A painted mask: an array of rows, the far (high `z`) row first, each a string of `MapChars` or an array of numbers 0–1, stretched over `MapRect`. 1 grows full mountains, 0 leaves valley floor. Every row must be the same length (`fc-map-bake` stops with a rangecheck otherwise). The grid sets only the mask (`MapLiftGrid` paints elevation), and doesn't pin: its mountains keep the usual warp, so they land only roughly where painted. | |
 | `MapChars` | `( .:-=+*#%@)` | The characters a string row may use, from 0 to 1. | |
 | `MapFeatures` | [ ] | Features, each `[ /kind numbers… ]` (below). Heights and levels are world `y`. | |
 | `MapBackground` | [0 0] | `[lift mask]` outside the rectangle, and inside it where no feature reaches. With a `MapGrid` the grid replaces the mask over the whole rectangle (its lift still applies). | [5 0.04] |
@@ -243,6 +452,10 @@ erosion bake reads the terrain). `fc-map-plan` draws the map from above;
 | `MapPlanRect` | null | The area `fc-map-plan` draws (null: `MapRect`). | [−800 −560 800 440] |
 | `MapPlanN` | 150 | Hillshade samples across the plan. | 320 |
 | `MapPlanOct` | 5 | Terrain octaves in the plan. | 5 |
+| `MapLiftGrid` | null | A painted ground height (#39), rows like `MapGrid`'s (its own size), values 0–1 standing for `MapLiftRange`. It replaces `MapBackground`'s lift inside the rectangle, so low land (a beach plain, an atoll) can be painted without growing mountains: with mask 0 the ground stands at the painted height, give or take the valley-floor detail. | `spikes/coast.ps` |
+| `MapLiftRange` | [−10 30] | `lo hi`: the world `y` that `MapLiftGrid`'s 0 and 1 stand for. | [−20 30] |
+| `MapVolcMask` | 0.22 | A `/volcano`'s ridged mask on its flanks (gullies); its lift is lowered to make room for them. | |
+| `MapSea` | null | Sea level, world `y` (#39). A number loads `lib/fc_coast.ps` (next section) and, when the piece sets no `WaterY`, puts the water's plane there. | 0 |
 
 Features (applied peaks and ridges first, the tallest winning, then
 valleys, then lakes, whatever their order in the list):
@@ -253,6 +466,10 @@ valleys, then lakes, whatever their order in the list):
 | `[ /ridge height spread x0 z0 x1 z1 … ]` | The same along a polyline. |
 | `[ /valley depth width x0 z0 x1 z1 … ]` | Carves: the mask falls to 0 along the polyline and the ground drops `depth`. |
 | `[ /lake level depth shore x0 z0 x1 z1 x2 z2 … ]` | A closed polygon: inside it the mask is 0 and the bed sits `depth` below `level`, blending to the surroundings over `shore` units centred on the drawn edge, so the waterline lands near the line. `MapWater` true fills it with the library's water at `level` (`gallery/charted_range.ps`). |
+| `[ /volcano height radius x z ]` | An island preset (#39): a cone of lift with concave flanks (`(1 − d/radius)^1.5`) toward a summit about `height` high, a small crater at the top, and `MapVolcMask` of ridged mask on the flanks for gullies. Applied with the peaks; lift only ever rises. Add `CoastReef` for a fringing reef. |
+| `[ /atoll height radius width x z ]` | An island preset: a ring of low land `height` high (world `y`), `radius` from `x z`, falling off over `width` either side; the lagoon inside stays sea. With `CoastWobble` the ring breaks into islets where it dips under the water. |
+| `[ /cliff height spread x0 z0 x1 z1 … ]` | With `MapSea`: along the polyline (falling off over `spread`), the sea has cut the land back to where it stands `height` above the water, so the coast there is a cliff about that high (shorter where the land isn't that high). |
+| `[ /stack height radius x z ]` | A sea stack: a steep column `radius` wide with its top at `height` (world `y`), drawn per point by `fc_coast.ps` (too narrow for the table). |
 
 Heights have two ceilings. A peak or ridge asks for a mask of at most 1,
 so heights above about `lift + TerrBase + 1.02 TerrH` (47 with the
@@ -261,9 +478,55 @@ And the march stops above `TerrTop` (`TerrBase + 1.25 TerrH`, 59): the
 ground can reach about `lift + TerrBase + 1.16 TerrH`, so a lift over
 about 5 can cut the tops flat. Raise `TerrH` for taller maps.
 
+With any of #39's extras (`MapLiftGrid`, `MapSea`, a `/volcano`, `/atoll`
+or `/stack`) the bake raises `TerrTop` over the tallest lift (and the
+stacks), so a tall island isn't cut flat. Older maps keep the old ceiling,
+so their pixels don't change.
+
+`x z fc-map-water` (map coordinates) gives the water level the map puts
+at a point, or −1000: the higher of `MapSea` and the level of any `/lake`
+whose polygon or shore band holds it.
+
 A lake's bed is flat only at the scale of the map: the valley-floor detail
 (about ±`0.2 DetailAmp TerrH`, ±1.7 units with the defaults) stays, so a
 lake shallower than that shows rocks and islands of bed.
+
+## The coast (`fc_coast.ps`, with `MapSea`)
+
+The map's bake measures each texel's signed distance to the coastline
+(land positive): land is where the map's noise-free height (its lift, plus
+`0.64 TerrH` per unit of mask) stands above `MapSea`, or above `MapSea +
+height` near a `/cliff`. `fc-height-proc` then reshapes the ground near
+the coast (see `docs/techniques.html#coast`): a cliff face cuts back high
+land, low ground is pressed onto a beach-and-shallows profile, and stacks
+and rocks stand offshore. Set `CamHeight`: over the sea, `CamAbove`
+measures from the sea floor. Leave `WaterY` and `WaterRise` unset: the
+water then sits at `MapSea`; a plane anywhere else detaches it from the
+shore profile (`fc_coast.ps` prints a warning). Erosion's droplets stop when they reach the
+sea (their load is lost).
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `CoastSlope` | 0.12 | Gradient of the beach face and the shallows at the waterline. | |
+| `CoastDepth` | 14 | The deep sea floor, below `MapSea`; the shallows reach it over about `3 CoastDepth / CoastSlope` units. | |
+| `CoastBerm` | 1.2 | The berm: the beach's flat top above `MapSea`. | |
+| `CoastFlat` | 1.5 | Low ground within this of the beach profile is pressed flat onto it ... | |
+| `CoastBeachW` | 80 | ... within this far of the water (fading out over its outer half). | |
+| `CoastCliff` | 3.5 | Cliff faces' gradient (rise per unit across). | |
+| `CoastCliffLo`, `CoastCliffHi` | 4, 12 | Over this range of the nearest land's height above the sea, a shore turns from low to cliffed: benches and stacks need it, reefs and sand avoid it. | |
+| `CoastWobble` | 18 | The coastline wanders this far either way (two noise octaves), into coves and points. | |
+| `CoastWobbleScale` | 0.012 | 1 / the wobble's wavelength. | |
+| `CoastRough` | 1.2 | Fine roughness of cliff faces, in units across (near detail only). | |
+| `CoastBench` | [8 0.3] | `width depth`: the wave-cut bench at a cliff's foot, which stands in for the notch a heightfield can't undercut. | |
+| `CoastStacks` | 0.5 | Stacks off cliffed shores, 0–1 (more and wider). 0: none. | |
+| `CoastStackH` | 0.75 | Their height, as a fraction of the nearby cliffs'. | |
+| `CoastStackOut` | 45 | How far offshore they stand (from 10 out). | |
+| `CoastStackScale` | 0.045 | 1 / their spacing. | |
+| `CoastRocks` | 0.5 | Rocks in the surf, from 14 units out to the waterline, 0–1. 0: none. | |
+| `CoastReef` | null | `[out width depth]`: a patchy reef `width` wide, its inshore edge `out` offshore, its top about `depth` under the water; off low shores only. | [70 50 0.5] |
+| `CoastSand`, `CoastCobble` | sRGB | The beach's colours; cobbles are mottled. | |
+| `CoastCobbles` | 0.3 | How much of the beaches is cobble, 0–1. | |
+| `CoastSandW` | 40 | How far inland the beach material reaches. | |
 
 ## Terrain surface and light (`fc_terrain.ps`)
 
@@ -281,6 +544,7 @@ lake shallower than that shows rocks and islands of bed.
 | `BumpAmp` | 0.55 | How strongly steep rock breaks into lit and shaded facets. | 0, 0.55 |
 | `ShadowsOn` | true | Terrain casts shadows (a march toward the sun per lit pixel). | true |
 | `CloudShadowsOn` | true | Clouds shade the ground. | true |
+| `CloudSkyDim` | 0 | Above 0: clouds overhead (`fc-cloud-sky`) dim the ground's sky light and warm bounce, by this fraction of what they block, so the ground under a storm is darker and cooler. Costs `Probes` density probes per layer per ground pixel. | 0.75 (storm) |
 | `ShadOctT` | 4 | Octaves of the terrain the shadow march uses. | 4 |
 | `Penumbra` | 10 | Shadow-edge sharpness; larger is harder. | 10 |
 
@@ -436,9 +700,9 @@ These are procedures, not settings. Redefine them **after** loading
 | `fc-landscape-hit` | `– → t \| −1` | `fc-forest-hit` with trees, `fc-terrain-hit` without. |
 | `fc-landscape-surface` | `t → r g b` | `fc-tree-shade` on a tree (`FsMat` 1; `FsKind` says which part: 0 a crown, 1 a trunk, 2 a log, 3 a crown's underside), otherwise `fc-terrain-shade`. Linear light, before haze. |
 | `fc-landscape-sky` | `dx dy dz → r g b` | `fc-sky` above the horizon, the haze colour below it. |
-| `fc-landscape-grade` | `r g b → r g b` | Nothing. Linear light, just before the tone curve; a place for a colour grade or vignette. |
+| `fc-landscape-grade` | `r g b → r g b` | `fc-grade` when a grade setting is set (see Colour grade), otherwise nothing. Linear light, just before the tone curve. A piece that redefines it can call `fc-grade` itself (after loading `lib/fc_grade.ps`). |
 | `fc-forest-dens` | `x z h ny curv → density height-scale` | `fc_trees`' rules. Wrap it to keep trees off some ground, as `fc_water` does. Redefine it before `fc-landscape-setup`. |
-| `fc-terrain-material` | reads and changes `Alb KlMul KskyMul KbMul` | Defined by `fc_trees`. Without trees it doesn't exist, and a piece can define it to paint the ground. |
+| `fc-terrain-material` | reads and changes `Alb KlMul KskyMul KbMul` | Defined by `fc_trees` (forest floor), and chained onto by `fc_coast` (beaches) and `fc_water` (shores). With none of them it doesn't exist, and a piece can define it to paint the ground. |
 | `fc-terrain-base` | `x z → lift mask pin` | Defined by `fc_map.ps` (`MapOn`); otherwise absent and the noise massif is used. Map coordinates in; the lift in world units, the massif mask 0–1 and the pin 0–1 out. A piece can define its own (an analytic island, say) before `fc-landscape-setup`. |
 | `fc-pixel` | `u v → r g b` | `fc-landscape-pixel`. Replace it entirely for a different scene. |
 

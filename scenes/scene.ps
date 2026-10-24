@@ -1,0 +1,14 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+%%Title: Scene driver
+% Renders a scene file (docs/settings.md, "Presets and scene files"):
+%   scripts/render.sh -D "Scene=(scenes/evening_lake.ps)" scenes/scene.ps
+% Resolution and crop come from the command line (DPI=, -D Crop=), so one
+% scene file serves every size without editing a piece.
+
+/Scene where { pop } { (scene.ps: pass the scene, e.g. -D "Scene=(scenes/evening_lake.ps)"\n) print quit } ifelse
+(lib/fc_presets.ps) run
+Scene run
+(lib/fc_landscape.ps) run
+320 200 fc-landscape
+showpage

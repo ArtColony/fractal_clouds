@@ -1,0 +1,5 @@
+REALISM: A
+AESTHETICS: A
+- At this resolution, they appear visually indistinguishable; A is a forced tie-break.
+- Both have convincing atmospheric depth and natural cloud coverage.
+- Both show soft terrain detail and angular peaks that suggest procedural rendering.

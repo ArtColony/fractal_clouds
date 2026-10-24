@@ -76,7 +76,15 @@
     /AmbTop [ 0.62 0.72 0.88 ] /AmbBot [ 0.34 0.38 0.48 ]
     /Rain 0                          % rain shafts this far below the base
     /RainDens 0.15                   % their density, as a fraction of the base's
+    /RainShafts 0                    % > 0: break the rain into shafts this many per unit (#15)
+    /RainMask null                   % { x z -> 0..1 } scales the rain; its rain is then lit
+                                     % with AmbBot, as under the base (#15)
     /Shape null                      % { x y z oct -> dd } added to the density (#15)
+    /Bounds null                     % [ x0 z0 x1 z1 ]: the layer is empty outside this
+                                     % box (world x z), and rays march only its inside (#15)
+    /Probes 1                        % density probes for ground shadow and sky dimming (#15)
+    /LightDepth null                 % { x y z -> od } optical depth toward the sun added
+                                     % to the two probes' (a placed object's own shadow, #15)
 >> def
 
 /FcClPresets <<
@@ -117,9 +125,10 @@
 
 /fc-cloud-binder {                               % layer dict -> binding
     /ClD exch def
-    48 dict begin
+    64 dict begin
     /ClLo ClD /Lo get def /ClHi ClD /Hi get def /ClDy ClHi ClLo sub def
-    /ClRain ClD /Rain get def /ClRainD ClD /RainDens get def
+    /ClRain ClD /Rain get def /ClRainD ClD /RainDens get def /ClRainSh ClD /RainShafts get def
+    /ClRainM ClD /RainMask get def /ClRainMd ClD /RainMask get null ne def
     /ClMLo ClLo ClRain sub def                   % the march starts here
     ClD /Profile get aload pop                   % (a layer key, not the
     /ClPb exch def /ClPa exch def                %  fc_landscape setting)
@@ -137,6 +146,12 @@
     /ClSteps ClD /Steps get def
     /ClAmbT ClD /AmbTop get def /ClAmbB ClD /AmbBot get def
     /ClShape ClD /Shape get def /ClShaped ClD /Shape get null ne def
+    ClD /Bounds get dup null eq { pop /ClBoxed false def } {
+        aload pop /ClBz1 exch def /ClBx1 exch def /ClBz0 exch def /ClBx0 exch def
+        /ClBoxed true def
+    } ifelse
+    /ClProbes ClD /Probes get def
+    /ClLDepth ClD /LightDepth get def /ClLDeep ClD /LightDepth get null ne def
     % fade the samples over the last 30% of TMax, so a layer that reaches
     % the horizon thins out instead of ending in a hard line
     /ClFade true def /ClF0 TMax 0.7 mul def /ClF1 1 TMax 0.3 mul div def
@@ -148,9 +163,9 @@
 % constants here are FcClBase's values, which is also how a /Default layer
 % gets them: keep the two in step. No horizon fade, as before #14.
 /fc-cloud-binder-globals {                       % - -> binding
-    48 dict begin
+    64 dict begin
     /ClLo CloudLo def /ClHi CloudHi def /ClDy CloudHi CloudLo sub def
-    /ClRain 0 def /ClRainD 0 def /ClMLo CloudLo def
+    /ClRain 0 def /ClRainD 0 def /ClRainSh 0 def /ClRainMd false def /ClMLo CloudLo def
     /ClPa 6 def /ClPb 1.6 def /ClPamp 0.35 def
     /ClBillow false def
     /ClScale NoiseScale def /ClSx 1 def /ClSy 1.6 def /ClSz 1 def
@@ -161,6 +176,7 @@
     /ClSteps CloudSteps def
     /ClAmbT AmbTop def /ClAmbB AmbBot def
     /ClShape null def /ClShaped false def
+    /ClBoxed false def /ClProbes 1 def /ClLDeep false def
     /ClFade false def /ClF0 0 def /ClF1 0 def
     currentdict end
 } bind def
@@ -211,8 +227,9 @@
     } forall
     % a band with no height, or nothing to march, would divide by zero later
     ClNew /Hi get ClNew /Lo get le
-    ClNew /Steps get 1 lt or ClNew /DensOct get 1 lt or ClNew /ShadOct get 1 lt or {
-        (fc_clouds: a layer needs Hi above Lo, and Steps, DensOct and ShadOct of at least 1\n) print
+    ClNew /Steps get 1 lt or ClNew /DensOct get 1 lt or ClNew /ShadOct get 1 lt or
+    ClNew /Probes get dup type /integertype ne exch 1 lt or or {
+        (fc_clouds: a layer needs Hi above Lo, Steps, DensOct and ShadOct of at least 1, and Probes a whole number of at least 1\n) print
         CloudLayers-bad-layer                    % undefined: stops the job
     } if
     ClNew
@@ -277,15 +294,23 @@
     dup 1 ge { pop 0 } {
         1 exch sub ClRainD mul
         Dx ClLo ClDy 0.25 mul add Dz Doct fc-layer-density mul
+        ClRainSh 0 gt {
+            Dx ClRainSh mul 17.3 add Dz ClRainSh mul 4.1 add fc-noise2 0.35 sub 2 mul
+            dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if mul
+        } if
+        ClRainMd { Dx Dz ClRainM mul } if
     } ifelse
 } bind def
 
 /fc-layer-density {                              % x y z oct -> d   (bound layer)
     /Doct exch def /Dz exch def /Dy exch def /Dx exch def
+    ClBoxed { Dx ClBx0 lt Dx ClBx1 gt or Dz ClBz0 lt or Dz ClBz1 gt or } { false } ifelse { 0 } {
     Dy ClLo sub ClDy div
     dup 0 le { pop ClRain 0 gt { fc-cloud-rain } { 0 } ifelse } {
     dup 1 ge { pop 0 } {
         /Dh exch def
+        % a Shape at or below -1 means nothing is there: skip the noise
+        ClShaped { Dx Dy Dz Doct ClShape /Dsh exch def Dsh -1 le } { false } ifelse { 0 } {
         Dh ClPa mul 1 2 copy gt { exch } if pop
         1 Dh sub ClPb mul 1 2 copy gt { exch } if pop mul
         /Dprof exch def
@@ -303,9 +328,11 @@
         ClCovA 0 gt {
             Dx ClCovS mul 41.3 add Dz ClCovS mul 7.9 add fc-noise2 0.5 sub ClCovA mul add
         } if
-        ClShaped { Dx Dy Dz Doct ClShape add } if
+        ClShaped { Dsh add } if
         dup 0 lt { pop 0 } { ClGain mul } ifelse
+        } ifelse
     } ifelse } ifelse
+    } ifelse
 } bind def
 
 /fc-density {                                    % x y z oct -> d   (all layers)
@@ -322,10 +349,34 @@
 /fc-cloud-shadow1 {                              % T -> T
     DqY ClHi lt SunDir 1 get 0.01 gt and {
         DqY ClLo 2 copy lt { exch } if pop /DqB exch def     % the probe spans DqB..ClHi
+        ClProbes 1 eq {
         /DqM DqB ClHi add 2 div def
         /DqT DqM DqY sub SunDir 1 get div def
         DqX SunDir 0 get DqT mul add DqM DqZ SunDir 2 get DqT mul add ClSOct fc-layer-density
         ClSig mul ClHi DqB sub mul 0.5 mul neg 2.71828 exch exp mul
+        } { SunDir fc-cloud-probes } ifelse
+    } if
+} bind def
+
+% Probes > 1: that many probes spread evenly over DqB..ClHi along a
+% direction (a unit vector with y > 0), their mean density standing for the
+% whole span, with the same 0.5 as one probe
+/fc-cloud-probes {                               % T dir -> T
+    /DqV exch def
+    0 0 1 ClProbes 1 sub {
+        0.5 add ClProbes div ClHi DqB sub mul DqB add /DqM exch def
+        /DqT DqM DqY sub DqV 1 get div def
+        DqX DqV 0 get DqT mul add DqM DqZ DqV 2 get DqT mul add ClSOct fc-layer-density add
+    } for
+    ClProbes div ClSig mul ClHi DqB sub mul 0.5 mul neg 2.71828 exch exp mul
+} bind def
+
+% skylight through one bound layer: as fc-cloud-shadow1, straight up
+/FcClUpDir [ 0 1 0 ] def
+/fc-cloud-sky1 {                                 % T -> T
+    DqY ClHi lt {
+        DqY ClLo 2 copy lt { exch } if pop /DqB exch def
+        FcClUpDir fc-cloud-probes
     } if
 } bind def
 
@@ -334,6 +385,16 @@
     FcClCompiled not { fc-clouds-compile } if
     1
     CloudLayers null eq { fc-cloud-shadow1 } { FcClUp { fc-cloud-bind fc-cloud-shadow1 } forall } ifelse
+} bind def
+
+% how much of the sky a point sees through the clouds overhead, 0..1:
+% Probes probes straight up through every layer above it. fc_terrain.ps
+% dims the ground's skylight by it where CloudSkyDim > 0 (#15)
+/fc-cloud-sky {                                  % x y z -> T
+    /DqZ exch def /DqY exch def /DqX exch def
+    FcClCompiled not { fc-clouds-compile } if
+    1
+    CloudLayers null eq { fc-cloud-sky1 } { FcClUp { fc-cloud-bind fc-cloud-sky1 } forall } ifelse
 } bind def
 
 % --- lighting ------------------------------------------------------------------
@@ -347,7 +408,8 @@
 /fc-cloud-light {                                % x y z d phase -> r g b
     /Lph exch def /Ld exch def /Lz exch def /Ly exch def /Lx exch def
     % rain is lit as the cloud base above it: probe from there
-    ClRain 0 gt { Ly ClLo lt { /Ly ClLo ClDy 0.25 mul add def } if } if
+    /Lrn false def
+    ClRain 0 gt { Ly ClLo lt { /Ly ClLo ClDy 0.25 mul add def /Lrn ClRainMd def } if } if
     0
     1 1 2 {
         ClSStep mul /Ls exch def
@@ -355,6 +417,7 @@
         ClSOct fc-layer-density add
     } for
     ClSStep mul ClSig mul /Lod exch def
+    ClLDeep { /Lod Lx Ly Lz ClLDepth Lod add def } if
     2.71828 Lod neg exp
     1 2.71828 Ld ClSig mul 2.5 mul neg exp sub 0.6 mul 0.4 add mul
     Lph mul 1.6 mul
@@ -362,7 +425,7 @@
     % from going flat grey
     2.71828 Lod 0.25 mul neg exp 0.45 mul add
     /Lsun exch def
-    Ly ClLo sub ClDy div dup 0 lt { pop 0 } if /Lh exch def    % (rain was moved into the band above)
+    Ly ClLo sub ClDy div dup 0 lt { pop 0 } if Lrn { pop 0 } if /Lh exch def    % (rain was moved into the band above)
     0 1 2 {
         /Li exch def
         SunCol Li get Lsun mul
@@ -393,6 +456,7 @@
     } ifelse
     Ct1 Ctl gt { /Ct1 Ctl def } if
     Ct1 TMax gt { /Ct1 TMax def } if
+    ClBoxed { fc-cloud-box } if
     Ct0 Ct1 lt {
         /Cph Mx SunDir 0 get mul My SunDir 1 get mul add Mz SunDir 2 get mul add fc-phase def
         % step length grows with distance; the first step is jittered
@@ -419,6 +483,24 @@
             /Ct Ct Cdt add def
         } loop
     } if
+} bind def
+
+% clip Ct0..Ct1 to the layer's Bounds box (the camera is at x = z = 0)
+/fc-cloud-box {                                  % - -> -
+    Mx abs 0.000001 lt {
+        ClBx0 0 gt ClBx1 0 lt or { /Ct1 -1 def } if
+    } {
+        ClBx0 Mx div ClBx1 Mx div 2 copy gt { exch } if
+        dup Ct1 lt { /Ct1 exch def } { pop } ifelse
+        dup Ct0 gt { /Ct0 exch def } { pop } ifelse
+    } ifelse
+    Mz abs 0.000001 lt {
+        ClBz0 0 gt ClBz1 0 lt or { /Ct1 -1 def } if
+    } {
+        ClBz0 Mz div ClBz1 Mz div 2 copy gt { exch } if
+        dup Ct1 lt { /Ct1 exch def } { pop } ifelse
+        dup Ct0 gt { /Ct0 exch def } { pop } ifelse
+    } ifelse
 } bind def
 
 /fc-clouds {                                     % tlimit -> -

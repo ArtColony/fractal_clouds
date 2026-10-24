@@ -50,6 +50,7 @@
 /MapOn false fc-default
 /MapNoise 0 fc-default               % how much noise massif shows through, away from pinned ground
 /MapPin 1 fc-default                 % how fully pinned ground loses the domain warp
+/TerrCoast false def                 % fc_coast.ps sets it: fc-height-proc then calls fc-coast
 
 % fc-height: the eroded map where fc_erode.ps has baked one (plus fine
 % procedural detail), the procedural terrain elsewhere
@@ -123,6 +124,7 @@
     } ifelse
     } ifelse } ifelse
     TerrH mul TerrBase add
+    TerrCoast { fc-coast } if                  % the coast (fc_coast.ps, with MapSea)
 } bind def
 
 % massif: two smooth octaves at the warped point (Hwx Hwz), pushed toward 0
@@ -268,6 +270,9 @@
     /Kl Kl KlMul mul def
     /Ksky Ny 0.4 mul 0.6 add Kao mul KskyMul mul def
     /Kbn 1 Ny sub 0.5 mul Kao mul def
+    % clouds overhead (fc-cloud-sky) dim the skylight and the warm bounce (#15)
+    CloudSkyDim 0 gt { Kx Ky Kz fc-cloud-sky 1 sub CloudSkyDim mul 1 add
+        dup Ksky mul /Ksky exch def Kbn mul /Kbn exch def } if
     0 1 2 { /Ki exch def
         Alb Ki get
         SunCol Ki get Kl mul 1.5 mul
@@ -283,6 +288,7 @@
 % crosses the middle of the cloud layer.
 /ShadowsOn true fc-default
 /CloudShadowsOn true fc-default
+/CloudSkyDim 0 fc-default            % > 0: clouds overhead dim the skylight (#15)
 /ShadOctT 4 fc-default
 /Penumbra 10 fc-default
 % the coarse shadow terrain can stand above the detailed surface by about

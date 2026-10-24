@@ -1,0 +1,5 @@
+REALISM: B
+AESTHETICS: A
+- B’s slightly softer mountain contrast gives the distance a more natural atmospheric haze.
+- A’s slightly stronger definition makes the peaks and reflections more visually engaging.
+- The differences are very subtle; both retain visible pixelation and procedural textures.

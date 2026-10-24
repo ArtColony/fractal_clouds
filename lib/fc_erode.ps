@@ -58,6 +58,7 @@
     /EbT1 usertime def
     ErDelta { /ErOrig ErMap length array def ErOrig 0 ErMap putinterval } if
     % 2. droplets
+    /ErSeaN /MapSea where { pop MapSea } { null } ifelse dup null eq { pop -1e30 } { TerrBase sub TerrH div } ifelse def
     /ErLim ErN 2 sub def
     ErDrops {
         /Epx fc-rnd ErLim mul def /Epy fc-rnd ErLim mul def
@@ -72,6 +73,7 @@
             /Egy Eh01 Eh00 sub 1 Efx sub mul Eh11 Eh10 sub Efx mul add def
             /Eh Eh00 1 Efx sub mul Eh10 Efx mul add 1 Efy sub mul
                 Eh01 1 Efx sub mul Eh11 Efx mul add Efy mul add def
+            Eh ErSeaN lt { exit } if             % into the sea (#39): its load is lost there
             % new direction: inertia against the downhill gradient
             /Edx Edx ErInertia mul Egx 1 ErInertia sub mul sub def
             /Edy Edy ErInertia mul Egy 1 ErInertia sub mul sub def

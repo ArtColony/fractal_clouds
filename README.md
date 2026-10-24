@@ -33,13 +33,15 @@ display faces).
 | `gallery/previews/` | Chosen renders, committed by hand |
 | `lib/*.ps` | Reusable procedures; load with `(lib/name.ps) run` from the repo root |
 | `lib/fc_landscape.ps` | The whole landscape scene (sky, clouds, terrain, erosion, forest) behind one `fc-pixel`; a piece's starting point |
+| `lib/fc_presets.ps` | Named presets (time of day, weather, terrain, season) and scene files: groups of settings that a piece loads before the library |
+| `scenes/` | Scene files and `scene.ps`, the driver that renders one (`-D "Scene=(scenes/evening_lake.ps)"`) |
 | `docs/settings.md` | Every landscape setting, its default and the values tried |
 | `docs/techniques.html` | How it works: the algorithms, with diagrams and references (open it in a browser) |
 | `scripts/render.sh` | Render, lint and time pieces into `renders/` (git-ignored) |
 | `scripts/render_bands.sh` | One large frame as parallel horizontal bands, stitched |
 | `scripts/regress.sh` | Pixel-regression check of the gallery against `tests/regress/linux/` or a git ref; run by CI (`.github/workflows/ci.yml`) |
 | `docs/pscat-issues.md` | pscat bugs and skill-doc problems, waiting to be filed upstream |
-| `.claude/skills/` | The `pscat`, `psart` and `psviz` agent skills, copied from the pscat release |
+| `.claude/skills/` | The `pscat`, `psart` and `psviz` agent skills, copied from the pscat release, and `fractal-landscape`, this repo's own: a one-line request to a piece (presets, framing pass, crops, banded render, Codex review) |
 | `.mcp.json` | Registers `pscat-mcp` for Claude Code |
 
 ## Making a landscape

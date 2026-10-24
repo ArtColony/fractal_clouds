@@ -1,0 +1,5 @@
+REALISM: B
+AESTHETICS: B
+- B has slightly clearer rock and snow detail.
+- Its mountain ridges feel a touch more defined.
+- The difference is very subtle; composition and lighting are essentially identical.
