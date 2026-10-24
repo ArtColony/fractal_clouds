@@ -23,3 +23,15 @@ geometry, stones and shrubs and a clumpy grass texture in the shading, and
 
 | Round | Change | Order 1 (old first) | Order 2 (new first) |
 |---|---|---|---|
+| 1 | boulders (2.6-unit cells, radius up to 0.42), stones and shrubs in shading, grass texture, `GroundRough` 0.12, `GroundOct` 3 | new, new | new, new |
+
+Round 1 reasons: "B's ground texture suggests uneven terrain and low
+vegetation; A's looks overly smooth", "more varied light and shadow across
+the clearing, adding depth" (both orders; both note the conical trees).
+
+## Verdict
+
+Won in round 1, realism and aesthetics, in both orders: no further rounds.
+`GroundOn` stays false in the library (other pieces and spikes are
+unchanged) and is turned on in the five gallery pieces with near ground:
+mountains, alpine_forest, evening_lake, charted_range and storm.

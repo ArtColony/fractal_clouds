@@ -8,6 +8,7 @@
 
 /Seed where { pop } { /Seed 5 def } ifelse
 /AA where { pop } { /AA true def } ifelse          % antialias depth edges (before fc_render.ps loads)
+/GroundOn where { pop } { /GroundOn true def } ifelse   % rocks, rough ground and grass close up (#29)
 /Pitch where { pop } { /Pitch 0 def } ifelse
 /Yaw where { pop } { /Yaw 10 def } ifelse          % layered ridges toward the peaks
 /SunDir where { pop } { /SunDir [ -0.62 0.40 0.62 ] def } ifelse    % low, front-left of the view
