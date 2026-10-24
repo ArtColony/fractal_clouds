@@ -474,7 +474,7 @@ square's outer 6%, unless `ErFar` adds a coarser map for the far distance.
 | `ErRounds` | 4 | Rounds of droplets the thermal passes alternate with (with `ErThermal`). | |
 | `ErTalus` | 33 | Angle of repose, degrees: scree on steeper ground slides on. | 30–38 |
 | `ErThermalRate` | 0.5 | Share of half the excess slope that moves per pass, at most what is loose. | |
-| `ErWeather` | 0.03 | Share of the excess weathered from rock into scree per pass. Small keeps cliffs and makes talus below them; large (0.5) makes every steep slope loose, which flattens the whole range to the angle of repose. | 0.01–0.1 |
+| `ErWeather` | 0.03 | Share of the excess weathered from rock into scree per pass. Small keeps cliffs and makes talus below them; large (0.5) makes every steep slope loose, which flattens the whole range to the angle of repose. | 0.01–0.05 |
 | `ErFar` | false | A second, coarser erosion map for the far distance (#30), so ranges beyond the main square show drainage too. The main map blends into it over its outer 6%, and it blends into the procedural terrain over its own. It has its own random stream (from `Seed`) and puts the main one back, so the forest is unchanged. No flow or rivers on it. Adds about 13 s to the bake at the defaults. Only worth it when the view reaches past the main square: raise `TMax` (and `HazeDist`). | false, true |
 | `ErFarN`, `ErFarDrops` | 384, 40000 | Far map resolution and droplets. | |
 | `ErFarSize`, `ErFarDist` | 2600, 1100 | Far map area, world units, and its centre's distance ahead. | |
