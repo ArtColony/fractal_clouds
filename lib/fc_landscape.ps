@@ -28,6 +28,12 @@
 %   CamHeight null   a number puts the camera at exactly that height
 %   Profile   false  count calls and time the main procedures, and print a
 %                    table after fc-render (lib/fc_bench.ps)
+%   WaterY    null   a number: a lake (or sea) surface at that height
+%   WaterRise null   a number: the lake this far above the ground under the
+%                    camera (sets WaterY during setup)
+%   Rivers    false  carve rivers along the erosion's flow and fill them
+%                    (needs Erode). Any of these three loads lib/fc_water.ps,
+%                    which wraps the hit and surface hooks below
 %
 % Hooks: fc-pixel calls these by name, so a piece can redefine any of them
 % after loading (each one's default is below):
@@ -53,6 +59,9 @@
 /CamAbove 6 fc-default
 /CamHeight null fc-default
 /Profile false fc-default
+/WaterY null fc-default
+/WaterRise null fc-default
+/Rivers false fc-default
 TreesOn { /TreeLine -1000 fc-default } if     % fc_trees paints the forest
 
 (lib/fc_terrain.ps) run
@@ -67,9 +76,11 @@ Profile { (lib/fc_bench.ps) run } if
     % the order matters: erosion's droplets draw from the march seed
     Seed fc-noise2-init
     Seed 101 add fc-noise3-init
+    WaterRise null ne { /WaterY 0 0 TerrOct fc-height-proc WaterRise add def } if
     TreesOn { Seed 303 add fc-trees-init } if
     Seed 202 add srand
     Erode { fc-erode-bake } if
+    Rivers { Erode { fc-water-rivers } { (fc_landscape: Rivers needs Erode\n) print } ifelse } if
     TreesOn { fc-forest-bake } if
     CamHeight null ne { /CamY CamHeight def } {
         0 0 TerrOct fc-height CamAbove add
@@ -111,6 +122,9 @@ Profile { (lib/fc_bench.ps) run } if
 } bind def
 
 /fc-pixel { fc-landscape-pixel } bind def
+
+% water wraps the hooks above, so it loads after them
+WaterY null ne WaterRise null ne or Rivers or { (lib/fc_water.ps) run } if
 
 /fc-landscape {                                  % pw ph -> -
     LnSetUp not { fc-landscape-setup } if

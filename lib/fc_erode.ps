@@ -37,6 +37,7 @@
 /ErDelta true fc-default             % store only erosion's change (see step 3)
 /FineAmp 0.07 fc-default            % fine procedural detail added on top (replace mode)
 /FineScale 7 fc-default              % its frequency, in ridge frequencies
+/ErFlowOn false fc-default           % record each droplet's water per texel in ErFlow (#28; fc_landscape's Rivers does too)
 
 /fc-erode-bake {
     /EbT0 usertime def
@@ -56,6 +57,11 @@
     } for
     /EbT1 usertime def
     ErDelta { /ErOrig ErMap length array def ErOrig 0 ErMap putinterval } if
+    % flow: the water every droplet carries through a texel, summed (rivers
+    % read it; recording it touches neither the map nor the random stream)
+    /Rivers where { pop Rivers } { false } ifelse
+    ErFlowOn or /EbFlow exch def
+    EbFlow { /ErFlow ErN ErN mul array def 0 1 ErN ErN mul 1 sub { ErFlow exch 0 put } for } if
     % 2. droplets
     /ErLim ErN 2 sub def
     ErDrops {
@@ -65,6 +71,7 @@
             /Eix Epx cvi def /Eiy Epy cvi def
             /Efx Epx Eix sub def /Efy Epy Eiy sub def
             /Ei Eiy ErN mul Eix add def
+            EbFlow { ErFlow Ei 2 copy get Ewat add put } if
             /Eh00 ErMap Ei get def /Eh10 ErMap Ei 1 add get def
             /Eh01 ErMap Ei ErN add get def /Eh11 ErMap Ei ErN add 1 add get def
             /Egx Eh10 Eh00 sub 1 Efy sub mul Eh11 Eh01 sub Efy mul add def

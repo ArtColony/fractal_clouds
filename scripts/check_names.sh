@@ -5,10 +5,11 @@
 # overwrite each other silently whenever one calls into the other.
 # Names a piece is meant to share (settings like PixAng, and the terrain
 # material hook's Alb KlMul KskyMul KbMul, and the settings and per-pixel
-# values fc_landscape.ps sets for the other libraries) go in ALLOW.
+# values fc_landscape.ps sets for the other libraries, such as the ray
+# Mx My Mz that fc_water.ps points along a reflection) go in ALLOW.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-ALLOW=" PixAng ErBaked ErBaking ErDelta Alb KlMul KskyMul KbMul CamY FcKey TreeLine TreesOn SkyAmb AmbTop AmbBot "
+ALLOW=" PixAng ErBaked ErBaking ErDelta Alb KlMul KskyMul KbMul CamY FcKey TreeLine TreesOn SkyAmb AmbTop AmbBot Mx My Mz MarchT0 "
 
 dups=$(for f in lib/*.ps; do
     grep -o '/[A-Za-z][A-Za-z0-9]*' "$f" | sort -u | sed "s|^/||; s|$| $f|"
