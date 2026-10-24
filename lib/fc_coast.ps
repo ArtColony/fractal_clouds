@@ -69,7 +69,13 @@
 % x z -> d k    map point: wobbled distance to the coastline, cliffedness
 /fc-coast-dist {
     /XcZ exch def /XcX exch def
-    XcX XcZ fc-map-coast-at /XcC exch def
+    XcX XcZ fc-map-coast-at fc-coast-wobble
+} bind def
+
+% d c -> d k    the table's distance and nearest-land height at (XcX, XcZ):
+% wobble the distance (by at most 1.45 CoastWobble), and the cliffedness
+/fc-coast-wobble {
+    /XcC exch def
     /XcWx XcX CoastWobbleScale mul def /XcWz XcZ CoastWobbleScale mul def
     XcWx 17.3 add XcWz 4.1 add fc-noise2 0.5 sub
     XcWx 2.3 mul 5.2 add XcWz 2.3 mul 11.7 add fc-noise2 0.5 sub 0.45 mul add
@@ -86,7 +92,12 @@
 /fc-coast {                                      % h -> h (Hmx Hmz Ho)
     XcMatOn not { fc-coast-material-install } if
     /XcH exch def
-    Hmx Hmz fc-coast-dist /XcK exch def /XcD exch def
+    /XcX Hmx def /XcZ Hmz def
+    XcX XcZ fc-map-coast-at
+    % far inland and above the beach, even before the wobble: nothing to do
+    1 index CoastWobble 1.5 mul sub CoastBeachW gt XcH MapSea CoastBerm add CoastFlat add gt and
+    { pop pop CoastBeachW 1 add 0 } { fc-coast-wobble } ifelse
+    /XcK exch def /XcD exch def
     XcD CoastBeachW gt XcH MapSea CoastBerm add CoastFlat add gt and { XcH } {
         % cliff faces: fine roughness, faded out with distance (octaves)
         XcK 0 gt CoastRough 0 gt and Ho 4 gt and {
@@ -186,8 +197,19 @@
 /fc-coast-material-install {
     /XcMatOn true def
     /XcMatPrev /fc-terrain-material where { pop /fc-terrain-material load } { { } } ifelse def
+    % a water plane apart from MapSea leaves the coast's profile dry or drowned
+    /WaterY where { pop WaterY null ne { WaterY MapSea ne {
+        (fc_coast: warning: WaterY differs from MapSea; the shore won't meet the water\n) print
+    } if } if } if
     TreesOn {
-        /fc-terrain-material { fc-coast-material XcMatPrev } bind def
+        % trees, then the beach, then the water's shore: slot in under
+        % fc_water's hook, which calls AqMatPrev by name
+        /AqMatPrev where {
+            pop /XcTreesMat /AqMatPrev load def
+            /AqMatPrev { XcTreesMat fc-coast-material } bind def
+        } {
+            /fc-terrain-material { XcMatPrev fc-coast-material } bind def
+        } ifelse
     } {
         /fc-terrain-material { XcMatPrev fc-coast-material } bind def
     } ifelse

@@ -65,7 +65,9 @@
 % The coast (#39): MapLiftGrid paints ground height (rows like MapGrid,
 % 0..1 over MapLiftRange); /volcano, /atoll, /cliff and /stack features
 % (docs/settings.md); MapSea, a sea level, makes the bake also measure the
-% signed distance to the coastline (fc-map-coast) and loads fc_coast.ps.
+% signed distance to the coastline (fc-map-coast; near a /cliff the land
+% must stand that much above the sea, so the coast is cut back into high
+% ground) and loads fc_coast.ps.
 %   x z fc-map-water y | -1000    the water level at a map point: MapSea
 %                                 or a /lake's level, the higher
 

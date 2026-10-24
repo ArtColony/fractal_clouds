@@ -291,7 +291,9 @@ height` near a `/cliff`. `fc-height-proc` then reshapes the ground near
 the coast (see `docs/techniques.html#coast`): a cliff face cuts back high
 land, low ground is pressed onto a beach-and-shallows profile, and stacks
 and rocks stand offshore. Set `CamHeight`: over the sea, `CamAbove`
-measures from the sea floor. Erosion's droplets stop when they reach the
+measures from the sea floor. Leave `WaterY` and `WaterRise` unset: the
+water then sits at `MapSea`; a plane anywhere else detaches it from the
+shore profile (`fc_coast.ps` prints a warning). Erosion's droplets stop when they reach the
 sea (their load is lost).
 
 | Setting | Default | What it does | Used |
