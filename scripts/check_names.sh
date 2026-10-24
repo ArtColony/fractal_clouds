@@ -11,10 +11,10 @@
 # Mx My Mz that fc_water.ps points along a reflection, TMax that fc_ocean.ps shortens under the sea, and the ProfileProcs list each library adds to) go in ALLOW.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-ALLOW=" PixAng ErBaked ErBaking ErDelta Alb KlMul KskyMul KbMul CamY FcKey TreeLine TreesOn SkyAmb AmbTop AmbBot Mx My Mz MarchT0 MpX MpZ TMax ProfileProcs TerrTop TerrCoast WaterY MapSea AqMatPrev CloudLayers "
+ALLOW=" PixAng Pitch Yaw TerrOX TerrOZ ErBaked ErBaking ErDelta Alb KlMul KskyMul KbMul CamY FcKey TreeLine TreesOn SkyAmb AmbTop AmbBot Mx My Mz MarchT0 MpX MpZ TMax ProfileProcs TerrTop TerrCoast WaterY MapSea AqMatPrev CloudLayers "
 
 dups=$(for f in lib/*.ps; do
-    grep -o '/[A-Za-z][A-Za-z0-9]*' "$f" | sort -u | sed "s|^/||; s|$| $f|"
+    { grep -o '/[A-Za-z][A-Za-z0-9]*' "$f" || true; } | sort -u | sed "s|^/||; s|$| $f|"
   done | awk '{n[$1]++; f[$1]=f[$1] " " $2} END {for (k in n) if (n[k] > 1) print k ":" f[k]}' | sort)
 
 # keep only names that are actually def'd (a /Name literal followed by def

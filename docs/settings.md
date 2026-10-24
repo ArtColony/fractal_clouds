@@ -29,6 +29,76 @@ means only the default has been rendered.
 
 See `docs/techniques.html` for how each part works.
 
+## The public interface
+
+A project that uses the libraries from a release (`docs/using-the-libraries.md`)
+can rely on the names in this file and on nothing else. A release's version
+number (`VERSION`, a tag `vX.Y.Z`) promises exactly this surface.
+
+**Public** (documented here; renaming or removing one, or changing what it
+means, is a breaking change):
+
+- every **setting** in the tables: its name, its meaning and its default
+  (Seed, Yaw, TerrH, CloudLayers, WaterY, ...), including the options the
+  render script defines for a piece (`Res`, `AA`, `Crop`: their defaults live
+  in `lib/fc_render.ps`, so a project sets them before its `run` lines, as any
+  setting, or has its render script define them first, as this repo's
+  `scripts/render.sh -D` does);
+- the **entry points**: `fc-landscape`, `fc-landscape-setup`, `fc-presets`,
+  `fc-preset`, `fc-settings` and the `FcPresets` dictionary (a project adds its
+  own presets to it), the built-in **presets** and their names (Time of day,
+  Weather, Terrain, Season, and Tone and grade, the colour-grade presets
+  `/Filmic`, `/Warm`, ...), and **scene files**;
+- the **hooks** (`fc-landscape-hit`, `-surface`, `-sky`, `-grade`,
+  `fc-forest-dens`, `fc-terrain-material`, `fc-terrain-base`, `fc-pixel`) and
+  the procedures in the "Procedure" tables and the colour-grade and camera
+  procedures (`fc-grade`, `fc-grade-update`, `fc-camera-update`), with their
+  stack effects;
+- the **state a hook may read**: `Mx My Mz`, `PixAng`, `LnT LnR LnG LnB`, and
+  the material variables `Alb KlMul KskyMul KbMul`;
+- the **loading contract**: a project loads `lib/fc_presets.ps` (optional) and
+  `lib/fc_landscape.ps` with `(lib/fc_x.ps) run` from the directory it renders
+  from, after its settings, as above, and `lib/fc_storm.ps` (also optional)
+  after `fc_landscape.ps`, as `gallery/storm.ps` does. `fc_landscape.ps` loads
+  the rest in the order they need. Libraries load each other by those paths, so the files must
+  sit in `lib/` there.
+
+**Internal** (may change or vanish in any release, even a patch one, except
+the last item, which follows the version policy below):
+
+- every other name the libraries `def`: a library's scratch names, which sit
+  under its own prefix because PostScript has no locals (`Er...` in
+  `fc_erode.ps`, `Aq...` in `fc_water.ps`, ...), and every `fc-...` procedure
+  that this file does not list (`fc-noise3`, `fc-terrain-hit`, `fc-height`, ...
+  are building blocks, not API; `ProfileProcs` merely names them);
+- the **file layout**: which procedure lives in which `lib/fc_*.ps`, the load
+  order, and loading any file but the three above by itself;
+- the **pictures**, beyond the version policy below: the same settings may
+  render different pixels in a different release (a new default, a better
+  noise), though never in a patch release. Renders
+  reproduce only for one release, one pscat version and one platform. Pin all
+  three.
+
+**Names a project must not use.** Settings share `userdict` with everything
+else. A piece sets the documented settings and redefines the documented hooks
+(that is the interface), but its own libraries and helper procedures must not
+define any other name that the tables list, any name that starts with `Fc` or
+`fc-`, or a file called `lib/fc_*.ps`. Give your own libraries a prefix of your own (`lib/<project>_*.ps`).
+A project can copy `scripts/check_names.sh` to find two libraries that
+`def` the same name (a scratch variable: it does not look at hyphenated
+procedure names, which the libraries chain on purpose). Run in a project's
+`lib/` it also flags a project library that sets a documented setting such as
+`/Yaw` with `def`; that is a false alarm for a settings file, and a real clash
+in a library that uses the name for its own scratch.
+
+**Versions.** `MAJOR.MINOR.PATCH`. A patch release keeps every picture
+pixel-identical and changes nothing public. Before 1.0, a minor release may
+add or change settings, hooks and defaults and may change pictures (its
+release notes say which); from 1.0, only a major release removes or renames a
+public name or changes its meaning. A new setting is meant to default to
+"off", so a piece that doesn't know it renders as before; but a release that
+changes a default says so in its notes, and is a minor release.
+
 ## Presets and scene files (`lib/fc_presets.ps`)
 
 A **preset** is a named dictionary of settings; a **scene file** is the same
@@ -171,7 +241,7 @@ heights in `/Clear`, `/Overcast` and `/Storm` assume the standard terrain
 
 | Setting | Default | What it does | Used |
 |---|---|---|---|
-| `Seed` | 5 | Seeds everything: both noises, the trees and the march jitter. A new seed is a new range. | 5 |
+| `Seed` | 5 | Seeds everything: both noises, the trees and the erosion. A new seed is a new range. (The cloud march's jitter is read from a blue-noise tile at the pixel, not seeded: the same in every band or crop.) | 5 |
 | `TreesOn` | false | Loads `lib/fc_trees.ps` and marches the forest. It also turns off `fc_terrain`'s painted forest (`TreeLine` −1000) unless the piece sets `TreeLine`. | false, true |
 | `Erode` | true | Bakes droplet erosion over the view (`fc_erode.ps`). Off skips the bake (about 1.5 min at `ErN` 1024); valleys then lack drainage channels and debris fans. | true |
 | `CamLift` | 0 | If above 0, the camera sits at this fraction of `TerrTop`, but at least `CamAbove` over the ground below it (a high viewpoint). | 0, 0.72 |
@@ -182,10 +252,56 @@ heights in `/Clear`, `/Overcast` and `/Storm` assume the standard terrain
 | `WaterRise` | null | A number sets `WaterY` this far above the ground under the camera (worked out during setup, from the terrain before erosion). | 1.4 |
 | `Rivers` | false | Carve rivers along the erosion map's drainage and fill them (needs `Erode`). Adds the flow pass to the bake and the river bake after it. | false, true |
 | `MapWater` | false | Fill the terrain map's `/lake` features (`MapOn`) with water at their levels, each over its polygon and shore band. | true |
+| `StandAt` | null | `[x z]` in map coordinates (the terrain's own: what `MapFeatures` use, `x` east, `z` north): stand the camera there. Sets `TerrOX`/`TerrOZ` as `fc_landscape.ps` loads, overriding the piece's own. The height still comes from `CamAbove`, `CamLift` or `CamHeight`. | [430 0] |
+| `LookAt` | null | `[x z]` or `[x y z]` in map coordinates: aim the centre of the frame there. `Yaw` is set as the file loads (before the erosion and forest windows, which lie along it, are placed) and `Pitch` during `fc-landscape-setup`, once the camera height and the ground at the target (`fc-height`, eroded) are known; over water (`WaterY`, or a map's `MapSea`) it aims at the surface instead. A map lake's level (`MapWater`) isn't consulted: give `[x y z]` to aim at its water rather than its bed. `y` gives the target's height outright. Overrides the piece's `Yaw` and `Pitch`. A target where the camera stands is ignored, with a message. | [190 185] (a peak) |
+| `LookTilt` | 0 | Degrees added to the `Pitch` that `LookAt` works out: positive tilts the view up, so the target sits lower in the frame: tan(`LookTilt`)/tan(`HFov`/2) half frame widths, about a quarter of the height per 10° on a 320×200 frame at `HFov` 60. | 0, 4 |
 
-The camera always stands at x = z = 0, looking along +z before `Yaw`.
-To stand somewhere else in the terrain, move the terrain under it with
-`TerrOX`/`TerrOZ`.
+The camera always stands at x = z = 0 in the world, looking along +z before
+`Yaw`. To stand somewhere else in the terrain, the terrain moves under it:
+`TerrOX`/`TerrOZ`, or `StandAt` and `LookAt` to name map points instead of
+trying offsets and angles. With `MapOn`, `fc-map-plan` marks a camera placed
+this way and the point it aims at, so a view can be planned on the plan
+(`-D Plan=true` in `gallery/charted_range.ps`):
+
+```sh
+scripts/render.sh -D Plan=true -D 'StandAt=[430 0]' -D 'LookAt=[190 185]' gallery/charted_range.ps
+scripts/frame.sh -D 'StandAt=[430 0]' -D 'LookAt=[190 185]' -D LookTilt=4 gallery/charted_range.ps
+```
+
+## Composition passes (`scripts/frame.sh`, `render.sh --sweep`, `lib/fc_frame.ps`)
+
+Two quick looks before paying for detail, both through `scripts/render.sh`
+(so they are timed in `timings.tsv`):
+
+- **Framing pass.** `scripts/frame.sh gallery/foo.ps` (the same as
+  `scripts/render.sh --frame`) renders at `Res` 0.5 with `AA` off and draws a
+  rule-of-thirds grid, the horizon (eye level: where rays are level, from
+  `Pitch` and `HFov`; the log prints its height as a percentage from the top)
+  and, with `LookAt`, a red circle on the aim point. It writes
+  `renders/foo-frame.png`. `-D Res=...` or `-D AA=...` override the defaults;
+  other `-D` options pass through as usual.
+- **Contact sheets.** `scripts/render.sh --sweep NAME=SPEC gallery/foo.ps`
+  renders one frame per value (`SPEC` is `A:B`, `A:B:STEP` or `A,B,C`) at
+  `Res` 0.25, labels each `NAME = value` in its corner, and composites them
+  into `renders/foo-sweep.png` (the frames are `foo-sweep-001.png`, ...).
+  `--grid 3x2` sets the sheet's columns and rows. `--sweep Seed=1:9` is the
+  seed sheet: `Seed` makes the range, and a frame you like is a `Seed` you
+  can set. pscat's own `--sweep-seed SPEC` works too, but it overrides every
+  `srand` call with the same value (the noises, the trees, the erosion
+  droplets and the jitter all reseed from it, instead of from the offsets of
+  `Seed`), so its frames can't be reproduced by a setting. A swept
+  setting has to be one the piece reads with `/NAME where` (or leaves to a
+  library's default); `--frame` and `--sweep` combine. pscat refuses `--lint`
+  with a sweep, so sweeps aren't linted.
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `FrameGrid` | false | `lib/fc_frame.ps`: draw the thirds grid, horizon and aim point over the page just before `showpage` (`--frame` sets it). | true |
+| `FrameLabel` | null | `lib/fc_frame.ps`: a name, such as `/Seed`; its value is printed in the bottom-left corner before `showpage` (`--sweep` sets it). | /Seed |
+
+`lib/fc_frame.ps` wraps `showpage`, so it works on any piece without changes;
+`render.sh` loads it ahead of the piece only for these passes. Its procedure
+`pw ph fc-frame-overlay` draws the grid and horizon on a `pw`×`ph` frame.
 
 ## Profiling (`lib/fc_bench.ps`, with `Profile`)
 
@@ -219,6 +335,8 @@ table is in `docs/techniques.html`, section 16.
 | `Res` | 1 | Image pixels per device pixel. 0.25 or 0.5 make fast composition checks. | 0.25, 0.5, 1 |
 | `AA` | false | Antialias depth edges: 4 extra samples on pixels where the hit distance jumps (a few percent of pixels). Pieces turn it on. | false, true |
 | `Crop` | (none) | `[x0 y0 x1 y1]`, fractions of the frame from the top left: render only that patch, at the full frame's detail. | many |
+| `PixSeed` | false | Reseed the random stream per pixel (from a hash of its position) and (with `AA`) give a crop the depth keys of the row above it and the pixel to its left, so a pixel comes out the same however the frame is cropped. While `fc-pixel` runs, `FrI`/`FrJ` (column, row from the top left) and `FrU`/`FrV` hold the pixel's position, also for those precomputed keys. `render_bands.sh` turns it on: its bands stitch into exactly one uncropped `PixSeed` render. Nothing in the gallery pieces draws on the random stream per pixel (#27), so that equals a plain render. | (bands) |
+| `RowTimes` | false | Print `fc-row-t0 MS` when the render starts (after the bakes) and `fc-row J MS` after each row: the probe of `render_bands.sh --auto`. | (probe) |
 
 Resolution comes from the page size times `DPI` (a `render.sh` variable):
 `DPI=72` gives 320×200 for a 320×200 pt piece, and `DPI=288` gives 1280×800.
@@ -297,6 +415,7 @@ changes `Pitch`, `Yaw` or `HFov` afterwards calls `fc-camera-update` and then
 | `DensOct` | 5 | Most noise octaves, for near clouds; distant clouds use fewer. | 5 |
 | `ShadOct`, `ShadStep` | 3, 3.2 | Octaves and spacing of the two probes toward the sun. | |
 | `CloudSteps` | 96 | Most samples per ray. | |
+| `CloudDense` | 0 | If above 0, a march step whose optical depth (`Sigma · density · step`) exceeds it is shortened to that depth, to half its length at most, so no one sample decides much of a pixel's light. Off by default: with the blue-noise jitter it lowered the per-pixel error inside the storm by a quarter but not the visible (blurred) grain, for 7–10% more time (#27). Applies to every layer. | 0, 0.3 |
 | `AmbTop`, `AmbBot` | derived (or [0.62 0.72 0.88], [0.34 0.38 0.48] without `SkyModel`) | Ambient light at the layer's top and bottom (sRGB). With the sky model, 1.2 and 0.31 of the derived `SkyAmb` unless the piece sets them. | |
 | `CloudLayers` | null | null marches the one layer the settings above describe. Otherwise an array of layers (below), marched one after another, nearest band first. | null, `[/Cumulus /Altocumulus /Cirrus]` |
 
@@ -351,7 +470,7 @@ single layer, `CloudLayers` null, keeps its old cut-off).
 | `RainDens` | 0.15 | Their density, as a fraction of the cloud's. |
 | `Shape` | null | A procedure `x y z oct → dd` (`oct`: the octaves the sample wants, fewer with distance) added to the density before the gain: a positive value adds cloud, a negative one cuts it. Only called inside the band (`Lo < y < Hi`), so a placed object needs a band tall enough to hold it. For placed objects such as a cumulonimbus (#15). Costs a call per sample. It is called before the noise: a value of −1 or less means nothing is there, and the noise is skipped (keep the threshold and coverage such that the noise can't lift −1 above 0). |
 | `RainShafts` | 0 | Above 0: the rain is broken into shafts by 2-D noise with this many cells per unit (the storm uses 0.06); 0 is the old solid curtain. |
-| `Bounds` | null | `[x0 z0 x1 z1]`, world x and z (the camera stands at x = z = 0): the layer is empty outside this box, and each ray marches only the part of the band inside it, with all its `Steps`. For a placed object, so a tall band doesn't make every sky ray march its whole height. Rays that miss the box draw no jitter (`fc-rnd`), so setting it shifts the global random stream for every later draw, not only that layer's grain. |
+| `Bounds` | null | `[x0 z0 x1 z1]`, world x and z (the camera stands at x = z = 0): the layer is empty outside this box, and each ray marches only the part of the band inside it, with all its `Steps`. For a placed object, so a tall band doesn't make every sky ray march its whole height. |
 | `RainMask` | null | A procedure `x z → 0..1` multiplying the rain (after `RainShafts`). A layer with one also lights its rain with `AmbBot`, as under the base, rather than the ambient a quarter of the way up. The storm uses it to fade the rain toward the edge of the tower's foot. |
 | `Probes` | 1 | A whole number, at least 1: density probes per layer for the ground's cloud shadow and `fc-cloud-sky`, spread evenly over the band above the point. 1 keeps the old single probe at the middle; a tall object needs more (the storm uses 3) or its anvil casts no shadow. |
 | `LightDepth` | null | A procedure `x y z → od`: optical depth toward the sun added to the two short sun probes', for a placed object's shadow on itself at a larger scale than the probes reach (#15). Called once per lit sample. |
@@ -431,6 +550,15 @@ the layer dict, `fc-storm-bounds` its `Bounds`.
 | `MassifLo`, `MassifHi` | 0.30, 0.56 | That mask's ramp. Raising both gives fewer, separate massifs. | |
 | `WarpAmp` | 0.45 | Domain warp, in ridge wavelengths: how much the ridges wander. | 0.45 |
 | `DetailAmp` | 0.16 | Strength of the gully texture (erosion fBm). | 0.16 |
+| `TerraceAmp` | 0 | Terraces in the geometry (#21), 0–1: steep ground in outcrop patches is cut into dipping beds, each a ledge and a cliff, in `fc-height-proc` itself, so silhouettes, the march, normals and the forest bake see them (cast shadows only roughly: the shadow march uses 4 octaves and is lifted by `ShadBias`, about 2.6 units). Only with `TerrFn` 3 (noise or map massif); skipped while erosion bakes, so the erosion map is measured on unterraced ground; with `ErDelta false` the baked map replaces `fc-height-proc` inside its square, so terraces show only outside it. With a map, `fc_map`'s planning sees them too. Costs about +50% per height call inside the patches (+44% render on a view that is mostly rock). 0 is off and adds one test and one store per height call. Lost blind pairwise in all 3 rounds (`docs/prs/21-terraces/`), so it stays off. | 0 |
+| `TerraceStep` | 3 | Mean bed thickness, world units. | |
+| `TerraceTread` | 0.65 | Mean fraction of a bed that is ledge (±0.15 per bed, kept within 0.05–0.9); the rest is the cliff. Larger makes steeper cliffs. | |
+| `TerraceDip` | [0.60 0.25] | The beds fall this much per unit x and z (0.65 is about 33°), so they don't follow height contours. | |
+| `TerraceBeds` | 0.45 | Share of the beds hard enough to stand out as cliffs, chosen anew in each fault block (1: every bed). | |
+| `TerraceIrreg` | 0.45 | 0–0.6 (clamped): how much bed thickness varies, through a slow noise of the bed coordinate and the strike. | |
+| `TerraceSlope` | [0.45 0.9] | Coarse slope (rise per unit run, from two ridged octaves) where terraces start, and where they are full. | |
+| `TerracePatch` | 0.6 | About what share of the ground lies in outcrop patches (1: everywhere). | |
+| `TerraceFault`, `TerraceThrow` | 70, 0.7 | Spacing of a family of wandering faults (world units; 0: none), and how far each fault block shifts the beds, in beds. The faults are real steps in the height. | |
 | `TerrFn` | 3 | 3 is the massif hierarchy. 0 (ridged only) and 1 (erosion fBm only) are kept from early drafts. | 0, 1, 3 |
 | `MarchT0` | 0.5 | Where marches start along a ray. A reflection sets it to the water distance while it marches, then puts it back. | 0.5 |
 | `MapOn` | false | Loads `lib/fc_map.ps`, which defines `fc-terrain-base` from a map (next section). Off, the terrain is exactly the noise it always was. | false, true |
@@ -448,6 +576,8 @@ takes the domain warp away near features. `fc-map-bake` samples it all
 into a `MapN`² table when the library loads; a piece that changes the map
 afterwards calls `fc-map-bake` again, before `fc-landscape-setup` (the
 erosion bake reads the terrain). `fc-map-plan` draws the map from above;
+`(label) x z yaw fc-map-plan-camera` marks a viewpoint on it and
+`x z fc-map-plan-target` an aim point (it marks `StandAt`/`LookAt` itself);
 `gallery/charted_range.ps` shows the lot. Only `TerrFn` 3 uses the map.
 
 | Setting | Default | What it does | Used |
@@ -563,6 +693,22 @@ and the land inland stay clearer. `/PNWCoast` uses it on a low `/Stratus`.
 | `SkyLight` | 1.15 | Strength of that sky light. | 1.15 |
 | `Bounce` | [0.40 0.36 0.30] | Warm light reflected up from the ground below. | |
 | `BumpAmp` | 0.55 | How strongly steep rock breaks into lit and shaded facets. | 0, 0.55 |
+| `CrevAmp` | 0 | Crevices (#21), 0–1: darkens bare steep rock where it is concave at pixel scale (cracks, gullies), from the Laplacian over the normal's two-pixel footprint. Costs two more `fc-height` samples per steep shaded pixel. | 0 |
+| `CrestAmp` | 0 | Brightens sharp convex edges on bare steep rock (same curvature). | 0 |
+| `CrevK` | 0.6 | Curvature (change of slope across two pixels) that gives the full `CrevAmp` / `CrestAmp`. Smaller is harsher. | |
+| `StrataAmp` | 0 | Rock strata on cliffs (#21), 0–1: steep bare rock is shaded as a staircase of ledges and steep faces, with a dark recess at the foot of each face and vertical joints that split each bed into blocks. Shading only (the geometry and the bakes don't change); fades out where a bed is under about 3 pixels high, and takes over half of `BumpAmp` on cliffs. 0 is off. | 0 |
+| `StrataStep` | 2.5 | Height of one bed, world units. | |
+| `StrataTread` | 0.55 | Fraction of each bed that is ledge, on average (±0.2 per bed, kept within 0.05–0.95); the rest is the face. | |
+| `StrataWarp` | 0.35 | How much the beds pinch and swell (a fine noise added to the stratum coordinate). | |
+| `LedgeSnow` | 0 | Snow along the ledges' lips, from 14 below the snowline up. | |
+| `StrataDip` | [0.18 0.08] | The beds' tilt: they fall this much per unit x and z. | |
+| `StrataSteep` | [0.45 0.8] | Beds show fully where the ground's normal `Ny` is below the first value, not at all above the second. | |
+| `StrataPatch` | 0.5 | About what share of the cliffs shows bedding, in broad patches (1: all of them). | |
+| `CrackAmp` | 0.5 | How dark the recess under each ledge is. | |
+| `JointAmp`, `JointW` | 0.45, 0.06 | How dark and how wide (in joint-noise units) the vertical joints are. | |
+| `JointFreq`, `JointN` | 0.3, 4 | Joint spacing: a noise at `JointFreq` along the strike, with `JointN` joints per unit of it. | |
+| `JointTilt` | 0.35 | How far each block's face turns its own way. | |
+| `JointDir` | [0.8 0.6] | Strike of the beds (unit x z). | |
 | `ShadowsOn` | true | Terrain casts shadows (a march toward the sun per lit pixel). | true |
 | `CloudShadowsOn` | true | Clouds shade the ground. | true |
 | `CloudSkyDim` | 0 | Above 0: clouds overhead (`fc-cloud-sky`) dim the ground's sky light and warm bounce, by this fraction of what they block, so the ground under a storm is darker and cooler. Costs `Probes` density probes per layer per ground pixel. | 0.75 (storm) |
@@ -573,7 +719,7 @@ and the land inland stay clearer. `/PNWCoast` uses it on a low `/Stratus`.
 
 The bake covers a square `ErSize` wide, centred `ErDist` ahead of the
 camera along `Yaw`. Outside it, the terrain is procedural, blended over the
-square's outer 6%.
+square's outer 6%, unless `ErFar` adds a coarser map for the far distance.
 
 | Setting | Default | What it does | Used |
 |---|---|---|---|
@@ -589,6 +735,14 @@ square's outer 6%.
 | `ErBaseOct` | 5 | Procedural octaves baked into the map. | 5 |
 | `ErDelta` | true | Keep only erosion's *change* and add it to the full procedural terrain. false replaces the terrain with the map, which loses detail. | true, false |
 | `FineAmp`, `FineScale` | 0.07, 7 | Detail added back in replace mode (`ErDelta` false). | |
+| `ErThermal` | 0 | Thermal erosion (#30): this many thermal passes after each of `ErRounds` rounds of droplets; 0 is off. Steep rock weathers into scree, which slides down and piles up as talus at the angle of repose below cliffs. About 0.35 s per pass at `ErN` 512 (5 passes × 4 rounds add about 7 s); the droplets draw the same random numbers either way. | 0, 5 |
+| `ErRounds` | 4 | Rounds of droplets the thermal passes alternate with (with `ErThermal`). | |
+| `ErTalus` | 33 | Angle of repose, degrees: scree on steeper ground slides on. Thermal ignores the sea stop that droplets have (`MapSea`): scree can slide below sea level, which may soften coast cliffs. | 30–38 |
+| `ErThermalRate` | 0.5 | Share of half the excess slope that moves per pass, at most what is loose. | |
+| `ErWeather` | 0.03 | Share of the excess weathered from rock into scree per pass. Small keeps cliffs and makes talus below them; large (0.5) makes every steep slope loose, which flattens the whole range to the angle of repose. | 0.01–0.05 |
+| `ErFar` | false | A second, coarser erosion map for the far distance (#30), so ranges beyond the main square show drainage too. The main map blends into it over its outer 6%, and it blends into the procedural terrain over its own. It has its own random stream (from `Seed`) and puts the main one back, so the forest is unchanged. No flow or rivers on it. At its coarse texel (about 7 units) the droplets mostly fill basins with sediment and soften slopes; they cut few readable channels, even at 200000 drops. Adds about 15 s to the bake at the defaults (5 s sampling, 10 s droplets at 384²; more with `ErFarDrops`), and about 6% to render time where the view reaches past the main square. Only worth it when the view reaches past the main square: raise `TMax` (and `HazeDist`). | false, true |
+| `ErFarN`, `ErFarDrops` | 384, 40000 | Far map resolution and droplets. | |
+| `ErFarSize`, `ErFarDist` | 2600, 1100 | Far map area, world units, and its centre's distance ahead. | |
 
 ## Forest (`fc_trees.ps`, with `TreesOn`)
 

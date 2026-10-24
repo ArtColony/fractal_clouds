@@ -1,0 +1,6 @@
+REALISM: B
+AESTHETICS: B
+
+- A’s repeated horizontal bands and gridlike markings look artificial.
+- B’s mountain faces have more natural, continuous shading.
+- B’s cleaner foreground lets the eye follow the ridges toward the distant peaks.

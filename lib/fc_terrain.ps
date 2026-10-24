@@ -39,6 +39,41 @@
 /PixAng 0.0035 fc-default
 /SkyLight 1.15 fc-default            % strength of the sky dome on terrain
 /BumpAmp 0.55 fc-default             % fractured-rock normal perturbation
+% Rock strata and joints on cliffs (#21), in shading only: steep bare rock
+% is lit as a staircase of ledges (treads) and steep faces (risers), with a
+% dark recess at the foot of each riser and vertical joints cutting each bed
+% into blocks that face slightly different ways. 0 turns it off.
+/CrevAmp 0 fc-default                % 0..1: darkening in cracks (concave at pixel scale) on rock
+/CrestAmp 0 fc-default               % brightening on sharp convex edges on rock
+/CrevK 0.6 fc-default                % curvature (slope change across 2 px) for the full effect
+/StrataAmp 0 fc-default              % 0..1: how strongly cliffs step
+/StrataStep 2.5 fc-default           % height of one bed, world units
+/StrataTread 0.55 fc-default         % fraction of a bed that is ledge
+/StrataDip [ 0.18 0.08 ] fc-default  % the beds' tilt: they fall this much per unit x, z
+/StrataSteep [ 0.45 0.8 ] fc-default % beds show fully below the first Ny, none above the second
+/StrataWarp 0.35 fc-default          % how much the beds pinch and swell
+/LedgeSnow 0 fc-default              % snow on the ledges near and above the snowline
+/StrataPatch 0.5 fc-default          % share of the cliffs that show bedding (1 = all of them)
+/CrackAmp 0.5 fc-default             % darkening in the recess under a ledge
+/JointAmp 0.45 fc-default            % darkening along the joints
+/JointFreq 0.3 fc-default            % joint noise frequency along the strike
+/JointN 4 fc-default                 % joints per unit of joint noise
+/JointW 0.06 fc-default              % joint width, in joint-noise units
+/JointTilt 0.35 fc-default           % how far each block's face turns
+/JointDir [ 0.8 0.6 ] fc-default     % strike of the beds (x z), unit length
+% Terraces (#21), in the geometry: steep ground in outcrop patches is cut
+% into dipping beds, each a ledge (tread) and a cliff (riser), so the march,
+% the normals and the sun shadows all see them. 0 turns it off.
+/TerraceAmp 0 fc-default             % 0..1: how fully steep outcrops step
+/TerraceStep 3 fc-default            % mean bed thickness, world units
+/TerraceTread 0.65 fc-default        % mean fraction of a bed that is ledge
+/TerraceDip [ 0.60 0.25 ] fc-default % the beds fall this much per unit x, z (0.65: about 33 degrees)
+/TerraceBeds 0.45 fc-default         % share of the beds hard enough to stand out as cliffs
+/TerraceIrreg 0.45 fc-default        % 0..0.6: how much bed thickness varies
+/TerraceSlope [ 0.45 0.9 ] fc-default % coarse slope where terraces start, and where they are full
+/TerracePatch 0.6 fc-default         % share of the ground in outcrop patches (1 = everywhere)
+/TerraceFault 70 fc-default          % spacing of the faults, world units (0: none)
+/TerraceThrow 0.7 fc-default         % how far a fault shifts the beds, in beds
 
 % TerrFn: 0 ridged only, 1 erosion fBm only, 3 the massif hierarchy
 /TerrFn 3 fc-default
@@ -119,12 +154,72 @@
         Ho 2 gt {
             Hwx 2.6 mul 1.9 add Hwz 2.6 mul 6.1 add Ho 1.5 sub fc-eroded 0.5 sub DetailAmp mul
         } { 0 } ifelse
-        Hm 0.6 mul 0.4 add mul
+        Hm 0.6 mul 0.4 add mul dup /Hdt exch def      % the detail, kept for fc-terrace
         Hm Hrd 0.92 mul 0.18 add mul 0.06 add add
     } ifelse
     } ifelse } ifelse
     TerrH mul TerrBase add
+    TerraceAmp 0 gt { TerrFn 3 eq ErBaking not and { fc-terrace } if } if  % terraces (#21)
     TerrCoast { fc-coast } if                  % the coast (fc_coast.ps, with MapSea)
+} bind def
+
+% Terraces (#21): h -> h', called from fc-height-proc (massif terrain, not
+% while erosion bakes) with Hmx Hmz, Hwx Hwz and Hm set. The bed coordinate
+% u = (h + dip . (x, z)) / step, shifted across faults and warped so beds
+% thicken and thin, is put through a soft staircase T(u): flat for the
+% first tread fraction of each bed, then a smoothstep riser; h' = h + w step
+% (T(u) - u), so treads dip and risers steepen. u is taken from h without
+% its fine detail (Hdt, the erosion fBm), which stays on top. The weight w
+% is the outcrop patch times a slope gate from two ridged octaves (three
+% samples), so it doesn't depend on the octave count; the bed phase does
+% only through ridged octaves 3-5. The march, the normals, the shadow march
+% (4 octaves, lifted by ShadBias) and the forest bake see nearly the same
+% ledges.
+/fc-terrace {                                    % h -> h'
+    /Tqh exch def
+    % outcrop patches
+    TerracePatch 1 lt {
+        1 TerracePatch 1.2 mul sub dup 0.2 add         % 0: none at all
+        Hmx 0.012 mul 17.3 add Hmz 0.012 mul 41.9 add fc-noise2 fc-smooth
+    } { 1 } ifelse /Tqw exch def
+    Tqw 0 gt Hm 0.05 gt and {                    % (no slope to speak of off the massif)
+        % coarse slope: two ridged octaves at the warped point, by forward
+        % differences, scaled to world units (massif mask, TerrH, TerrScale;
+        % 1.25 fitted against the 3-octave terrain's slope, r = 0.7)
+        Hwx Hwz 2 fc-ridged /Tq0 exch def
+        Hwx 0.05 add Hwz 2 fc-ridged Tq0 sub
+        Hwx Hwz 0.05 add 2 fc-ridged Tq0 sub
+        dup mul exch dup mul add sqrt 20 mul Hm mul 1.25 mul TerrH mul TerrScale mul
+        TerraceSlope 0 get TerraceSlope 1 get 0.001 add 3 -1 roll fc-smooth
+        Tqw mul TerraceAmp 1 fc-min mul /Tqw exch def
+    } { /Tqw 0 def } ifelse
+    Tqw 0 gt {
+        % beds from the ground without its fine detail, which goes back on top:
+        % the ledges keep their gullies and ragged lips, and the bed phase
+        % hardly depends on how many octaves the caller asked for
+        Tqh Hdt TerrH mul sub Hmx TerraceDip 0 get mul add Hmz TerraceDip 1 get mul add
+        TerraceStep 0.05 fc-max div /Tqu exch def
+        % faults: blocks across a wandering line family, each shifting the beds
+        TerraceFault 0 gt {
+            Hmx 0.8 mul Hmz 0.6 mul sub TerraceFault div
+            Hmx 0.02 mul 5.1 add Hmz 0.02 mul 9.7 add fc-noise2 0.8 mul add floor /Tqb exch def
+            Tqb 137.508 mul sin TerraceThrow mul Tqu add /Tqu exch def
+        } { /Tqb 0 def } ifelse
+        % beds thicken and thin, and pinch out along the strike
+        Tqu 0.43 mul 3.7 add  Hmx 0.6 mul Hmz 0.8 mul add 0.01 mul 1.3 add  fc-noise2
+        0.5 sub 2 mul TerraceIrreg 0 fc-max 0.6 fc-min mul Tqu add /Tqu exch def
+        /Tqk Tqu floor def /Tqf Tqu Tqk sub def
+        % every bed has its own share of ledge
+        Tqk 269.5 mul sin 24634.6 mul dup floor sub 0.3 mul 0.15 sub TerraceTread add 0.05 fc-max 0.9 fc-min /Tqt exch def
+        % and only the hard beds (TerraceBeds of them, a new choice in each
+        % fault block) stand out as cliffs; the soft ones stay as they were
+        TerraceBeds 1 lt {
+            1 TerraceBeds 1.15 mul sub dup 0.15 add     % 0: none at all
+            Tqk 127.1 mul Tqb 311.7 mul add sin 43758.5 mul dup floor sub
+            fc-smooth Tqw mul /Tqw exch def
+        } if
+        Tqt 1 Tqf fc-smooth Tqf sub Tqw mul TerraceStep mul Tqh add
+    } { Tqh } ifelse
 } bind def
 
 % massif: two smooth octaves at the warped point (Hwx Hwz), pushed toward 0
@@ -146,7 +241,7 @@
     Ho 2 gt {
         Hwx 2.6 mul 1.9 add Hwz 2.6 mul 6.1 add Ho 1.5 sub fc-eroded 0.5 sub DetailAmp mul
     } { 0 } ifelse
-    Hm 0.6 mul 0.4 add mul
+    Hm 0.6 mul 0.4 add mul dup /Hdt exch def      % the detail, kept for fc-terrace
     Hm Hrd 0.92 mul 0.18 add mul 0.06 add add
 } bind def
 
@@ -204,6 +299,12 @@
     Ke
     Kx Kz Ke add Ko fc-height Kh sub neg
     /Nz exch def /Ny exch def /Nx exch def
+    % crevices (#21): the Laplacian over the same two-pixel footprint, from
+    % two more samples; positive in cracks and gullies, negative on crests
+    CrevAmp 0 gt CrestAmp 0 gt or Ny Nx Nx mul Nz Nz mul add Ny Ny mul add sqrt div 0.92 lt and {
+        Kh Nx sub Kh Nz sub add  Kx Ke sub Kz Ko fc-height add  Kx Kz Ke sub Ko fc-height add
+        Kh 4 mul sub Ke div
+    } { 0 } ifelse /Kcv exch def
     /Nn Nx Nx mul Ny Ny mul add Nz Nz mul add sqrt def
     /Nx Nx Nn div def /Ny Ny Nn div def /Nz Nz Nn div def
     % sky visibility and concavity from four samples 7 units out: how high
@@ -221,6 +322,13 @@
     /Kv Kx 0.021 mul Kz 0.021 mul fc-noise2 def
     /Kv2 Kx 0.19 mul 3.3 add Kz 0.19 mul 9.1 add fc-noise2 def
     % rock with faint strata, scree on the gentler slopes below cliffs
+    % the stratum coordinate (#21): beds StrataStep high, tilted by
+    % StrataDip, wandering a little with the material noises
+    StrataAmp 0 gt {
+        /Ku Kh Kx StrataDip 0 get mul add Kz StrataDip 1 get mul add StrataStep 0.01 fc-max div
+            Kv 1.5 mul add Kv2 StrataWarp mul add def
+        /Kul Ku floor def /Kuf Ku Kul sub def
+    } if
     Rock Rock2 Kv 0.6 mul Kh 90 mul Kv2 140 mul add sin 0.2 mul add 0.2 add mix3v   % sin takes degrees
     Scree 0.62 0.8 Ny fc-smooth 0.7 mul mix3v
     % darker and lighter rock in patches (lichen, wet rock, different beds)
@@ -249,6 +357,16 @@
     % it may change Alb and scale the sun, sky and bump terms
     /KlMul 1 def /KskyMul 1 def /KbMul 1 def
     /fc-terrain-material where { pop fc-terrain-material } if
+    /Ksn 0 def /Ksw 0 def
+    StrataAmp 0 gt Ny 0.92 lt and { fc-terrain-strata } if
+    % crevices darken, crest edges catch a little more light, on bare rock
+    Kcv 0 ne {
+        1 StrataSteep 0 get StrataSteep 1 get Ny fc-smooth sub  1 Ksnow sub mul  1 Kfor sub mul  KbMul mul
+        /Kcw exch def
+        Kcv 0 gt { 0 CrevK 0.001 fc-max Kcv fc-smooth CrevAmp neg } { 0 CrevK 0.001 fc-max Kcv neg fc-smooth CrestAmp } ifelse
+        mul Kcw mul 1 add /Kcr exch def
+        /Alb [ Alb { Kcr mul } forall ] def
+    } if
     % fractured rock: tilt the shading normal by a three-octave noise gradient
     % on steep, snow-free ground, so faces break into planes in the light
     BumpAmp 0 gt Ny 0.88 lt and Ksnow 0.9 lt and {
@@ -258,7 +376,8 @@
             Kba mul Kbz add /Kbz exch def  Kba mul Kbx add /Kbx exch def  pop
             /Kbf Kbf 2.1 mul def /Kba Kba 0.55 mul def
         } repeat
-        0.62 0.88 Ny fc-smooth 1 exch sub 1 Ksnow sub mul BumpAmp mul KbMul mul /Kbk exch def
+        0.62 0.88 Ny fc-smooth 1 exch sub 1 Ksnow sub mul BumpAmp mul KbMul mul
+        Ksw 0.5 mul 1 exch sub mul /Kbk exch def        % strata take over on cliffs
         /Nx Nx Kbx Kbk mul sub def /Nz Nz Kbz Kbk mul sub def
         /Nn Nx Nx mul Ny Ny mul add Nz Nz mul add sqrt def
         /Nx Nx Nn div def /Ny Ny Nn div def /Nz Nz Nn div def
@@ -280,6 +399,63 @@
         Bounce Ki get Kbn mul 0.35 mul add
         mul
     } for
+} bind def
+
+% Strata and joints (#21), called from fc-terrain-shade on steep ground.
+% The beds are a staircase T(u) in the stratum coordinate u = (h + dip.x)/s:
+% flat for the first StrataTread of each bed, then a smooth riser. The lit
+% surface is h' = h + w s (T(u) - u), so its slope is
+% h'_x = h_x + w (T'(u) - 1)(h_x + dip_x); only the normal changes, the
+% geometry (and every bake) stays as it was. Vertical joints, from one
+% noise along the strike, split each bed into blocks; each block's face
+% turns a little its own way. The normal ignores the slope of the warp and
+% of the weight: a local approximation. Leaves Ksw, the strata weight
+% times StrataAmp.
+/fc-terrain-strata {
+    % weight: steep, bare rock, beds at least a few pixels high
+    1 StrataSteep 0 get StrataSteep 1 get Ny fc-smooth sub  1 Ksnow sub mul  1 Kfor sub mul  KbMul mul
+    2 5 StrataStep Kt PixAng mul 0.000001 fc-max div fc-smooth mul /Ksn exch def
+    % only in outcrops: broad patches of the rock show bedding
+    Ksn 0.001 gt StrataPatch 1 lt and {
+        0.9 StrataPatch sub  1.1 StrataPatch sub
+        Kx 0.06 mul 21.7 add Kz 0.06 mul 3.9 add fc-noise2 fc-smooth Ksn mul /Ksn exch def
+    } if
+    Ksn 0.001 gt {
+        /Ksw Ksn StrataAmp mul def
+        % every bed has its own share of ledge
+        /Ktr Kul 73.1 mul sin 0.2 mul StrataTread add 0.05 fc-max 0.95 2 copy gt { exch } if pop def
+        % T'(u) - 1: -1 on the tread, up to 1.5 / (1 - tread) - 1 on the riser
+        Kuf Ktr sub 1 Ktr sub div dup 0 lt { pop 0 } if
+        dup 1 exch sub mul 6 mul 1 Ktr sub div 1 sub Ksw mul /Kst exch def
+        /Kgx Nx Ny div neg def /Kgz Nz Ny div neg def
+        /Kgx Kgx StrataDip 0 get add Kst mul Kgx add def
+        /Kgz Kgz StrataDip 1 get add Kst mul Kgz add def
+        % joints: contours of a noise that runs along the strike, a new
+        % pattern in every bed
+        Kx JointDir 0 get mul Kz JointDir 1 get mul add JointFreq mul  Kul 1.7 mul 3.3 add
+        fc-noise2 JointN mul /Kjq exch def
+        /Kjf Kjq Kjq floor sub def
+        % each block's face turns its own way
+        Kjq floor 97.3 mul Kul 41.9 mul add /Kja exch def
+        /Kgx Kja sin JointTilt mul Ksw mul Kgx add def
+        /Kgz Kja 1.7 mul cos JointTilt mul Ksw mul Kgz add def
+        /Nn Kgx Kgx mul Kgz Kgz mul add 1 add sqrt def
+        /Nx Kgx neg Nn div def /Ny 1 Nn div def /Nz Kgz neg Nn div def
+        % dark recess at the foot of each riser, and along the joints
+        0 0.08 Kuf Ktr sub 0.02 add abs fc-smooth 1 exch sub CrackAmp mul
+        0 JointW 0.0001 fc-max Kjf 1 Kjf sub 2 copy gt { exch } if pop fc-smooth 1 exch sub JointAmp mul
+        2 copy lt { exch } if pop Ksw mul 1 exch sub
+        % and each bed its own tone
+        Kul 137 mul sin 0.12 mul Ksw mul 1 add mul /Kcr exch def
+        /Alb [ Alb { Kcr mul } forall ] def
+        % snow lies along the ledges' lips, from a little below the snowline
+        LedgeSnow 0 gt {
+            SnowLine 14 sub Kv 16 mul add  SnowLine Kv 16 mul add  Kh fc-smooth
+            Kst Ksw div neg 0 fc-max mul Ksw mul LedgeSnow mul
+            1 0 Ktr 0.4 mul Kuf fc-smooth sub mul      % a strip along the lip only
+            dup 0 gt { Snow exch Alb 3 1 roll mix3v /Alb exch def } { pop } ifelse
+        } if
+    } if
 } bind def
 
 % Soft shadow toward the sun: march with coarse terrain (ShadOctT octaves)
