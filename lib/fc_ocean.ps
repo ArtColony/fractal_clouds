@@ -201,7 +201,10 @@
 /fc-landscape-surface {                          % t -> r g b
     dup /OcT exch def OcSurfPrev
     AqWet not WetSand 0 gt and { TreesOn { FsMat 1 ne } { true } ifelse } { false } ifelse {
-        /OcX Mx OcT mul def /OcZ Mz OcT mul def /OcY My OcT mul CamY add def
+        % the shaded ground's height (Kh), not the ray's at the hit: the
+        % march's bisection leaves an error of a few hundredths, as much as
+        % the band, which aliased into moire
+        /OcX Kx def /OcZ Kz def /OcY Kh def
         OcX OcZ fc-water-level /OcL exch def
         OcL -999 gt {
             OcY OcL sub
