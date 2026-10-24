@@ -541,9 +541,9 @@
 % cluster; docs/prs/27-cloud-jitter/blue_noise.py makes it) looked up at the
 % pixel fc-render is on (FrI, FrJ). Neighbouring pixels get well-spread
 % offsets, so the error reads as a fine even dither, not grain; and every
-% render of a pixel, whole frame, crop or band, gets the same one. The extra
-% antialiasing samples of a pixel (same FrI, FrJ) each step on by the golden
-% ratio (the count restarts at each new pixel or new render, told apart by
+% render of a pixel, whole frame, crop or band, gets the same one. Each
+% further fc-clouds call in the same pixel (extra AA samples, water
+% reflections) steps on by the golden ratio (the count restarts at each new pixel or new render, told apart by
 % fc-render's start time FrT0). Before any fc-render (no FrI) it falls back
 % to fc-rnd; after one, a stray call outside it counts as one more
 % sample of the last pixel.

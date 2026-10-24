@@ -58,4 +58,4 @@ Large render: `gallery/previews/mountains-1280x800.png`
 - No trees yet (issue #1's stretch goal).
 - The foreground ridge at the bottom centre is still smooth and dune-like.
 - Faint grain inside the clouds from the jittered march steps (#27: now
-  blue-noise jitter and shorter dense steps).
+  blue-noise jitter (`CloudDense` opt-in)).
