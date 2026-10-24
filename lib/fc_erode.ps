@@ -212,7 +212,8 @@
 % edge, and the far one into the procedural terrain over its own.
 /fc-erode-far-bake {
     /EbT0 usertime def
-    rrand /ErFarSeed exch def
+    rrand /EfRs exch def                         % put back afterwards
+    /Seed where { pop Seed } { 0 } ifelse 404 add srand   % its own stream: it depends on its settings and Seed only
     /ErFarD 64 dict def
     ErFarD begin
         /ErN ErFarN def /ErSize ErFarSize def /ErDrops ErFarDrops def
@@ -221,7 +222,7 @@
         fc-erode-grow
         fc-erode-keep-delta
     end
-    ErFarSeed srand
+    EfRs srand
     /fc-erode-lookup /fc-erode-lookup2 load def
     (fc-erode: far ) print ErFarN 9 string cvs print (^2 map, sample ms ) print
     ErFarD /EbT1 get EbT0 sub 9 string cvs print
