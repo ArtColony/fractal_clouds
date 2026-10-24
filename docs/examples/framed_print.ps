@@ -1,0 +1,74 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 432 324
+%%Title: Framed print: a landscape and its passes in a larger page (#33)
+% Status: draft
+%
+% A demo of render passes (lib/fc_passes.ps, docs/settings.md "Render
+% passes"): the evening-lake scene is rendered once, into a rectangle of a
+% larger page, with its mask, depth and material IDs kept. The page then
+% puts the title behind the mountains (drawn through the sky
+% clip, after the picture), and prints the three passes underneath as
+% insets. Helvetica and Times only.
+%
+%   scripts/render.sh docs/examples/framed_print.ps
+%   scripts/render.sh -D Res=0.3 -D ErN=256 -D ErDrops=20000 docs/examples/framed_print.ps
+%                                                    # a quick look
+
+% the landscape: a scene file, and the passes to keep
+(lib/fc_presets.ps) run
+/PassKeep where { pop } { /PassKeep [ /beauty /mask /depth /material ] def } ifelse
+/DepthFar where { pop } { /DepthFar 500 def } ifelse
+/MaskClouds where { pop } { /MaskClouds false def } ifelse   % the title goes in front of the clouds
+(scenes/evening_lake.ps) run
+(lib/fc_landscape.ps) run
+
+% --- the page ---------------------------------------------------------------
+/PageW 432 def /PageH 324 def
+/WinX 36 def /WinY 84 def /WinS 1.125 def        % the picture: 320 x 200 scaled to 360 x 225
+/WinW 320 WinS mul def /WinH 200 WinS mul def
+
+0.95 0.93 0.88 setrgbcolor 0 0 PageW PageH rectfill  % paper
+
+% render and keep, painting nothing yet
+gsave WinX WinY translate WinS dup scale
+320 200 fc-landscape-keep
+grestore
+
+% the picture
+gsave WinX WinY translate WinS dup scale /beauty fc-pass-draw grestore
+
+% behind the mountains: the title, through the sky clip, after the picture
+gsave
+WinX WinY translate WinS dup scale
+fc-sky-clip
+0.30 0.22 0.34 setrgbcolor
+/Times-Bold findfont 28 scalefont setfont
+120 140 moveto (Evening Lake) show
+grestore
+
+% keyline
+0.25 setgray 0.6 setlinewidth WinX WinY WinW WinH rectstroke
+
+% caption
+0.15 setgray
+/Times-Italic findfont 15 scalefont setfont
+WinX 52 moveto (Evening Lake) show
+/Helvetica findfont 6.5 scalefont setfont
+WinX 40 moveto (ray-marched in PostScript, one pass: picture, mask,) show
+WinX 31 moveto (depth and material IDs, composed on this page) show
+
+% the passes, as insets
+/InS 0.2 def                                      % 64 x 40 each
+/InY 30 def
+[ [ /mask (MASK) ] [ /depth (DEPTH) ] [ /material (MATERIAL) ] ]
+0 1 2 { /InK exch def
+    dup InK get aload pop /InL exch def /InN exch def
+    /InX WinX WinW add 64 3 mul 8 2 mul add sub InK 72 mul add def
+    gsave InX InY translate InS dup scale InN fc-pass-draw grestore
+    0.25 setgray 0.4 setlinewidth InX InY 64 40 rectstroke
+    /Helvetica findfont 5.5 scalefont setfont
+    InX InY 8 sub moveto InL show
+} for
+pop
+
+showpage
