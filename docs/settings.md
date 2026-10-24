@@ -244,7 +244,7 @@ heights in `/Clear`, `/Overcast` and `/Storm` assume the standard terrain
 | `MapWater` | false | Fill the terrain map's `/lake` features (`MapOn`) with water at their levels, each over its polygon and shore band. | true |
 | `StandAt` | null | `[x z]` in map coordinates (the terrain's own: what `MapFeatures` use, `x` east, `z` north): stand the camera there. Sets `TerrOX`/`TerrOZ` as `fc_landscape.ps` loads, overriding the piece's own. The height still comes from `CamAbove`, `CamLift` or `CamHeight`. | [430 0] |
 | `LookAt` | null | `[x z]` or `[x y z]` in map coordinates: aim the centre of the frame there. `Yaw` is set as the file loads (before the erosion and forest windows, which lie along it, are placed) and `Pitch` during `fc-landscape-setup`, once the camera height and the ground at the target (`fc-height`, eroded) are known; `y` gives the target's height instead. Overrides the piece's `Yaw` and `Pitch`. A target where the camera stands is ignored, with a message. | [190 185] (a peak) |
-| `LookTilt` | 0 | Degrees added to the `Pitch` that `LookAt` works out: positive tilts the view up, so the target sits lower in the frame (about 1/6 of the frame height per 10° at `HFov` 60). | 0, 4 |
+| `LookTilt` | 0 | Degrees added to the `Pitch` that `LookAt` works out: positive tilts the view up, so the target sits lower in the frame: tan(`LookTilt`)/tan(`HFov`/2) half frame widths, about a quarter of the height per 10° on a 320×200 frame at `HFov` 60. | 0, 4 |
 
 The camera always stands at x = z = 0 in the world, looking along +z before
 `Yaw`. To stand somewhere else in the terrain, the terrain moves under it:
@@ -275,9 +275,11 @@ Two quick looks before paying for detail, both through `scripts/render.sh`
   `Res` 0.25, labels each `NAME = value` in its corner, and composites them
   into `renders/foo-sweep.png` (the frames are `foo-sweep-001.png`, ...).
   `--grid 3x2` sets the sheet's columns and rows. `--sweep Seed=1:9` is the
-  seed sheet: `Seed` makes the range. pscat's own `--sweep-seed SPEC` works
-  too, but it only overrides `srand`, which drives the march jitter and the
-  erosion droplets, not the noise, so its frames are the same range. A swept
+  seed sheet: `Seed` makes the range, and a frame you like is a `Seed` you
+  can set. pscat's own `--sweep-seed SPEC` works too, but it overrides every
+  `srand` call with the same value (the noises, the trees, the erosion
+  droplets and the jitter all reseed from it, instead of from the offsets of
+  `Seed`), so its frames can't be reproduced by a setting. A swept
   setting has to be one the piece reads with `/NAME where` (or leaves to a
   library's default); `--frame` and `--sweep` combine. pscat refuses `--lint`
   with a sweep, so sweeps aren't linted.

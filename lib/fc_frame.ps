@@ -40,8 +40,14 @@
     } for
     % eye level: a level ray at u = 0 has v = -tan(Pitch) / TanH, and v
     % runs over the frame's width scale (lib/fc_render.ps)
-    /FmV Pitch sin Pitch cos div neg TanH div def
-    /FmY FmH 2 div FmV FmW mul 2 div add def
+    % (looking nearly straight up or down, it is far off the frame)
+    Pitch cos abs 1e-3 lt {
+        /FmY Pitch sin 0 gt { -1e4 } { 1e4 } ifelse def
+    } {
+        /FmV Pitch sin Pitch cos div neg TanH div def
+        /FmY FmH 2 div FmV FmW mul 2 div add def
+        FmY -1e4 lt { /FmY -1e4 def } if FmY 1e4 gt { /FmY 1e4 def } if
+    } ifelse
     /Helvetica findfont 7 scalefont setfont
     FmY 0 ge FmY FmH le and {
         0 FmY FmW FmY 1 0.55 0.1 fc-frame-line

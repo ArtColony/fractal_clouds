@@ -102,8 +102,8 @@ scripts/render.sh --sweep Seed=1:9 gallery/<name>.ps         # nine ranges
 scripts/render.sh --sweep Pitch=2,5,8 --grid 3x1 gallery/<name>.ps
 ```
 
-Sweep `Seed`, not `--sweep-seed` (that only reseeds `srand`: the jitter and
-the erosion droplets, not the range). A swept setting must be one the piece
+Sweep `Seed`, not `--sweep-seed` (that feeds one value to every `srand`, so
+the frame you pick can't be set back as a `Seed`). A swept setting must be one the piece
 reads with `where` (or leaves to a library). `-D Profile=true` prints where the
 time goes if a render is slow.
 

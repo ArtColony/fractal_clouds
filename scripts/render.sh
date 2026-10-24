@@ -16,9 +16,9 @@
 #                                        # contact sheet: one frame per value at Res 0.25,
 #                                        # each labelled, composited into
 #                                        # renders/foo-sweep.png (frames foo-sweep-NNN.png)
-#   scripts/render.sh --sweep-seed 1:9 ...   # the same, reseeding srand (pscat's own
-#                                        # sweep: only the march jitter and the erosion
-#                                        # droplets; sweep Seed for a new range)
+#   scripts/render.sh --sweep-seed 1:9 ...   # pscat's own seed sweep: every srand call
+#                                        # gets the value (the noises, trees, erosion,
+#                                        # jitter); sweep Seed for frames a piece can name
 #   --grid 3x3                           # the contact sheet's columns x rows
 #
 # Output goes to renders/<name>.png (or $OUT/<name>.png); timings are appended
@@ -76,19 +76,20 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-# a framing pass or a sweep is a quick look: low Res unless the caller set it,
+# a framing pass or a sweep is a quick look: low Res unless the caller set it
+# (-D defines come after these, and a swept Res or AA is defined before them),
 # and the overlays from lib/fc_frame.ps, loaded ahead of the piece
 suffix=""
 pre=""
 if [ ${#sweep[@]} -gt 0 ]; then
   suffix="-sweep"
-  case " $defs " in *" /Res "*) ;; *) pre="$pre /Res 0.25 def" ;; esac
+  pre="$pre /Res where { pop } { /Res 0.25 def } ifelse"
   [ -z "$sweepname" ] || pre="$pre /FrameLabel /$sweepname def"
 fi
 if [ "$frame" = 1 ]; then
   [ -n "$suffix" ] || suffix="-frame"
-  case " $defs " in *" /Res "*) ;; *) pre="$pre /Res 0.5 def" ;; esac
-  case " $defs " in *" /AA "*) ;; *) pre="$pre /AA false def" ;; esac
+  pre="$pre /Res where { pop } { /Res 0.5 def } ifelse"
+  pre="$pre /AA where { pop } { /AA false def } ifelse"
   pre="$pre /FrameGrid true def"
 fi
 if [ -n "$pre" ]; then
