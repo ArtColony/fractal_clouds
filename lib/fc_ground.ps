@@ -132,7 +132,7 @@
 
 % below this many octaves the footprint is over twice the biggest boulder
 % and nothing shows: skip the layer without the exp
-/GnOctMin 1 BoulderSize 2 mul GnRoughOcts 0 get fc-max TerrScale mul div ln 2 ln div def
+/GnOctMin 1 BoulderSize 2 mul GnRoughOcts 0 get 2 copy lt { exch } if pop TerrScale mul div ln 2 ln div def
 /fc-height-base /fc-height load def
 /fc-height {                                     % x z oct -> h
     dup GnOctMin gt { 3 copy fc-height-base 4 1 roll fc-ground-rocks add } { fc-height-base } ifelse
