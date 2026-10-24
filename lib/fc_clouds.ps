@@ -52,6 +52,7 @@
 /AmbBot [ 0.34 0.38 0.48 ] fc-colour
 /PixAng 0.0035 fc-default
 /CloudLayers null fc-default         % null: the one layer above
+/CloudDense 0.3 fc-default           % a step deeper than this (optical depth) is shortened, to half at most
 
 % --- presets ----------------------------------------------------------------
 % Every key a layer has, with the values the presets start from: the gallery
@@ -272,19 +273,26 @@
 } bind def
 
 % --- density -------------------------------------------------------------------
-% fBm of folded noise, |2n - 1| per octave: rounded lumps with creases
-/fc-cloud-billow3 {                              % x y z oct -> v
-    /CbO exch def /CbZ exch def /CbY exch def /CbX exch def
-    0 1 0                                        % sum amp norm
-    CbO {
-        CbX CbY CbZ fc-noise3 2 mul 1 sub abs 2 index mul
-        4 -1 roll add 3 1 roll
-        1 index add exch 0.5 mul exch
-        /CbX CbX 2.03 mul 5.3 add def
-        /CbY CbY 2.03 mul 1.7 add def
-        /CbZ CbZ 2.03 mul 9.1 add def
-    } repeat
-    exch pop div
+% The layer's noise: fc-fbm3 (or, with Billow, fBm of folded noise,
+% |2n - 1| per octave: rounded lumps with creases), with the same arithmetic,
+% but it stops early once even full values in the octaves still to come
+% couldn't lift the sum to ClFbT (the density would be 0): most samples in
+% clear air need only the first octave or two. Returns -1 then.
+/fc-cloud-fbm {                                  % x y z oct -> v
+    /CfO exch def /CfZ exch def /CfY exch def /CfX exch def
+    /CfS 0 def /CfA 1 def /CfN 0 def /CfK 0 def /CfOut false def
+    /CfTot 2 2 CfO neg exp 2 mul sub def         % the weights' sum, 1 + 1/2 + ...
+    {
+        CfK CfO ge { exit } if
+        CfX CfY CfZ fc-noise3 ClBillow { 2 mul 1 sub abs } if CfA mul CfS add /CfS exch def
+        CfN CfA add /CfN exch def /CfA CfA 0.5 mul def
+        /CfX CfX 2.03 mul 5.3 add def            % odd offsets decorrelate octaves
+        /CfY CfY 2.03 mul 1.7 add def
+        /CfZ CfZ 2.03 mul 9.1 add def
+        /CfK CfK 1 add def
+        CfK CfO lt { CfS CfTot add CfN sub CfTot div ClFbT lt { /CfOut true def exit } if } if
+    } loop
+    CfOut { -1 } { CfS CfN div } ifelse
 } bind def
 
 % rain under the base: the cloud a little way up, in vertical shafts that
@@ -321,13 +329,17 @@
             Dz ClWc mul Dx ClWs mul sub
             /Dnz exch def /Dnx exch def
         } { /Dnx Dx def /Dnz Dz def } ifelse
-        Dnx ClScale mul ClSx mul Dy ClScale mul ClSy mul Dnz ClScale mul ClSz mul Doct
-        ClBillow { fc-cloud-billow3 } { fc-fbm3 } ifelse
-        ClThr sub 1 Dprof sub ClPamp mul sub
         % low-frequency coverage, so clouds gather into groups with gaps
         ClCovA 0 gt {
-            Dx ClCovS mul 41.3 add Dz ClCovS mul 7.9 add fc-noise2 0.5 sub ClCovA mul add
-        } if
+            Dx ClCovS mul 41.3 add Dz ClCovS mul 7.9 add fc-noise2 0.5 sub ClCovA mul
+        } { 0 } ifelse /Dcov exch def
+        % the noise value below which the density is 0 (with a margin, so
+        % fc-cloud-fbm's early out never changes a result)
+        /ClFbT ClThr 1 Dprof sub ClPamp mul add Dcov sub ClShaped { Dsh sub } if 0.000001 sub def
+        Dnx ClScale mul ClSx mul Dy ClScale mul ClSy mul Dnz ClScale mul ClSz mul Doct
+        fc-cloud-fbm
+        ClThr sub 1 Dprof sub ClPamp mul sub
+        ClCovA 0 gt { Dcov add } if
         ClShaped { Dsh add } if
         dup 0 lt { pop 0 } { ClGain mul } ifelse
         } ifelse
@@ -472,6 +484,11 @@
             /Px Mx Ct mul def /Py My Ct mul CamY add def /Pz Mz Ct mul def
             Px Py Pz Ct fc-cloud-oct fc-layer-density dup 0 gt {
                 /Cd exch def
+                % dense: shorten this step (to half at most) so no one
+                % sample takes much more than a quarter of the light
+                ClSig Cd mul Cdt mul dup CloudDense gt {
+                    CloudDense exch div dup 0.5 lt { pop 0.5 } if Cdt mul /Cdt exch def
+                } { pop } ifelse
                 /Ca 1 2.71828 ClSig Cd mul Cdt mul neg exp sub def
                 ClFade { Ct ClF0 gt { /Ca Ca TMax Ct sub ClF1 mul mul def } if } if
                 Px Py Pz Cd Cph fc-cloud-light Ct fc-haze
