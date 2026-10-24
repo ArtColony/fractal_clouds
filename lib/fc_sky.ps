@@ -14,8 +14,9 @@
 %                             along the current ray (Mx My Mz from CamY):
 %                             haze density falls off with height, and the
 %                             optical depth is integrated along the ray
-%   r g b fc-tone r g b       exposure tone curve, 1 - exp(-c * Exposure),
-%                             then sRGB gamma
+%   r g b fc-tone r g b       linear light to sRGB: the ToneCurve (/Exp:
+%                             1 - exp(-c * Exposure) then a 2.2 power;
+%                             /ACES: a filmic curve and the sRGB transfer)
 %   fc-sun-update -           after changing SunDir (or SunElev/SunAzim):
 %                             normalise it and rederive the sun and sky
 %                             colours the piece hasn't set
@@ -499,6 +500,39 @@ fc-sun-update
     } ifelse
 } bind def
 
+% ToneCurve picks the curve, once, as this file loads (fractal_clouds#24):
+%   /Exp   1 - exp(-Exposure L) per channel, then a 2.2 power (the original)
+%   /ACES  Stephen Hill's fit of the ACES reference rendering and sRGB
+%          output transforms: a 3x3 into the RRT's working space, a
+%          rational curve with a toe and a shoulder, a 3x3 back out, then
+%          the exact sRGB transfer function. Its input is Exposure L times
+%          TnGain 1.1, which puts mid-tones (Exposure L = 0.4) where /Exp
+%          does, so Exposure keeps its meaning.
+/ToneCurve /Exp fc-default
+/TnGain 1.1 def
+/fc-srgb-oetf {                                  % linear 0..1 -> sRGB code value
+    dup 0.0031308 le { dup 0 lt { pop 0 } if 12.92 mul } {
+        dup 1 gt { pop 1 } if 1 2.4 div exp 1.055 mul 0.055 sub
+    } ifelse
+} bind def
+/fc-tone-aces-rrt {                              % v -> v'  (Hill's RRT+ODT fit)
+    dup dup 0.0245786 add mul 0.000090537 sub
+    exch dup 0.983729 mul 0.4329510 add mul 0.238081 add div
+} bind def
+ToneCurve /ACES eq {
+/fc-tone {                                       % linear r g b -> sRGB r g b
+    Exposure TnGain mul /TnK exch def
+    TnK mul /TnB exch def TnK mul /TnG exch def TnK mul /TnR exch def
+    0.59719 TnR mul 0.35458 TnG mul add 0.04823 TnB mul add fc-tone-aces-rrt
+    0.07600 TnR mul 0.90834 TnG mul add 0.01566 TnB mul add fc-tone-aces-rrt
+    0.02840 TnR mul 0.13383 TnG mul add 0.83777 TnB mul add fc-tone-aces-rrt
+    /TnB exch def /TnG exch def /TnR exch def
+    1.60475 TnR mul -0.53108 TnG mul add -0.07367 TnB mul add fc-srgb-oetf
+    -0.10208 TnR mul 1.10813 TnG mul add -0.00605 TnB mul add fc-srgb-oetf
+    -0.00327 TnR mul -0.07276 TnG mul add 1.07602 TnB mul add fc-srgb-oetf
+} bind def
+} {
 /fc-tone {                                       % linear r g b -> sRGB r g b
     3 { Exposure mul neg 2.71828 exch exp 1 exch sub 0.4545 exp 3 1 roll } repeat
 } bind def
+} ifelse

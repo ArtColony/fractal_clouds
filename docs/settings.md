@@ -137,6 +137,22 @@ time of day, weather, terrain, and (optionally) season.
 | `/Autumn` | `SnowLine` 24, `FsAutumn` 1 | Turns the larches gold and the broadleaves, but only if the stand has them: the default `FsMix [1]` is all spruce, which ignores it, so also set `FsMix` (experimental) |
 | `/Winter` | `SnowLine` −8, `FsAutumn` 0 | Snow on every slope that is not too steep |
 
+| Tone and grade | Sets | Look |
+|---|---|---|
+| `/Filmic` | `ToneCurve` /ACES | The filmic tone curve |
+| `/Classic` | `ToneCurve` /Exp | The original exponential curve and 2.2 power |
+| `/Warm` | `GradeTemp` 0.4 | Warmer white balance |
+| `/Cool` | `GradeTemp` −0.4 | Cooler white balance |
+| `/Muted` | `GradeSat` 0.75, `GradeLift` 0.006 | Less saturated, slightly lifted blacks |
+| `/Matte` | `GradeLift` 0.02, `GradeSat` 0.9 | Milky, lifted blacks |
+| `/SplitTone` | `GradeSplit` 0.5 | Teal shadows, warm highlights |
+| `/CoolMuted` | `GradeTemp` −0.3, `GradeSat` 0.72, `GradeLift` 0.006, `GradeSplit` 0.3 | Muted and cool, for an overcast Pacific Northwest look (#40) |
+| `/Vignette` | `Vignette` 0.3 | Darker edges and corners; deliberately subtle (edges at 70%), raise `Vignette` for more |
+
+Grade presets combine with each other (list the one whose values should win
+first: `[ /CoolMuted /Vignette ]`) and with the other groups. See the colour
+grade section below for what each setting does.
+
 `/Alpine` sets a snow line, so a season listed *before* it wins. The cloud
 heights in `/Clear`, `/Overcast` and `/Storm` assume the standard terrain
 (`TerrTop` 59); with a taller `TerrH`, raise them.
@@ -225,13 +241,38 @@ blend sky (`SkyModel` false), exactly as before.
 | `MoonLight` | 0.12 | Moonlight as a fraction of `SunPower` (a day-for-night convention; raise `Exposure` too). | 0.12 |
 | `MoonCol` | [0.60 0.76 1.00] | Moonlight colour above the air, sRGB: blue-grey, as night reads to the eye. | |
 | `Stars` | 1 | Star brightness, where the sky is dark enough. 0 for none. | 1 |
-| `Exposure` | 1.6 | Brightness before the tone curve `1 − exp(−Exposure·L)`. | 1.6, 1.9, 3, 4 (night) |
+| `Exposure` | 1.6 | Brightness before the tone curve. Means the same with either `ToneCurve`: mid-tones land in the same place. | 1.6, 1.9, 3, 4 (night) |
+| `ToneCurve` | /Exp | The tone curve, chosen as `fc_sky.ps` loads. `/Exp`: `1 − exp(−Exposure·L)` per channel, then a 2.2 power (no toe, so shadows stay light). `/ACES`: a filmic curve (Hill's fit of ACES) with a toe and a long shoulder, then the exact sRGB transfer function: deeper, more colourful shadows and softer highlights. Also the `/Filmic` and `/Classic` presets. | /Exp, /ACES |
 | `HazeDist` | 520 | Distance at which haze reaches 63% at height 0. Smaller means thicker air. | 400, 520, 650 |
 | `HazeH` | 45 | Height over which the haze thins by a factor of e. | 45 |
 | `HazeChroma` | 1 with `SkyModel`, else 0 | How far the haze fades each channel at its own rate. 1 takes the haze to be the model's Rayleigh air plus enough neutral aerosol to reach `HazeDist` in green, so blue fades a little sooner and red a little later (about 15% and 4% at `HazeDist` 650: a haze that thick is mostly aerosol); 0 fades every channel over `HazeDist`; 2 or 3 exaggerates the blue distance. `HazeDist` is the green channel's distance. | 0, 1 |
 
 `fc-sun-update` recomputes everything derived after a piece changes
 `SunDir`, `SunElev` or the moon after loading.
+
+## Colour grade (`fc_grade.ps`)
+
+A grade in linear light, applied by the `fc-landscape-grade` hook just
+before the tone curve. `fc_landscape.ps` loads `lib/fc_grade.ps` only when
+one of `GradeTemp`, `GradeSat`, `GradeSplit`, `GradeLift` or `Vignette` is
+away from its neutral value, so a piece without a grade renders exactly as
+before. The steps run in this order: white balance, split toning,
+saturation, vignette, lift. The grade presets below set these.
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `GradeTemp` | 0 | White balance: above 0 warmer (red ×(1 + 0.15·t), green ×(1 + 0.02·t), blue ×(1 − 0.15·t)), below 0 cooler. | −0.4 … 0.4 |
+| `GradeSat` | 1 | Saturation about the luminance (Rec. 709 weights); below 1 mutes. | 0.72, 0.75, 0.9 |
+| `GradeSplit` | 0 | Split toning strength, 0–1: shadows lean toward `GradeShadows`, highlights toward `GradeHighlights`, blended by luminance about `GradePivot`. | 0.3, 0.5 |
+| `GradeShadows` | [0.32 0.45 0.52] | Shadow tint, sRGB; only its hue counts (it is scaled to luminance 1). Teal by default. | |
+| `GradeHighlights` | [0.62 0.52 0.40] | Highlight tint, sRGB, the same way. Warm by default. | |
+| `GradePivot` | 0.25 | Linear luminance at which a pixel is half shadow, half highlight. | |
+| `GradeLift` | 0 | Light added to every channel (a veil, like lens flare): lifted, milky blacks. 0.01 is gentle. | 0.006, 0.02 |
+| `Vignette` | 0 | Darkening toward the frame's edge, following the ray's angle off the view axis as cos⁴: the left and right edges get 1 − `Vignette`, the corners a little darker. Independent of resolution and crop. | 0.3 |
+
+The vignette's view axis is taken as `fc_grade.ps` loads; a piece that
+changes `Pitch`, `Yaw` or `HFov` afterwards calls `fc-camera-update` and then
+`fc-grade-update`.
 
 ## Clouds (`fc_clouds.ps`)
 
@@ -659,7 +700,7 @@ These are procedures, not settings. Redefine them **after** loading
 | `fc-landscape-hit` | `– → t \| −1` | `fc-forest-hit` with trees, `fc-terrain-hit` without. |
 | `fc-landscape-surface` | `t → r g b` | `fc-tree-shade` on a tree (`FsMat` 1; `FsKind` says which part: 0 a crown, 1 a trunk, 2 a log, 3 a crown's underside), otherwise `fc-terrain-shade`. Linear light, before haze. |
 | `fc-landscape-sky` | `dx dy dz → r g b` | `fc-sky` above the horizon, the haze colour below it. |
-| `fc-landscape-grade` | `r g b → r g b` | Nothing. Linear light, just before the tone curve; a place for a colour grade or vignette. |
+| `fc-landscape-grade` | `r g b → r g b` | `fc-grade` when a grade setting is set (see Colour grade), otherwise nothing. Linear light, just before the tone curve. A piece that redefines it can call `fc-grade` itself (after loading `lib/fc_grade.ps`). |
 | `fc-forest-dens` | `x z h ny curv → density height-scale` | `fc_trees`' rules. Wrap it to keep trees off some ground, as `fc_water` does. Redefine it before `fc-landscape-setup`. |
 | `fc-terrain-material` | reads and changes `Alb KlMul KskyMul KbMul` | Defined by `fc_trees` (forest floor), and chained onto by `fc_coast` (beaches) and `fc_water` (shores). With none of them it doesn't exist, and a piece can define it to paint the ground. |
 | `fc-terrain-base` | `x z → lift mask pin` | Defined by `fc_map.ps` (`MapOn`); otherwise absent and the noise massif is used. Map coordinates in; the lift in world units, the massif mask 0–1 and the pin 0–1 out. A piece can define its own (an analytic island, say) before `fc-landscape-setup`. |

@@ -80,6 +80,17 @@
     /Summer << /SnowLine 27 /FsAutumn 0 >>
     /Autumn << /SnowLine 24 /FsAutumn 1 >>
     /Winter << /SnowLine -8 /FsAutumn 0 >>
+
+% --- tone and colour grade (lib/fc_grade.ps, #24) ----------------------------
+    /Filmic << /ToneCurve /ACES >>
+    /Classic << /ToneCurve /Exp >>
+    /Warm << /GradeTemp 0.4 >>
+    /Cool << /GradeTemp -0.4 >>
+    /Muted << /GradeSat 0.75 /GradeLift 0.006 >>
+    /Matte << /GradeLift 0.02 /GradeSat 0.9 >>
+    /SplitTone << /GradeSplit 0.5 >>
+    /CoolMuted << /GradeTemp -0.3 /GradeSat 0.72 /GradeLift 0.006 /GradeSplit 0.3 >>
+    /Vignette << /Vignette 0.3 >>
 >> def
 
 } ifelse
