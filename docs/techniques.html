@@ -334,6 +334,16 @@ cloud octaves   = clamp( floor( log(1 / (2 · t · PixAng · NoiseScale)) / log 
 <p><strong>What went wrong:</strong> replacing the terrain with the eroded map lost all its crispness. A bilinear lookup showed every texel as a flat facet; a smoother B-spline rounded every ridge off. The fix was to keep only the <em>change</em> erosion made (<code>ErDelta</code>, the default) and add it to the full procedural terrain, which keeps its eight octaves of detail and gains drainage on top. The change is read with a Catmull–Rom cubic over 4×4 texels (it passes through the texel values and has a continuous slope, so normals don't facet), and its weight fades to zero over the map's outer 6% so there's no seam.</p>
 </div>
 
+<h3>Thermal erosion and talus</h3>
+
+<p>Water carves; gravity sheds. Rock that is steeper than loose material can rest on weathers, and the debris slides down until it lies at its <em>angle of repose</em>, about 33°, building the straight scree aprons under every cliff. The classic thermal rule (Musgrave, Kolb and Mace 1989) moves, wherever a texel stands more than the talus height <code>tan(ErTalus) · texel</code> above a 4-way neighbour, part of the excess to the lower neighbours in proportion to their drops. Applied to the whole map it is a slow blur: in these ranges about 40% of texels are steeper than 33°, and a score of passes rounds every ridge to repose.</p>
+
+<p>So the bake keeps two layers. Each pass first <em>weathers</em> a small share (<code>ErWeather</code>) of the excess from rock into scree in place, a loose depth per texel, and then moves only scree, up to <code>ErThermalRate</code> of half the excess. Rock faces stay steep and feed debris slowly; the debris runs down the face and piles up where the slope falls below repose, so the cliff retreats a little and grows a talus cone at its foot. The passes (<code>ErThermal</code> of them) run after each of <code>ErRounds</code> rounds of droplets, so gullies cut into the aprons and fans spread over them, and alternate their scan direction so material doesn't creep one way. They draw no random numbers, so the droplets are the same with or without them. A pass costs about 0.35 s at <code>ErN</code> 512: most texels are below repose and leave after four reads.</p>
+
+<h3>The far map</h3>
+
+<p>The main map covers a square 1150 units wide; past it the terrain was purely procedural, so distant ranges had ridges but no drainage. <code>ErFar</code> bakes a second, coarser map (384² over 2600 units, a texel of about 7 units) with the same sampling, droplets and thermal passes, kept in its own dictionary so the main map's names, which rivers use, stay untouched. The lookup reads the main map and, where its edge weight falls short of 1, the far one, blending main into far over the main map's outer 6% and far into procedural over its own. The far bake seeds its own random stream from <code>Seed</code> and puts the main stream back afterwards, so its result depends only on its settings and <code>Seed</code> (a clean key for caching bakes, #18) and the forest bake after it is unchanged.</p>
+
 <!-- ===================================================================== -->
 <h2 id="terrain-shade">8. Shading the ground</h2>
 

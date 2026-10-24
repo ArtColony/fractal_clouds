@@ -43,6 +43,7 @@
 /ErRounds 4 fc-default               % rounds of droplets the passes alternate with
 /ErTalus 33 fc-default               % angle of repose, degrees: steeper ground sheds material
 /ErThermalRate 0.5 fc-default        % share of the excess moved per pass
+/ErWeather 0.03 fc-default           % share of the excess weathered from rock into scree per pass
 % a coarser second map for the far distance (#30): off by default
 /ErFar false fc-default
 /ErFarN 384 fc-default
@@ -89,11 +90,13 @@
     /ErLim ErN 2 sub def
     /EtRev true def
     /EbR ErThermal 0 gt { ErRounds } { 1 } ifelse def
+    ErThermal 0 gt { /ErLoose ErN ErN mul array def 0 1 ErN ErN mul 1 sub { ErLoose exch 0 put } for } if
     1 1 EbR { /Ebk exch def
         ErDrops Ebk mul EbR idiv  ErDrops Ebk 1 sub mul EbR idiv sub
         { fc-erode-drop } repeat
         ErThermal 0 gt { ErThermal fc-erode-thermal } if
     } for
+    /ErLoose null def
 } bind def
 
 /fc-erode-drop {                                 % one droplet
@@ -161,12 +164,17 @@
 
 /ErBaked false def /ErBaking false def
 
-% Thermal erosion (fractal_clouds#30): wherever ground is steeper than the
-% angle of repose ErTalus, part of the excess slides to the lower 4-way
-% neighbours, in proportion to how far each lies below (Musgrave, Kolb and
-% Mace 1989). Cliffs shed material that piles up beneath them as talus
-% slopes at the angle of repose. Passes alternate their scan direction so
-% material doesn't creep one way. Draws no random numbers.
+% Thermal erosion (fractal_clouds#30), with two layers: rock and scree
+% (ErLoose, the loose depth per texel). Wherever ground is steeper than the
+% angle of repose ErTalus, each pass weathers ErWeather of the excess
+% from rock into scree in place, then moves scree, up to ErThermalRate of
+% half the excess, to the lower 4-way neighbours in proportion to how far
+% each lies below (the rule of Musgrave, Kolb and Mace 1989, limited to
+% what is loose). Rock slopes stay steep while weathering slowly feeds
+% scree, which runs down and piles up below the cliffs as talus at the
+% angle of repose; with all ground loose (ErWeather large) it is the plain
+% rule, which flattens every steep slope. Passes alternate their scan
+% direction so material doesn't creep one way. Draws no random numbers.
 /fc-erode-thermal {                              % passes -> -
     /EtT ErTalus sin ErTalus cos div ErTex mul TerrH div def   % normalised height step at the talus angle
     /EtC ErThermalRate 0.5 mul def               % half the excess levels a pair
@@ -184,7 +192,12 @@
                 Ed2 2 copy lt { exch } if pop
                 Ed3 2 copy lt { exch } if pop
                 EtT sub dup 0 gt {
-                    EtC mul /Etm exch def                % amount leaving this texel
+                    % weather some rock into scree, then move up to the
+                    % excess's share of the scree there
+                    /Ete exch def
+                    ErLoose Eti get Ete ErWeather mul add
+                    Ete EtC mul 2 copy gt { exch } if pop /Etm exch def    % amount leaving this texel
+                    ErLoose Eti 2 copy get Ete ErWeather mul add Etm sub put
                     /Ets 0 def
                     Ed0 EtT gt { /Ets Ets Ed0 add def } if
                     Ed1 EtT gt { /Ets Ets Ed1 add def } if
@@ -192,10 +205,14 @@
                     Ed3 EtT gt { /Ets Ets Ed3 add def } if
                     /Etq Etm Ets div def
                     ErMap Eti Eth Etm sub put
-                    Ed0 EtT gt { ErMap Eti 1 sub 2 copy get Ed0 Etq mul add put } if
-                    Ed1 EtT gt { ErMap Eti 1 add 2 copy get Ed1 Etq mul add put } if
-                    Ed2 EtT gt { ErMap Eti ErN sub 2 copy get Ed2 Etq mul add put } if
-                    Ed3 EtT gt { ErMap Eti ErN add 2 copy get Ed3 Etq mul add put } if
+                    Ed0 EtT gt { /Etj Eti 1 sub def /Etv Ed0 Etq mul def
+                        ErMap Etj 2 copy get Etv add put ErLoose Etj 2 copy get Etv add put } if
+                    Ed1 EtT gt { /Etj Eti 1 add def /Etv Ed1 Etq mul def
+                        ErMap Etj 2 copy get Etv add put ErLoose Etj 2 copy get Etv add put } if
+                    Ed2 EtT gt { /Etj Eti ErN sub def /Etv Ed2 Etq mul def
+                        ErMap Etj 2 copy get Etv add put ErLoose Etj 2 copy get Etv add put } if
+                    Ed3 EtT gt { /Etj Eti ErN add def /Etv Ed3 Etq mul def
+                        ErMap Etj 2 copy get Etv add put ErLoose Etj 2 copy get Etv add put } if
                 } { pop } ifelse
             } for
         } for
