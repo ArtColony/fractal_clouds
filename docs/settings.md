@@ -100,19 +100,19 @@ blend sky (`SkyModel` false), exactly as before.
 | `Horizon` | derived | Sky colour at the horizon. Derived from the model (90° round from the sun); setting it turns `SkyModel` off. | [0.94 0.74 0.58] |
 | `SunPower` | 1.1 | Sunlight above the atmosphere, white. | 1.1 |
 | `SunDisc` | 40 | Brightness of the sun's (and moon's) disc in the sky. | 40 |
-| `SkyGain` | 14 | The scattered sky's brightness relative to the sun. | 14 |
+| `SkyGain` | 12.7 | The scattered sky's brightness relative to the sun (both are scaled by `SunPower`). | 12.7 |
 | `SkySat` | 1.2 | Saturation of the sky's colour about its luminance; 1 is the model as computed. | 1.2 |
 | `Turbidity` | 1 | Aerosol amount: 1 is a clear mountain day. More whitens the horizon and widens the glow round the sun. | 1 |
 | `MultiScatter` | 1 | Light scattered more than once (the sky's mean radiance scattered again): brightens and blues the horizon. 0 for single scattering. | 1 |
 | `AmbGain` | 2.3 | Derived `SkyAmb` is this times the sky's cosine-weighted mean, pulled 40% toward grey; `AmbTop` and `AmbBot` are 1.2 and 0.31 of that. Pieces that set any of the three keep theirs. | 2.3 |
 | `MoonDir`, `MoonElev`, `MoonAzim` | null, null, 0 | A moon, by vector or by angles. Null means none. It lights the sky, and once it outshines the sun at the camera it takes over `SunDir` and `SunCol` for the ground and clouds. | 20/60, 25/−40, 45/10 |
-| `MoonLight` | 0.25 | Moonlight as a fraction of `SunPower` (a day-for-night convention; raise `Exposure` too). | 0.25 |
+| `MoonLight` | 0.12 | Moonlight as a fraction of `SunPower` (a day-for-night convention; raise `Exposure` too). | 0.12 |
 | `MoonCol` | [0.60 0.76 1.00] | Moonlight colour above the air, sRGB: blue-grey, as night reads to the eye. | |
 | `Stars` | 1 | Star brightness, where the sky is dark enough. 0 for none. | 1 |
 | `Exposure` | 1.6 | Brightness before the tone curve `1 − exp(−Exposure·L)`. | 1.6, 1.9, 3, 4 (night) |
 | `HazeDist` | 520 | Distance at which haze reaches 63% at height 0. Smaller means thicker air. | 400, 520, 650 |
 | `HazeH` | 45 | Height over which the haze thins by a factor of e. | 45 |
-| `HazeChroma` | 1 with `SkyModel`, else 0 | How far the haze fades each channel at its own rate: 1 as the model's ground-level air does (blue over about half of `HazeDist`, red over nearly twice it, so distant ground goes blue); 0 fades every channel over `HazeDist`. `HazeDist` is the green channel's distance. | 0, 1 |
+| `HazeChroma` | 1 with `SkyModel`, else 0 | How far the haze fades each channel at its own rate: 1 as the model's ground-level air does (blue over about half of `HazeDist`, red over about one and a half times it, so distant ground goes blue); 0 fades every channel over `HazeDist`. `HazeDist` is the green channel's distance. | 0, 1 |
 
 `fc-sun-update` recomputes everything derived after a piece changes
 `SunDir`, `SunElev` or the moon after loading.

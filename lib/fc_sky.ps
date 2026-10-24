@@ -81,7 +81,7 @@ fc-camera-update
 /MoonDir null fc-default             % or MoonElev/MoonAzim, like the sun's
 /MoonElev null fc-default
 /MoonAzim 0 fc-default
-/MoonLight 0.25 fc-default           % moonlight, as a fraction of SunPower
+/MoonLight 0.12 fc-default           % moonlight, as a fraction of SunPower
 /MoonCol [ 0.60 0.76 1.00 ] fc-colour    % blue-grey, as night reads to the eye
 /Stars 1 fc-default                  % star brightness; 0 for none
 /PixAng 0.0035 fc-default            % radians per image pixel (fc_render.ps sets it)
@@ -100,12 +100,14 @@ fc-camera-update
 /Exposure 1.6 fc-default
 
 % --- the atmosphere (SkyModel) ---------------------------------------------
-/SkyGain 14 fc-default               % scattered sky light, relative to the sun
+/SkyGain 12.7 fc-default             % scattered sky light, relative to the sun (14 / SunPower)
 /SkySat 1.2 fc-default               % colour saturation of the sky light
 /Turbidity 1 fc-default              % aerosol amount; 1 is a clear mountain day
 /AmbGain 2.3 fc-default              % sky light on the ground: ambient / mean sky radiance
 /MultiScatter 1 fc-default           % light scattered more than once; 0 for single scattering only
 /SkMS [ 0 0 0 ] def                  % the sky's mean radiance, set by fc-sun-update
+/SkMSon 1 def                        % 1 while the sun's pass runs, 0 for the moon's
+/SkNoStars false def                 % true while the haze colour is sampled
 
 % constants, in world units (one unit is 10 m)
 /SkR 637100 def                      % earth radius
@@ -194,6 +196,11 @@ fc-camera-update
           1 SkG SkG mul add 2 SkG mul SkMu mul sub 1.5 exp 12.5663706 mul div def
     /SkH0 CamY def
     /SkSs SkLight 1 get def
+    % the light's component along the ray's horizontal: the local vertical
+    % tilts that way by s/R down the curved ray, so the light's local
+    % elevation changes with distance
+    /SkMuH SkDx SkLight 0 get mul SkDz SkLight 2 get mul add
+           SkDx SkDx mul SkDz SkDz mul add sqrt 0.000001 add div def
     % the view ray's air columns from the camera to space
     /SkXr0 SkHR 2.71828 SkH0 neg SkHR div exp mul SkM0R SkDy fc-sky-airmass mul def
     /SkXm0 SkHM 2.71828 SkH0 neg SkHM div exp mul SkM0M SkDy fc-sky-airmass mul def
@@ -222,14 +229,15 @@ fc-camera-update
         /SkRr 2.71828 SkHm neg SkHR div exp def
         /SkRm 2.71828 SkHm neg SkHM div exp def
         /SkRo SkHm SkO1 ge SkHm SkO2 le and { 1 } { 0 } ifelse def
-        SkHm SkSs fc-sky-tsun 3 array astore /SkTsun exch def
+        SkHm SkSs SkH0 SkDy SkHm fc-sky-chord SkR div SkMuH mul add fc-sky-tsun
+        3 array astore /SkTsun exch def
         0 1 2 { /SkI exch def
             /SkTb 2.71828 SkBE SkI get SkXr mul SkBMe SkXm mul add SkSO SkI get SkXo mul add neg exp def
             SkOut SkI get
             % sunlight scattered once, plus the sky's mean radiance scattered
-            % again (SkMS), over the extinction
+            % again (SkMS, the sun's pass only), over the extinction
             SkBR SkI get SkRr mul SkPr mul SkBM SkRm mul SkPm mul add SkTsun SkI get mul
-            SkBR SkI get SkRr mul SkBM SkRm mul add SkMS SkI get mul add
+            SkBR SkI get SkRr mul SkBM SkRm mul add SkMS SkI get mul SkMSon mul add
             SkBE SkI get SkRr mul SkBMe SkRm mul add SkSO SkI get SkRo mul add div
             SkTa SkI get SkTb sub mul add
             SkOut SkI 3 -1 roll put
@@ -285,16 +293,16 @@ fc-camera-update
 % weights SkD and SkDm for fc-sky-model.
 /fc-sky-light {                                  % dx dy dz -> r g b
     /SkVz exch def /SkVy exch def /SkVx exch def
-    /SkLight SkSun def
+    /SkLight SkSun def /SkMSon 1 def
     SkVx SkVy SkVz fc-sky-scatter
-    /SkOb exch def /SkOg exch def /SkOr exch def
+    SunPower mul /SkOb exch def SunPower mul /SkOg exch def SunPower mul /SkOr exch def
     SkMu 0 lt { 0 } { SkMu 4096 exp SunDisc mul } ifelse /SkD exch def
     SkMoon null ne {
-        /SkLight SkMoon def
+        /SkLight SkMoon def /SkMSon 0 def
         SkVx SkVy SkVz fc-sky-scatter
-        MoonCol 2 get mul MoonLight mul SkOb add /SkOb exch def
-        MoonCol 1 get mul MoonLight mul SkOg add /SkOg exch def
-        MoonCol 0 get mul MoonLight mul SkOr add /SkOr exch def
+        MoonCol 2 get mul MoonLight mul SunPower mul SkOb add /SkOb exch def
+        MoonCol 1 get mul MoonLight mul SunPower mul SkOg add /SkOg exch def
+        MoonCol 0 get mul MoonLight mul SunPower mul SkOr add /SkOr exch def
         SkMu 0 lt { 0 } { SkMu 4096 exp SunDisc mul } ifelse /SkDm exch def
     } { /SkDm 0 def } ifelse
     /SkL SkOr 0.3 mul SkOg 0.59 mul add SkOb 0.11 mul add def
@@ -307,7 +315,7 @@ fc-camera-update
     fc-sky-light
     % the discs, the sun and moon seen through the air, and the stars,
     % which fade under a bright sky
-    SkVx SkVy SkVz 2.71828 SkL SkyGain mul 30 mul neg exp fc-sky-stars pop pop pop
+    SkVx SkVy SkVz SkNoStars { 0 } { 2.71828 SkL SkyGain mul 30 mul neg exp } ifelse fc-sky-stars pop pop pop
     SkDiscCol 2 get SkD mul add SkMoonCol 2 get SkDm mul add SkSb add 3 1 roll
     SkDiscCol 1 get SkD mul add SkMoonCol 1 get SkDm mul add SkSg add 3 1 roll
     SkDiscCol 0 get SkD mul add SkMoonCol 0 get SkDm mul add SkSr add 3 1 roll
@@ -347,6 +355,8 @@ fc-camera-update
 /SkEncode false def
 /SkMoonTook false def                            % SunDir currently holds the moon
 /fc-sky-unit { aload pop /Rz exch def /Ry exch def /Rx exch def   % [x y z] -> [unit]
+    % never exactly level: fc_terrain's cloud shadow divides by the light's y
+    Ry abs 0.0005 lt { /Ry Ry 0 lt { -0.0005 } { 0.0005 } ifelse def } if
     /Rn Rx Rx mul Ry Ry mul add Rz Rz mul add sqrt def
     [ Rx Rn div Ry Rn div Rz Rn div ] } bind def
 /fc-sun-update {
@@ -370,11 +380,14 @@ fc-camera-update
         [ CamY SkMoon 1 get fc-sky-tsun MoonCol 2 get mul MoonLight mul 3 1 roll
           MoonCol 1 get mul MoonLight mul 3 1 roll MoonCol 0 get mul MoonLight mul 3 1 roll ]
     } { [ 0 0 0 ] } ifelse def
-    SkAutoSun {
-        SkMoonCol 0 get 0.3 mul SkMoonCol 1 get 0.59 mul add SkMoonCol 2 get 0.11 mul add
-        SkSunCol 0 get 0.3 mul SkSunCol 1 get 0.59 mul add SkSunCol 2 get 0.11 mul add
-        gt { /SunCol SkMoonCol def /SunDir SkMoon def /SkMoonTook true def } { /SunCol SkSunCol def } ifelse
-    } if
+    SkMoonCol 0 get 0.3 mul SkMoonCol 1 get 0.59 mul add SkMoonCol 2 get 0.11 mul add
+    SkSunCol 0 get 0.3 mul SkSunCol 1 get 0.59 mul add SkSunCol 2 get 0.11 mul add
+    gt {
+        /SunDir SkMoon def /SkMoonTook true def
+        SkAutoSun { /SunCol SkMoonCol def } if
+    } {
+        SkAutoSun SkyModel and { /SunCol SkSunCol def } if    % the blend sky keeps its old default
+    } ifelse
     /SkDiscCol SkAutoSun { SkSunCol } { SunCol } ifelse def
     SkyModel {
         % multiple scattering: the mean of the once-scattered sky over the
@@ -416,9 +429,9 @@ fc-camera-update
             /SkAcc [ SkAcc { SkW div AmbGain mul } forall ] def
             /SkL SkAcc 0 get 0.3 mul SkAcc 1 get 0.59 mul add SkAcc 2 get 0.11 mul add def
             /SkAcc [ SkAcc { SkL sub 0.6 mul SkL add } forall ] def
-            SkAutoAmb { /SkyAmb [ SkAcc { SkEncode { 0.4545 exp } if } forall ] def } if
-            SkAutoTop { /AmbTop [ SkAcc { 1.2 mul SkEncode { 0.4545 exp } if } forall ] def } if
-            SkAutoBot { /AmbBot [ SkAcc { 0.31 mul SkEncode { 0.4545 exp } if } forall ] def } if
+            SkAutoAmb { /SkyAmb [ SkAcc { SkEncode { 1 2.2 div exp } if } forall ] def } if
+            SkAutoTop { /AmbTop [ SkAcc { 1.2 mul SkEncode { 1 2.2 div exp } if } forall ] def } if
+            SkAutoBot { /AmbBot [ SkAcc { 0.31 mul SkEncode { 1 2.2 div exp } if } forall ] def } if
         } if
     } if
 } bind def
@@ -431,7 +444,9 @@ fc-sun-update
 /fc-haze-colour {                                % dx dz -> -
     /Hz exch def /Hx exch def
     /Hn Hx Hx mul Hz Hz mul add sqrt 0.000001 add def
+    /SkNoStars true def                          % a star in the sample would streak the haze
     Hx Hn div 0.999 mul 0.045 Hz Hn div 0.999 mul fc-sky
+    /SkNoStars false def
     3 array astore /HazeCol exch def
 } bind def
 
