@@ -323,8 +323,9 @@ fc-camera-update
     fc-sky-light
     % the discs, the sun and moon seen through the air, and the stars,
     % which fade under a bright sky
-    % (gone by civil twilight: e^-80L is 0.2 at the twilight zenith's 0.02)
-    SkVx SkVy SkVz 2.71828 SkL SkyGain mul 80 mul neg exp fc-sky-stars
+    % (gone by civil twilight: e^-200L is 0.03 at the twilight zenith's
+    % 0.017, and about 0.1 in a moonlit sky away from the moon)
+    SkVx SkVy SkVz 2.71828 SkL SkyGain mul 200 mul neg exp fc-sky-stars
     /SkStb exch def /SkStg exch def /SkStr exch def
     SkDiscCol 2 get SkD mul add SkMoonCol 2 get SkDm mul add SkStb add 3 1 roll
     SkDiscCol 1 get SkD mul add SkMoonCol 1 get SkDm mul add SkStg add 3 1 roll
