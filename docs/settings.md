@@ -151,8 +151,8 @@ time of day, weather, terrain, and (optionally) season.
 
 | Coast | Sets | Look |
 |---|---|---|
-| `/Tropical` | `SunElev` 62, clear air (`HazeDist` 1500), trade-wind `/Cumulus` (60–92, scattered), `/ACES`, `Ocean` with turquoise shallows and pale sand (`SeaShallow`, `SeaDepth` 2.4, `SandCol`, `CoastSand`, no cobbles or stacks), a reef the surf breaks on (`CoastReef` [60 30 0.15]), palms (`FsMix` all palm, `FsCell` 2.2, no dead trees) | A tropical island at midday: `gallery/tropical_island.ps` |
-| `/PNWCoast` | `SunElev` 30 under two `/Stratus` layers (sea fog 4–20 thickened at the coast by `fc-coast-fog`, overcast 34–46), thick low haze, a cool muted grade (`GradeTemp` −0.4, `GradeSat` 0.62), a grey-green `Ocean`, dark basalt (`Rock`, `Rock2`, `Scree`), grey sand and cobble (`CoastCobbles` 0.5 plus `CoastCobbleK` 1.2 under cliffs), more stacks and surf rocks, driftwood (`CoastDrift` 1), Sitka spruce and red cedar (`FsMix`) to the cliff tops (`FsLine` 90) | The Pacific Northwest coast in fog: `gallery/pnw_coast.ps` |
+| `/Tropical` | `SunElev` 62, clear air (`HazeDist` 1500), trade-wind `/Cumulus` (62–92, scattered), `/ACES`, `Ocean` with turquoise shallows and pale sand (`SeaShallow`, `SeaDepth` 2.4, `SandCol`, `CoastSand`, no cobbles or stacks), a reef the surf breaks on (`CoastReef` [60 30 0.15]), palms (`FsMix` all palm, `FsCell` 2.2, no dead trees) | A tropical island at midday: `gallery/tropical_island.ps` |
+| `/PNWCoast` | `SunElev` 30 under two `/Stratus` layers (sea fog 3–22, thin except where `fc-coast-fog` thickens it at the coast; overcast 34–46), thick low haze, a cool muted grade (`GradeTemp` −0.4, `GradeSat` 0.62), a grey-green `Ocean`, dark basalt (`Rock`, `Rock2`, `Scree`), grey sand and cobble (`CoastCobbles` 0.5 plus `CoastCobbleK` 1.2 under cliffs), more stacks and surf rocks, driftwood (`CoastDrift` 1), Sitka spruce and red cedar (`FsMix`) to the cliff tops (`FsLine` 90) | The Pacific Northwest coast in fog: `gallery/pnw_coast.ps` |
 
 Each is a whole look for a map with `MapSea` 0 (the fog layer's heights
 assume it); the piece brings the map, the camera and `SunAzim`. Pick the
@@ -541,7 +541,7 @@ sea (their load is lost).
 | `CoastDrift` | 0 | Driftwood along the top of the beach, 0–1 (#40): logs 0.8–1.8 units long and 0.1–0.2 across, lying at any angle, a third sunk in the sand, one candidate per 2.5-unit cell kept by noise (half of them at 1) (more with a higher value; the random stream is untouched). A heightfield bump, so near detail only (more than five terrain octaves), on low shores only (cliffedness under 0.5). | 1 (`/PNWCoast`) |
 | `CoastDriftBand` | [8 24] | `lo hi`: the band of (wobbled) distance from the water the logs lie in: the high-tide line at the back of the beach. | |
 | `CoastDriftCol` | [0.60 0.57 0.52] | Bleached wood, sRGB, darker along the grain. | |
-| `CoastFog` | [1.2 40] | `add reach` for `fc-coast-fog` (below). | |
+| `CoastFog` | [0.3 40] | `add reach` for `fc-coast-fog` (below). | |
 
 `x y z oct fc-coast-fog dd` is a cloud layer's `Shape` (see Cloud layers):
 it adds `add` to the layer's density at the coastline (by `fc-coast-dist`,

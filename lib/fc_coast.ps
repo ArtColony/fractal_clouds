@@ -212,7 +212,7 @@
 % coves and lies along the shore, thinning out to sea and inland:
 % CoastFog [ add reach ] adds `add` at the coastline, fading to 0 at `reach`.
 /fc-coast-fog {
-    pop pop TerrOZ add exch TerrOX add exch fc-coast-dist pop abs
+    pop exch pop TerrOZ add exch TerrOX add exch fc-coast-dist pop abs
     0 CoastFog 1 get 3 -1 roll fc-smooth 1 exch sub CoastFog 0 get mul
 } bind def
 

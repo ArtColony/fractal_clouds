@@ -149,7 +149,7 @@ FsSpecies {
 % (#40) palms in the stand: their leaning trunks reach FsCell 0.25 from
 % where they stand (only then, so other stands keep their bounds and steps)
 /FsPalmOn false def
-0 1 FsNsp 1 sub { FsSpecies exch get /form get /palm eq { /FsPalmOn true def } if } for
+0 1 FsNsp 1 sub { dup FsSpecies exch get /form get /palm eq exch FsMix exch get 0 gt and { /FsPalmOn true def } if } for
 /FcSp FsSpecies 0 get def fc-tree-sp
 % bounds for fc-tree-cell's early out (#17), over every species (FcHs is
 % at most 1, the 1.001 covers its rounding): the widest trunk (a snag's),
@@ -286,22 +286,32 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
         } for
     } for
     /FsSl null def
-    % with palms, the density's maximum over the texel's neighbours (3x3,
-    % 1.8 units each way at the defaults; a palm reaches 0.55 cell from its
-    % foot): fc-forest-mapt
+    % with palms, the density's maximum over the texels within reach
+    % (fc-forest-mapt): a crown can be a cell from its cell's centre, where
+    % fc-tree-cell reads the density, plus the nearest-texel and bilinear
+    % lookups' texel and a half; a square of FsDxR texels each way, taken
+    % as a max along rows, then along columns
     FsPalmOn {
+        /FsDxR FsCell FsTex div 1.5 add ceiling cvi def
         /FsDx FsN FsN mul array def
+        /Fbt FsN FsN mul array def
         0 1 FsN 1 sub { /Fbj exch def
             0 1 FsN 1 sub { /Fbi exch def
-                0
-                Fbj 1 sub 0 fc-max 1 Fbj 1 add FsN 1 sub fc-min { /Fbr exch def
-                    Fbi 1 sub 0 fc-max 1 Fbi 1 add FsN 1 sub fc-min {
-                        FsDm exch Fbr FsN mul add get fc-max
-                    } for
+                0 Fbi FsDxR sub 0 fc-max 1 Fbi FsDxR add FsN 1 sub fc-min {
+                    FsDm exch Fbj FsN mul add get fc-max
+                } for
+                Fbt Fbj FsN mul Fbi add 3 -1 roll put
+            } for
+        } for
+        0 1 FsN 1 sub { /Fbj exch def
+            0 1 FsN 1 sub { /Fbi exch def
+                0 Fbj FsDxR sub 0 fc-max 1 Fbj FsDxR add FsN 1 sub fc-min {
+                    FsN mul Fbi add Fbt exch get fc-max
                 } for
                 FsDx Fbj FsN mul Fbi add 3 -1 roll put
             } for
         } for
+        /Fbt null def
     } if
     /FsBaked true def
     (fc-forest: ) print FsN 9 string cvs print (^2 map, ms ) print usertime FsT0 sub =
