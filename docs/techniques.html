@@ -118,7 +118,7 @@ ol.refs li { margin: .45rem 0; font-size: .95rem; }
   <li><a href="#overview">The idea</a></li>
   <li><a href="#camera">Camera and rays</a></li>
   <li><a href="#noise">Noise</a></li>
-  <li><a href="#terrain-shape">The shape of the mountains</a></li>
+  <li><a href="#terrain-shape">The shape of the mountains</a> (and <a href="#map">from a map</a>)</li>
   <li><a href="#lod">Detail follows distance</a></li>
   <li><a href="#march">Marching the heightfield</a></li>
   <li><a href="#erosion">Hydraulic erosion</a></li>
@@ -230,6 +230,36 @@ ol.refs li { margin: .45rem 0; font-size: .95rem; }
   <img src="techniques/heightmap.png" alt="Top-down hillshade of the terrain with a red dot for the camera and two red lines for its field of view." loading="lazy" style="width:min(100%, 360px)">
   <figcaption><code>spikes/heightmap.ps</code>: the terrain from above, with the camera of <em>Mountains</em> (red) and its field of view. A map like this found out why an early render showed no mountains at all: the camera was looking across lowland.</figcaption>
 </figure>
+
+<h3 id="map">Terrain from a map</h3>
+
+<p>The massif mask is the one layer a person can reasonably draw, so it is where a piece can take over. With <code>MapOn</code>, <code>lib/fc_map.ps</code> defines a hook, <code>fc-terrain-base</code> (map point → lift, mask, pin), and <code>fc-height-proc</code> calls it in place of the two noise octaves. The ridges, gullies and erosion stay fractal, so the map only has to say where the mountains, valleys and lakes are. World coordinates stay fixed and only the camera moves (<code>TerrOX</code>, <code>TerrOZ</code>, <code>Yaw</code>), so several views share one geography.</p>
+
+<p>The map is a coarse painted grid (rows of characters or numbers, Catmull-Rom interpolated) and a feature list: peaks and ridgelines raise the mask in smooth bumps around a point or a polyline, aimed at a height; valleys carve it to 0 and lower the ground along a polyline; lakes are polygons whose inside is flattened to a bed below a water level. Peaks and ridges combine by taking the larger mask, then valleys and lakes cut into the result, so the order of the list doesn't matter. All of it is sampled once into a 128² table of (lift, mask, pin), so a height sample costs one 4×4 table lookup (about a third more than the noise mask: 57 µs against 43 µs per <code>fc-height-proc</code> call).</p>
+
+<p>A mask only says where ridged noise grows; on its own it would put a peak wherever a warped ridge happens to cross the bump. So the third value, the pin, rises to 1 near every feature, and the domain warp fades by it (<code>MapPin</code>): there, the ridges keep to the noise's own unwarped network, and the summit lands where the bump is highest. Measured with <code>spikes/map_pins.ps</code> on four seeds, peaks land 10–32 units from where they were put (the ridge wavelength is about 90) and within about 15% of the asked height. Away from features, <code>MapNoise</code> lets some of the noise massif back in, as low hills. The painted grid doesn't pin: its mountains keep the usual warp and land only roughly where painted.</p>
+
+<div class="formula">mask  = max(grid, peaks, ridges) · (1 − valleys) · (1 − lakes)
+warp  = 2 · WarpAmp · (1 − MapPin · pin)
+height = TerrBase + TerrH · relief(mask) + lift</div>
+
+<figure class="wide">
+  <img src="techniques/charted_plan.png" alt="A top-down hillshade: a long east-west ridge with two peaks, two arms of hills running south, a blue lake in the middle, and two red camera marks with their fields of view." loading="lazy">
+  <figcaption><em>Charted range</em> (<code>gallery/charted_range.ps</code>) from above, <code>-D Plan=true</code> (<code>fc-map-plan</code>): the procedural terrain as a hillshade with the map's features drawn over it, ridges and peaks yellow, the river blue, water shaded wherever the ground lies below the lake's level (the dashed line is the polygon as drawn), and the two viewpoints in red.</figcaption>
+</figure>
+
+<div class="grid2">
+<figure>
+  <img src="techniques/charted_view1.png" alt="The range seen across the lake, with its reflection." loading="lazy">
+  <figcaption>View 1 (5.4 min at 320×200 on one core), from the lake's south shore looking north at the twin peaks.</figcaption>
+</figure>
+<figure>
+  <img src="techniques/charted_view2.png" alt="The same range seen from the eastern hills, looking west across the valley." loading="lazy">
+  <figcaption>View 2 (<code>-D View=2</code>, 4.9 min), from the eastern hills looking west across the valley. Same map, same seed; only the camera moved.</figcaption>
+</figure>
+</div>
+
+<p>Erosion is still baked per view, over what that camera sees, so the two views agree on every ridge and valley the map and the noise make but not on the finest drainage channels. Sharing one bake over the whole map is #18. A coastline (#39) fits the same scheme: a lake turned inside out, with the sea at its level.</p>
 
 <!-- ===================================================================== -->
 <h2 id="lod">5. Detail follows distance</h2>

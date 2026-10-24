@@ -186,6 +186,56 @@ so an overcast darkens the ground only a little.
 | `DetailAmp` | 0.16 | Strength of the gully texture (erosion fBm). | 0.16 |
 | `TerrFn` | 3 | 3 is the massif hierarchy. 0 (ridged only) and 1 (erosion fBm only) are kept from early drafts. | 0, 1, 3 |
 | `MarchT0` | 0.5 | Where marches start along a ray. A reflection sets it to the water distance while it marches, then puts it back. | 0.5 |
+| `MapOn` | false | Loads `lib/fc_map.ps`, which defines `fc-terrain-base` from a map (next section). Off, the terrain is exactly the noise it always was. | false, true |
+| `MapNoise` | 0 | With a map: how much of the noise massif mask still shows where the map pins nothing (it takes the larger of the two). 0 leaves unpinned ground to the map alone. | 0, 0.25 |
+| `MapPin` | 1 | With a map: how fully pinned ground loses the domain warp. 1 keeps the ridges there on the noise's unwarped network, so a peak lands where it was put; 0 lets them wander as usual. | 1 |
+
+## Terrain from a map (`fc_map.ps`, with `MapOn`)
+
+A piece lays out its geography in map coordinates, which are the terrain's
+own (`x` east, `z` north; a view's camera stands at `TerrOX`, `TerrOZ`
+looking along `Yaw`), so several views share one map by moving only the
+camera. The fractals fill in everything finer: the map sets the massif
+mask (where ridged mountains grow), a lift in world units, and a pin that
+takes the domain warp away near features. `fc-map-bake` samples it all
+into a `MapN`² table when the library loads; a piece that changes the map
+afterwards calls `fc-map-bake` again, before `fc-landscape-setup` (the
+erosion bake reads the terrain). `fc-map-plan` draws the map from above;
+`gallery/charted_range.ps` shows the lot. Only `TerrFn` 3 uses the map.
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `MapRect` | [−900 −900 900 900] | `x0 z0 x1 z1`: the area the table covers. Past it the map feathers to `MapBackground` over `MapFeather` units. | [−800 −800 800 800] |
+| `MapN` | 128 | Table resolution (texels across; 12 units each at 1600 wide). Lookups are Catmull-Rom over 4×4 texels, so features narrower than about two texels blur. | 128 |
+| `MapGrid` | null | A painted mask: an array of rows, the far (high `z`) row first, each a string of `MapChars` or an array of numbers 0–1, stretched over `MapRect`. 1 grows full mountains, 0 leaves valley floor. Every row must be the same length (`fc-map-bake` stops with a rangecheck otherwise). The grid sets only the mask, not elevation, and doesn't pin: its mountains keep the usual warp, so they land only roughly where painted. | |
+| `MapChars` | `( .:-=+*#%@)` | The characters a string row may use, from 0 to 1. | |
+| `MapFeatures` | [ ] | Features, each `[ /kind numbers… ]` (below). Heights and levels are world `y`. | |
+| `MapBackground` | [0 0] | `[lift mask]` outside the rectangle, and inside it where no feature reaches. With a `MapGrid` the grid replaces the mask over the whole rectangle (its lift still applies). | [5 0.04] |
+| `MapFeather` | 120 | Blend from the table to the background past `MapRect`'s edge. 0 or less gives a hard edge. | |
+| `MapPlanRect` | null | The area `fc-map-plan` draws (null: `MapRect`). | [−800 −560 800 440] |
+| `MapPlanN` | 150 | Hillshade samples across the plan. | 320 |
+| `MapPlanOct` | 5 | Terrain octaves in the plan. | 5 |
+
+Features (applied peaks and ridges first, the tallest winning, then
+valleys, then lakes, whatever their order in the list):
+
+| Feature | What it does |
+|---|---|
+| `[ /peak height spread x z ]` | Raises the mask in a round bump of radius `spread`, aimed so the ridge crest it grows stands about `height` high (within about 15%: the ridges' own height varies). Measured with `spikes/map_pins.ps`, the summit lands 10–32 units from `x z` over four seeds. |
+| `[ /ridge height spread x0 z0 x1 z1 … ]` | The same along a polyline. |
+| `[ /valley depth width x0 z0 x1 z1 … ]` | Carves: the mask falls to 0 along the polyline and the ground drops `depth`. |
+| `[ /lake level depth shore x0 z0 x1 z1 x2 z2 … ]` | A closed polygon: inside it the mask is 0 and the bed sits `depth` below `level`, blending to the surroundings over `shore` units centred on the drawn edge, so the waterline lands near the line. The piece puts its water plane at `level` (`gallery/charted_range.ps` uses `evening_lake`'s water hooks). |
+
+Heights have two ceilings. A peak or ridge asks for a mask of at most 1,
+so heights above about `lift + TerrBase + 1.02 TerrH` (47 with the
+defaults and no lift) all give the tallest ridges the noise makes there.
+And the march stops above `TerrTop` (`TerrBase + 1.25 TerrH`, 59): the
+ground can reach about `lift + TerrBase + 1.16 TerrH`, so a lift over
+about 5 can cut the tops flat. Raise `TerrH` for taller maps.
+
+A lake's bed is flat only at the scale of the map: the valley-floor detail
+(about ±`0.2 DetailAmp TerrH`, ±1.7 units with the defaults) stays, so a
+lake shallower than that shows rocks and islands of bed.
 
 ## Terrain surface and light (`fc_terrain.ps`)
 
@@ -263,6 +313,7 @@ lake.
 | `fc-landscape-grade` | `r g b → r g b` | Nothing. Linear light, just before the tone curve; a place for a colour grade or vignette. |
 | `fc-forest-dens` | `x z h ny curv → density height-scale` | `fc_trees`' rules. Wrap it to keep trees off some ground, as the lake does. Redefine it before `fc-landscape-setup`. |
 | `fc-terrain-material` | reads and changes `Alb KlMul KskyMul KbMul` | Defined by `fc_trees`. Without trees it doesn't exist, and a piece can define it to paint the ground. |
+| `fc-terrain-base` | `x z → lift mask pin` | Defined by `fc_map.ps` (`MapOn`); otherwise absent and the noise massif is used. Map coordinates in; the lift in world units, the massif mask 0–1 and the pin 0–1 out. A piece can define its own (an analytic island, say) before `fc-landscape-setup`. |
 | `fc-pixel` | `u v → r g b` | `fc-landscape-pixel`. Replace it entirely for a different scene. |
 
 While a hook runs, `Mx My Mz` is the pixel's unit ray, from `(0, CamY, 0)`.
