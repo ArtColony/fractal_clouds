@@ -207,11 +207,11 @@ erosion bake reads the terrain). `fc-map-plan` draws the map from above;
 |---|---|---|---|
 | `MapRect` | [−900 −900 900 900] | `x0 z0 x1 z1`: the area the table covers. Past it the map feathers to `MapBackground` over `MapFeather` units. | [−800 −800 800 800] |
 | `MapN` | 128 | Table resolution (texels across; 12 units each at 1600 wide). Lookups are Catmull-Rom over 4×4 texels, so features narrower than about two texels blur. | 128 |
-| `MapGrid` | null | A painted mask: an array of rows, the far (high `z`) row first, each a string of `MapChars` or an array of numbers 0–1, stretched over `MapRect`. 1 grows full mountains, 0 leaves valley floor. | |
+| `MapGrid` | null | A painted mask: an array of rows, the far (high `z`) row first, each a string of `MapChars` or an array of numbers 0–1, stretched over `MapRect`. 1 grows full mountains, 0 leaves valley floor. Every row must be the same length (`fc-map-bake` stops with a rangecheck otherwise). The grid sets only the mask, not elevation, and doesn't pin: its mountains keep the usual warp, so they land only roughly where painted. | |
 | `MapChars` | `( .:-=+*#%@)` | The characters a string row may use, from 0 to 1. | |
 | `MapFeatures` | [ ] | Features, each `[ /kind numbers… ]` (below). Heights and levels are world `y`. | |
-| `MapBackground` | [0 0] | `[lift mask]` where nothing is painted and outside the rectangle. | [5 0.04] |
-| `MapFeather` | 120 | Blend from the table to the background past `MapRect`'s edge. | |
+| `MapBackground` | [0 0] | `[lift mask]` outside the rectangle, and inside it where no feature reaches. With a `MapGrid` the grid replaces the mask over the whole rectangle (its lift still applies). | [5 0.04] |
+| `MapFeather` | 120 | Blend from the table to the background past `MapRect`'s edge. 0 or less gives a hard edge. | |
 | `MapPlanRect` | null | The area `fc-map-plan` draws (null: `MapRect`). | [−800 −560 800 440] |
 | `MapPlanN` | 150 | Hillshade samples across the plan. | 320 |
 | `MapPlanOct` | 5 | Terrain octaves in the plan. | 5 |
@@ -221,10 +221,10 @@ valleys, then lakes, whatever their order in the list):
 
 | Feature | What it does |
 |---|---|
-| `[ /peak height spread x z ]` | Raises the mask in a round bump `spread` units across, aimed so the ridge crest it grows stands about `height` high (within about 15%: the ridges' own height varies). Measured with `spikes/map_pins.ps`, the summit lands 10–32 units from `x z` over four seeds. |
+| `[ /peak height spread x z ]` | Raises the mask in a round bump of radius `spread`, aimed so the ridge crest it grows stands about `height` high (within about 15%: the ridges' own height varies). Measured with `spikes/map_pins.ps`, the summit lands 10–32 units from `x z` over four seeds. |
 | `[ /ridge height spread x0 z0 x1 z1 … ]` | The same along a polyline. |
 | `[ /valley depth width x0 z0 x1 z1 … ]` | Carves: the mask falls to 0 along the polyline and the ground drops `depth`. |
-| `[ /lake level depth shore x0 z0 x1 z1 x2 z2 … ]` | A closed polygon: inside it the mask is 0 and the bed sits `depth` below `level`, blending to the surroundings over `shore` units inside the edge. The piece puts its water plane at `level` (`gallery/charted_range.ps` uses `evening_lake`'s water hooks). |
+| `[ /lake level depth shore x0 z0 x1 z1 x2 z2 … ]` | A closed polygon: inside it the mask is 0 and the bed sits `depth` below `level`, blending to the surroundings over `shore` units centred on the drawn edge, so the waterline lands near the line. The piece puts its water plane at `level` (`gallery/charted_range.ps` uses `evening_lake`'s water hooks). |
 
 Heights have two ceilings. A peak or ridge asks for a mask of at most 1,
 so heights above about `lift + TerrBase + 1.02 TerrH` (47 with the

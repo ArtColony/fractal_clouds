@@ -35,7 +35,7 @@
 %   MapFeatures  an array of features, each an array with a kind and its
 %                numbers; heights and levels are world y:
 %     [ /peak   height spread x z ]                raise the mask in a round
-%                                                  bump, spread units wide,
+%                                                  bump of radius `spread`,
 %                                                  so a peak about `height`
 %                                                  high stands where a ridge
 %                                                  crest crosses it
@@ -50,8 +50,8 @@
 %                                                  the water surface a piece
 %                                                  should put there; the bed
 %                                                  blends to the surroundings
-%                                                  over `shore` units inside
-%                                                  the edge
+%                                                  over `shore` units centred
+%                                                  on the edge
 %
 % Peaks and ridges are applied first (the tallest wins), then valleys, then
 % lakes, whatever their order in the list. Each raises pin to its bump, so
@@ -165,6 +165,10 @@
     % the painted grid as numbers 0..1
     MapGrid null ne {
         /MpGnz MapGrid length def /MpGnx MapGrid 0 get length def
+        MapGrid { length MpGnx ne {
+            (fc-map: MapGrid rows must all be the same length) =
+            /fc-map-bake errordict /rangecheck get exec
+        } if } forall
         /MpGn [ MapGrid { /MpGrow exch def
             [ MpGrow {
                 MpGrow type /stringtype eq {
@@ -206,7 +210,10 @@
             MapFeatures { /MpF exch def
                 MpF 0 get /lake eq {
                     MpF 4 true fc-map-dist { neg } if            % signed: negative inside
-                    MpF 3 get neg 0 3 -1 roll fc-smooth 1 exch sub /MpB exch def
+                    % the bed blends to the surroundings over `shore`
+                    % units centred on the drawn edge, so the waterline
+                    % lands near the line
+                    MpF 3 get 2 div dup neg exch 3 -1 roll fc-smooth 1 exch sub /MpB exch def
                     /MpM MpM 1 MpB sub mul def
                     MpF 1 get MpF 2 get sub MpFloor sub MpL sub MpB mul MpL add /MpL exch def
                     MpB MpP gt { /MpP MpB def } if
@@ -242,7 +249,9 @@
     % how far outside the rectangle, for the feather to the background
     MpX0 MpLx sub  MpLx MpX1 sub  2 copy lt { exch } if pop
     MpZ0 MpLz sub  2 copy lt { exch } if pop  MpLz MpZ1 sub  2 copy lt { exch } if pop
-    dup 0 le { pop 1 } { MapFeather div 1 exch sub dup 0 lt { pop 0 } if } ifelse /MpW exch def
+    dup 0 le { pop 1 } {
+        MapFeather 0 le { pop 0 } { MapFeather div 1 exch sub dup 0 lt { pop 0 } if } ifelse
+    } ifelse /MpW exch def
     MpW 0 le { MapBackground 0 get MapBackground 1 get 0 } {
         % texel coordinates, 0..MapN-1 over the rectangle, 1 more in the table
         MpLx MpX0 sub MpTx div dup 0 lt { pop 0 } if dup MapN 1.0001 sub gt { pop MapN 1.0001 sub } if 1 add /MpGx exch def
@@ -253,7 +262,7 @@
         /MpL 0 def /MpM 0 def /MpP 0 def
         /MpGk MpGj 1 sub MpW2 mul MpGi add 1 sub 3 mul def       % texel (i-1, j-1)
         4 -1 roll fc-map-tab-row 3 -1 roll fc-map-tab-row exch fc-map-tab-row fc-map-tab-row
-        MpM 0 lt { /MpM 0 def } if
+        MpM 0 lt { /MpM 0 def } if MpM 1 gt { /MpM 1 def } if
         MpP 0 lt { /MpP 0 def } if MpP 1 gt { /MpP 1 def } if
         MpW 1 lt {
             MapBackground 0 get dup MpL exch sub MpW mul add
@@ -287,9 +296,10 @@
     /MpOx MpPgW MqX1 MqX0 sub MpS mul sub 2 div def
     /MpOz MpPgH MqZ1 MqZ0 sub MpS mul sub 2 div def
     % hillshade of the procedural terrain, lit from the south-west, mixed
-    % with height: black at TerrBase, white at TerrTop
+    % with height: black at TerrBase, white at TerrTop; water blue where the
+    % ground is below a lake's level, inside it or within `shore` of its edge
     /MpNx MapPlanN def /MpNz MapPlanN MqZ1 MqZ0 sub mul MqX1 MqX0 sub div round cvi 1 fc-max def
-    /MpRow MpNx string def /MpPj 0 def
+    /MpRow MpNx 3 mul string def /MpPj 0 def
     /MpLo 1e9 def /MpHi -1e9 def
     /MpDd MqX1 MqX0 sub MpNx div 0.5 mul def     % the difference step, half a sample
     gsave
@@ -305,19 +315,34 @@
             MpPx TerrOX sub MpPz MpDd add TerrOZ sub MapPlanOct fc-height-proc MpPh sub
             add MpDd div neg 0.2 mul 0.5 add
             MpPh TerrBase sub TerrTop TerrBase sub div 0.5 mul add
-            255 mul cvi dup 0 lt { pop 0 } if dup 255 gt { pop 255 } if
-            MpRow MpPi 3 -1 roll put
+            dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if /MpPv exch def
+            /MpPw -1 def                         % water depth here, if any
+            MapFeatures { /MpF exch def
+                MpF 0 get /lake eq { MpPh MpF 1 get lt } { false } ifelse {
+                    /MpX MpPx def /MpZ MpPz def
+                    MpF 4 true fc-map-dist exch MpF 3 get lt or {
+                        MpF 1 get MpPh sub dup MpPw gt { /MpPw exch def } { pop } ifelse
+                    } if
+                } if
+            } forall
+            MpPw 0 ge {
+                MpPw 4 div 1 fc-min 0.35 mul 1 exch sub MpPv 0.15 mul 0.85 add mul /MpPv exch def
+                [ 0.42 0.58 0.82 ]
+            } { [ 1 1 1 ] } ifelse
+            { MpPv mul 255 mul cvi dup 255 gt { pop 255 } if } forall
+            MpRow MpPi 3 mul 2 add 3 -1 roll put
+            MpRow MpPi 3 mul 1 add 3 -1 roll put
+            MpRow MpPi 3 mul 3 -1 roll put
         } for
         /MpPj MpPj 1 add def MpRow
-    } image
+    } false 3 colorimage
     grestore
     % the features
     0.8 setlinewidth 1 setlinecap 1 setlinejoin
     MapFeatures { /MpF exch def
         MpF 0 get /lake eq {
-            0.45 0.62 0.85 setrgbcolor
-            MpF 4 fc-map-plan-path closepath gsave fill grestore
-            0.25 0.40 0.70 setrgbcolor stroke
+            0.25 0.40 0.70 setrgbcolor
+            gsave [ 2 1.5 ] 0 setdash MpF 4 fc-map-plan-path closepath stroke grestore
         } if
         MpF 0 get /valley eq {
             0.30 0.50 0.85 setrgbcolor MpF 3 fc-map-plan-path stroke
