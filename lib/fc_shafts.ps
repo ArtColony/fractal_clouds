@@ -31,7 +31,7 @@
 %
 % Settings (before loading):
 %   Shafts      false  turn the shafts on
-%   ShaftSteps  32     probes per ray (at most)
+%   ShaftSteps  48     probes per ray (at most)
 %   ShaftOct    1      noise octaves in each shadow probe (at most the
 %                      layer's ShadOct): fewer is cheaper and smoother;
 %                      the shafts are broad, and fine octaves only add grain
@@ -40,7 +40,7 @@
 %   ShaftDark   0.8    the share of the haze's light that is direct sun,
 %                      lost in shadow (0: no shafts; 1: shadowed haze black)
 
-/ShaftSteps 32 fc-default
+/ShaftSteps 48 fc-default
 /ShaftDark 0.8 fc-default
 /ShaftOct 1 fc-default
 /ShaftDist HazeDist fc-default
@@ -161,6 +161,30 @@
     Mz eq exch Mx eq and /fc-cloud-shadow-oct where { pop true } { false } ifelse and {
         fc-shaft-march
         /SfKx Mx def /SfKy My def /SfKz Mz def /SfKc CamY def /SfOk true def
+    } if
+    SfSkyWrapped not { fc-shaft-wrap-sky } if
+} bind def
+
+% fc_landscape.ps's sky hook (fc-landscape-sky) answers a ray that misses
+% everything below the horizon with HazeCol itself, not fc-sky, so those
+% pixels would keep their unshadowed haze beside far terrain that loses it.
+% The hook is defined after this file loads, so it is wrapped at the first
+% ray instead: a below-horizon miss on the table's ray gets the whole ray's
+% subtraction, as fc-sky does above the horizon. (A piece's own hook is
+% wrapped the same way; if it calls fc-sky for such rays too, they are
+% darkened twice.)
+/SfSkyWrapped false def
+/fc-shaft-wrap-sky {                             % - -> -
+    /SfSkyWrapped true def
+    /fc-landscape-sky where {
+        pop
+        /fc-landscape-sky-plain /fc-landscape-sky load def
+        /fc-landscape-sky {                      % dx dy dz -> r g b
+            fc-shaft-key { 1 index 0 lt 3 index Mx eq and 2 index My eq and 1 index Mz eq and } { false } ifelse
+            4 1 roll fc-landscape-sky-plain 4 -1 roll {
+                SfEnd SfEnd fc-shaft-at fc-shaft-sub
+            } if
+        } bind def
     } if
 } bind def
 
