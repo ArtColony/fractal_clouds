@@ -317,9 +317,21 @@ it, the forest is only a colour texture on the ground.
 | `FsCurve` | 3 | How far ground curvature moves the treeline. | 3 |
 | `FsCell` | 1.3 | One candidate tree per cell this wide. Smaller makes a denser stand, and the march slows near trees. | 1.3, 1.5 |
 | `FsHMin`, `FsHMax` | 1.6, 3.2 | Heights of the dominant trees (16–32 m). A quarter are suppressed, at about half height. | |
-| `FsTiers` | 9 | Branch whorls per crown. | 9 |
-| `FsDroop` | 0.30 | How far each whorl's tips hang below its base, as a fraction of tree height. | 0.30 |
-| `FsEnv` | 1.0 | Crown outline: 1 is a straight cone, more is a slimmer spire. | 1.0 |
+| `FsTiers` | 9 | Branch whorls per spruce crown (other species: `FsSpecies`). | 9 |
+| `FsDroop` | 0.30 | How far each spruce whorl's tips hang below its base, as a fraction of tree height. | 0.30 |
+| `FsEnv` | 1.0 | Spruce crown outline: 1 is a straight cone, more is a slimmer spire. | 1.0 |
+
+`FsEnv`, `FsDroop` and `FsTiers` are copied into the spruce dict of `FsSpecies` when `lib/fc_trees.ps` loads, so set them before the `run` line, like every other setting; setting them afterwards has no effect.
+
+| `FsTrunks` | true | Trunks, and crowns lifted off the ground where the lower branches have died (dense stands; the species' `base` and `baseDense`). Only where a crown is over about 4 px wide. false keeps every crown on the ground, every tree alive (snags and logs need trunks), near spruce outlines as smooth as before: the look before #25. | true |
+| `FsSnag` | 0.03 | Fraction of the trees that are dead snags: a bare, broken-off trunk. Only drawn where trunks are. | 0.03 |
+| `FsFallen` | 0.02 | Fraction lying on the ground as logs. | 0.02 |
+| `FsMix` | [1] | **Experimental.** Weights of the species in `FsSpecies`, in order: spruce, fir, pine, larch, broadleaf. `[1]` is a pure spruce forest (the default look). Broadleaves only grow well below the treeline, so their share is smaller higher up. A mix with pine and broadleaf (`[0.45 0.2 0.15 0.1 0.1]`) lost blind pairwise to the spruce stand on the current sky (blocky pine and broadleaf crowns, pole-like trunks; `docs/prs/25-trees-species/`); work continues in #53. | [1] |
+| `FsAutumn` | 0 | Season: at 1 the larches are gold and the broadleaves turned (per-tree, some earlier than others). Evergreens ignore it. | 0 |
+| `FsSpecies` | (five dicts) | The species table (pine and broadleaf are experimental, see `FsMix` and #53): one dict per species with its crown profile (`env droop tiers`, and optionally `rag` and `lobes`, how ragged the outline is and how many lobes it has round the trunk, both 1 for spruce), `rad` (crown radius / height), `hmul` (height), `base` and `baseDense` (crown base / height in the open and in a dense stand), `trunk` (radius / height), colours `alb alb2 shade autumn bark` (sRGB; `null` means the spruce setting) and an altitude band `lo hi` (height relative to the treeline). Define a whole table to add a species; the pieces' `FsMix` then needs a weight for it. | |
+| `FsBark` | [0.21 0.16 0.12] | Spruce bark (other species carry their own). | |
+| `FsSnagCol` | [0.40 0.36 0.31] | Weathered dead wood: snags, and the sides of logs. | |
+| `FsLogCol` | [0.30 0.27 0.20] | The mossy top of a fallen trunk. | |
 | `FsN` | 384 | Density map resolution. | 384 |
 | `FsSize`, `FsDist` | 700, 300 | Map size and its distance ahead. | |
 | `FsAlb`, `FsAlb2` | [0.27 0.31 0.15], [0.22 0.29 0.21] | Sunlit needles, per-tree mix of olive and bluer spruce. | |
@@ -375,7 +387,7 @@ These are procedures, not settings. Redefine them **after** loading
 | Hook | Stack | Default |
 |---|---|---|
 | `fc-landscape-hit` | `– → t \| −1` | `fc-forest-hit` with trees, `fc-terrain-hit` without. |
-| `fc-landscape-surface` | `t → r g b` | `fc-tree-shade` on a crown, otherwise `fc-terrain-shade`. Linear light, before haze. |
+| `fc-landscape-surface` | `t → r g b` | `fc-tree-shade` on a tree (`FsMat` 1; `FsKind` says which part: 0 a crown, 1 a trunk, 2 a log, 3 a crown's underside), otherwise `fc-terrain-shade`. Linear light, before haze. |
 | `fc-landscape-sky` | `dx dy dz → r g b` | `fc-sky` above the horizon, the haze colour below it. |
 | `fc-landscape-grade` | `r g b → r g b` | Nothing. Linear light, just before the tone curve; a place for a colour grade or vignette. |
 | `fc-forest-dens` | `x z h ny curv → density height-scale` | `fc_trees`' rules. Wrap it to keep trees off some ground, as `fc_water` does. Redefine it before `fc-landscape-setup`. |
