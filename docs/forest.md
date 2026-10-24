@@ -52,10 +52,11 @@ pairwise tests for progress. Images for each round are in `docs/forest/`.
 
 `scripts/render_bands.sh` splits a frame into horizontal bands, one pscat
 per band (each a `render.sh` run with a `Crop`), and stitches them. Every
-band does the whole setup, so the seeded scene is the same in each; the
-cloud-march jitter continues differently per band (statistically the same
-grain, not the same pixels), and a band's first row has no row above it
-for edge antialiasing. Crops with the final settings (`-D Crop=...`) were
+band does the whole setup, so the seeded scene is the same in each. (At
+the time the cloud-march jitter continued differently per band and a band's
+first row had no row above it for edge antialiasing; since #27 the jitter is
+a hash of the pixel and a crop samples its neighbours' depth, so bands stitch
+into exactly the whole-frame render.) Crops with the final settings (`-D Crop=...`) were
 checked at full detail before the large render: foreground forest,
 mid-distance slope and a cliff inside the forest map.
 
