@@ -231,7 +231,7 @@ heights in `/Clear`, `/Overcast` and `/Storm` assume the standard terrain
 
 | Setting | Default | What it does | Used |
 |---|---|---|---|
-| `Seed` | 5 | Seeds everything: both noises, the trees and the march jitter. A new seed is a new range. | 5 |
+| `Seed` | 5 | Seeds everything: both noises, the trees and the erosion. A new seed is a new range. (The cloud march's jitter is a hash of the pixel, not seeded: the same in every band or crop.) | 5 |
 | `TreesOn` | false | Loads `lib/fc_trees.ps` and marches the forest. It also turns off `fc_terrain`'s painted forest (`TreeLine` −1000) unless the piece sets `TreeLine`. | false, true |
 | `Erode` | true | Bakes droplet erosion over the view (`fc_erode.ps`). Off skips the bake (about 1.5 min at `ErN` 1024); valleys then lack drainage channels and debris fans. | true |
 | `CamLift` | 0 | If above 0, the camera sits at this fraction of `TerrTop`, but at least `CamAbove` over the ground below it (a high viewpoint). | 0, 0.72 |
@@ -413,7 +413,7 @@ single layer, `CloudLayers` null, keeps its old cut-off).
 | `RainDens` | 0.15 | Their density, as a fraction of the cloud's. |
 | `Shape` | null | A procedure `x y z oct → dd` (`oct`: the octaves the sample wants, fewer with distance) added to the density before the gain: a positive value adds cloud, a negative one cuts it. Only called inside the band (`Lo < y < Hi`), so a placed object needs a band tall enough to hold it. For placed objects such as a cumulonimbus (#15). Costs a call per sample. It is called before the noise: a value of −1 or less means nothing is there, and the noise is skipped (keep the threshold and coverage such that the noise can't lift −1 above 0). |
 | `RainShafts` | 0 | Above 0: the rain is broken into shafts by 2-D noise with this many cells per unit (the storm uses 0.06); 0 is the old solid curtain. |
-| `Bounds` | null | `[x0 z0 x1 z1]`, world x and z (the camera stands at x = z = 0): the layer is empty outside this box, and each ray marches only the part of the band inside it, with all its `Steps`. For a placed object, so a tall band doesn't make every sky ray march its whole height. Rays that miss the box draw no jitter (`fc-rnd`), so setting it shifts the global random stream for every later draw, not only that layer's grain. |
+| `Bounds` | null | `[x0 z0 x1 z1]`, world x and z (the camera stands at x = z = 0): the layer is empty outside this box, and each ray marches only the part of the band inside it, with all its `Steps`. For a placed object, so a tall band doesn't make every sky ray march its whole height. |
 | `RainMask` | null | A procedure `x z → 0..1` multiplying the rain (after `RainShafts`). A layer with one also lights its rain with `AmbBot`, as under the base, rather than the ambient a quarter of the way up. The storm uses it to fade the rain toward the edge of the tower's foot. |
 | `Probes` | 1 | A whole number, at least 1: density probes per layer for the ground's cloud shadow and `fc-cloud-sky`, spread evenly over the band above the point. 1 keeps the old single probe at the middle; a tall object needs more (the storm uses 3) or its anvil casts no shadow. |
 | `LightDepth` | null | A procedure `x y z → od`: optical depth toward the sun added to the two short sun probes', for a placed object's shadow on itself at a larger scale than the probes reach (#15). Called once per lit sample. |
