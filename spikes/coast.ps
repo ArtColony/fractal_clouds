@@ -6,8 +6,8 @@
 % level (lib/fc_coast.ps): a mainland painted as a lift grid, cliffed along
 % its western shore (a /cliff feature) and low to the east; a volcanic
 % island with a fringing reef; a low atoll round its lagoon.
-%   -D View=1    from a boat, the island and the atoll (default)
-%   -D View=2    from the eastern beach, along the cliffs
+%   -D View=1    from a boat, the volcanic island (default)
+%   -D View=2    from a boat, the western cliffs and a stack
 %   -D Plan=true the map from above, both cameras marked
 % Preview: DPI=36 scripts/render.sh spikes/coast.ps
 
@@ -44,19 +44,19 @@
 /MapPlanN where { pop } { /MapPlanN 240 def } ifelse
 
 % --- the viewpoints: x z yaw fov ---------------------------------------------
-/Views [ [ -150 -100 2 72 ] [ 330 -640 -76 60 ] ] def
+/Views [ [ -60 -20 8 64 ] [ -560 -140 172 56 ] ] def
 View 2 eq {
-    /TerrOX where { pop } { /TerrOX 330 def } ifelse
-    /TerrOZ where { pop } { /TerrOZ -640 def } ifelse
-    /Yaw where { pop } { /Yaw -76 def } ifelse
-    /HFov where { pop } { /HFov 60 def } ifelse
-    /CamHeight where { pop } { /CamHeight 7 def } ifelse
+    /TerrOX where { pop } { /TerrOX -560 def } ifelse
+    /TerrOZ where { pop } { /TerrOZ -140 def } ifelse
+    /Yaw where { pop } { /Yaw 172 def } ifelse
+    /HFov where { pop } { /HFov 56 def } ifelse
+    /CamHeight where { pop } { /CamHeight 5 def } ifelse
 } {
-    /TerrOX where { pop } { /TerrOX -150 def } ifelse
-    /TerrOZ where { pop } { /TerrOZ -100 def } ifelse
-    /Yaw where { pop } { /Yaw 2 def } ifelse
-    /HFov where { pop } { /HFov 72 def } ifelse
-    /CamHeight where { pop } { /CamHeight 4 def } ifelse
+    /TerrOX where { pop } { /TerrOX -60 def } ifelse
+    /TerrOZ where { pop } { /TerrOZ -20 def } ifelse
+    /Yaw where { pop } { /Yaw 8 def } ifelse
+    /HFov where { pop } { /HFov 64 def } ifelse
+    /CamHeight where { pop } { /CamHeight 5 def } ifelse
 } ifelse
 /Pitch where { pop } { /Pitch 2 def } ifelse
 /TMax where { pop } { /TMax 1400 def } ifelse

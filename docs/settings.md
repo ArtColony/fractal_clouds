@@ -235,7 +235,7 @@ erosion bake reads the terrain). `fc-map-plan` draws the map from above;
 |---|---|---|---|
 | `MapRect` | [−900 −900 900 900] | `x0 z0 x1 z1`: the area the table covers. Past it the map feathers to `MapBackground` over `MapFeather` units. | [−800 −800 800 800] |
 | `MapN` | 128 | Table resolution (texels across; 12 units each at 1600 wide). Lookups are Catmull-Rom over 4×4 texels, so features narrower than about two texels blur. | 128 |
-| `MapGrid` | null | A painted mask: an array of rows, the far (high `z`) row first, each a string of `MapChars` or an array of numbers 0–1, stretched over `MapRect`. 1 grows full mountains, 0 leaves valley floor. Every row must be the same length (`fc-map-bake` stops with a rangecheck otherwise). The grid sets only the mask, not elevation, and doesn't pin: its mountains keep the usual warp, so they land only roughly where painted. | |
+| `MapGrid` | null | A painted mask: an array of rows, the far (high `z`) row first, each a string of `MapChars` or an array of numbers 0–1, stretched over `MapRect`. 1 grows full mountains, 0 leaves valley floor. Every row must be the same length (`fc-map-bake` stops with a rangecheck otherwise). The grid sets only the mask (`MapLiftGrid` paints elevation), and doesn't pin: its mountains keep the usual warp, so they land only roughly where painted. | |
 | `MapChars` | `( .:-=+*#%@)` | The characters a string row may use, from 0 to 1. | |
 | `MapFeatures` | [ ] | Features, each `[ /kind numbers… ]` (below). Heights and levels are world `y`. | |
 | `MapBackground` | [0 0] | `[lift mask]` outside the rectangle, and inside it where no feature reaches. With a `MapGrid` the grid replaces the mask over the whole rectangle (its lift still applies). | [5 0.04] |
@@ -243,6 +243,10 @@ erosion bake reads the terrain). `fc-map-plan` draws the map from above;
 | `MapPlanRect` | null | The area `fc-map-plan` draws (null: `MapRect`). | [−800 −560 800 440] |
 | `MapPlanN` | 150 | Hillshade samples across the plan. | 320 |
 | `MapPlanOct` | 5 | Terrain octaves in the plan. | 5 |
+| `MapLiftGrid` | null | A painted ground height (#39), rows like `MapGrid`'s (its own size), values 0–1 standing for `MapLiftRange`. It replaces `MapBackground`'s lift inside the rectangle, so low land (a beach plain, an atoll) can be painted without growing mountains: with mask 0 the ground stands at the painted height, give or take the valley-floor detail. | `spikes/coast.ps` |
+| `MapLiftRange` | [−10 30] | `lo hi`: the world `y` that `MapLiftGrid`'s 0 and 1 stand for. | [−20 30] |
+| `MapVolcMask` | 0.22 | A `/volcano`'s ridged mask on its flanks (gullies); its lift is lowered to make room for them. | |
+| `MapSea` | null | Sea level, world `y` (#39). A number loads `lib/fc_coast.ps` (next section) and, when the piece sets no `WaterY`, puts the water's plane there. | 0 |
 
 Features (applied peaks and ridges first, the tallest winning, then
 valleys, then lakes, whatever their order in the list):
@@ -253,6 +257,10 @@ valleys, then lakes, whatever their order in the list):
 | `[ /ridge height spread x0 z0 x1 z1 … ]` | The same along a polyline. |
 | `[ /valley depth width x0 z0 x1 z1 … ]` | Carves: the mask falls to 0 along the polyline and the ground drops `depth`. |
 | `[ /lake level depth shore x0 z0 x1 z1 x2 z2 … ]` | A closed polygon: inside it the mask is 0 and the bed sits `depth` below `level`, blending to the surroundings over `shore` units centred on the drawn edge, so the waterline lands near the line. `MapWater` true fills it with the library's water at `level` (`gallery/charted_range.ps`). |
+| `[ /volcano height radius x z ]` | An island preset (#39): a cone of lift with concave flanks (`(1 − d/radius)^1.5`) toward a summit about `height` high, a small crater at the top, and `MapVolcMask` of ridged mask on the flanks for gullies. Applied with the peaks; lift only ever rises. Add `CoastReef` for a fringing reef. |
+| `[ /atoll height radius width x z ]` | An island preset: a ring of low land `height` high (world `y`), `radius` from `x z`, falling off over `width` either side; the lagoon inside stays sea. With `CoastWobble` the ring breaks into islets where it dips under the water. |
+| `[ /cliff height spread x0 z0 x1 z1 … ]` | With `MapSea`: along the polyline (falling off over `spread`), the sea has cut the land back to where it stands `height` above the water, so the coast there is a cliff about that high (shorter where the land isn't that high). |
+| `[ /stack height radius x z ]` | A sea stack: a steep column `radius` wide with its top at `height` (world `y`), drawn per point by `fc_coast.ps` (too narrow for the table). |
 
 Heights have two ceilings. A peak or ridge asks for a mask of at most 1,
 so heights above about `lift + TerrBase + 1.02 TerrH` (47 with the
@@ -261,9 +269,53 @@ And the march stops above `TerrTop` (`TerrBase + 1.25 TerrH`, 59): the
 ground can reach about `lift + TerrBase + 1.16 TerrH`, so a lift over
 about 5 can cut the tops flat. Raise `TerrH` for taller maps.
 
+With any of #39's extras (`MapLiftGrid`, `MapSea`, a `/volcano`, `/atoll`
+or `/stack`) the bake raises `TerrTop` over the tallest lift (and the
+stacks), so a tall island isn't cut flat. Older maps keep the old ceiling,
+so their pixels don't change.
+
+`x z fc-map-water` (map coordinates) gives the water level the map puts
+at a point, or −1000: the higher of `MapSea` and the level of any `/lake`
+whose polygon or shore band holds it.
+
 A lake's bed is flat only at the scale of the map: the valley-floor detail
 (about ±`0.2 DetailAmp TerrH`, ±1.7 units with the defaults) stays, so a
 lake shallower than that shows rocks and islands of bed.
+
+## The coast (`fc_coast.ps`, with `MapSea`)
+
+The map's bake measures each texel's signed distance to the coastline
+(land positive): land is where the map's noise-free height (its lift, plus
+`0.64 TerrH` per unit of mask) stands above `MapSea`, or above `MapSea +
+height` near a `/cliff`. `fc-height-proc` then reshapes the ground near
+the coast (see `docs/techniques.html#coast`): a cliff face cuts back high
+land, low ground is pressed onto a beach-and-shallows profile, and stacks
+and rocks stand offshore. Set `CamHeight`: over the sea, `CamAbove`
+measures from the sea floor. Erosion's droplets stop when they reach the
+sea (their load is lost).
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `CoastSlope` | 0.12 | Gradient of the beach face and the shallows at the waterline. | |
+| `CoastDepth` | 14 | The deep sea floor, below `MapSea`; the shallows reach it over about `3 CoastDepth / CoastSlope` units. | |
+| `CoastBerm` | 1.2 | The berm: the beach's flat top above `MapSea`. | |
+| `CoastFlat` | 1.5 | Low ground within this of the beach profile is pressed flat onto it ... | |
+| `CoastBeachW` | 80 | ... within this far of the water (fading out over its outer half). | |
+| `CoastCliff` | 3.5 | Cliff faces' gradient (rise per unit across). | |
+| `CoastCliffLo`, `CoastCliffHi` | 4, 12 | Over this range of the nearest land's height above the sea, a shore turns from low to cliffed: benches and stacks need it, reefs and sand avoid it. | |
+| `CoastWobble` | 18 | The coastline wanders this far either way (two noise octaves), into coves and points. | |
+| `CoastWobbleScale` | 0.012 | 1 / the wobble's wavelength. | |
+| `CoastRough` | 1.2 | Fine roughness of cliff faces, in units across (near detail only). | |
+| `CoastBench` | [8 0.3] | `width depth`: the wave-cut bench at a cliff's foot, which stands in for the notch a heightfield can't undercut. | |
+| `CoastStacks` | 0.5 | Stacks off cliffed shores, 0–1 (more and wider). 0: none. | |
+| `CoastStackH` | 0.75 | Their height, as a fraction of the nearby cliffs'. | |
+| `CoastStackOut` | 45 | How far offshore they stand (from 10 out). | |
+| `CoastStackScale` | 0.045 | 1 / their spacing. | |
+| `CoastRocks` | 0.5 | Rocks in the surf, from 14 units out to the waterline, 0–1. 0: none. | |
+| `CoastReef` | null | `[out width depth]`: a patchy reef `width` wide, `out` offshore, its top about `depth` under the water; off low shores only. | [70 50 0.5] |
+| `CoastSand`, `CoastCobble` | sRGB | The beach's colours; cobbles are mottled. | |
+| `CoastCobbles` | 0.3 | How much of the beaches is cobble, 0–1. | |
+| `CoastSandW` | 40 | How far inland the beach material reaches. | |
 
 ## Terrain surface and light (`fc_terrain.ps`)
 

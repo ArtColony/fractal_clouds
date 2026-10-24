@@ -60,7 +60,14 @@
 % MapRect, and wherever nothing is painted, the map is MapBackground
 % [lift mask]; the table feathers to it over MapFeather units past the
 % rectangle's edge. A new kind of feature is one more branch in the passes
-% of fc-map-bake (a coastline for #39 would be a /lake inside out).
+% of fc-map-bake.
+%
+% The coast (#39): MapLiftGrid paints ground height (rows like MapGrid,
+% 0..1 over MapLiftRange); /volcano, /atoll, /cliff and /stack features
+% (docs/settings.md); MapSea, a sea level, makes the bake also measure the
+% signed distance to the coastline (fc-map-coast) and loads fc_coast.ps.
+%   x z fc-map-water y | -1000    the water level at a map point: MapSea
+%                                 or a /lake's level, the higher
 
 /MapRect [ -900 -900 900 900 ] fc-default     % x0 z0 x1 z1, map coordinates
 /MapN 128 fc-default                          % table resolution

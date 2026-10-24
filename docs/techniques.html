@@ -260,7 +260,24 @@ height = TerrBase + TerrH · relief(mask) + lift</div>
 </figure>
 </div>
 
-<p>Erosion is still baked per view, over what that camera sees, so the two views agree on every ridge and valley the map and the noise make but not on the finest drainage channels. Sharing one bake over the whole map is #18. A coastline (#39) fits the same scheme: a lake turned inside out, with the sea at its level.</p>
+<p>Erosion is still baked per view, over what that camera sees, so the two views agree on every ridge and valley the map and the noise make but not on the finest drainage channels. Sharing one bake over the whole map is #18.</p>
+
+<h3 id="coast">The coast</h3>
+
+<p>A map can also have a sea (<code>MapSea</code>, #39). Low land needs painting without mountains, so a second grid, <code>MapLiftGrid</code>, paints the ground height itself (the mask grid only says where ridges grow), and two island presets join the features: a <code>/volcano</code> is a cone of lift with concave flanks, a little crater and a light ridged mask for gullies; an <code>/atoll</code> is a ring of low lift round a lagoon. Any of these raises <code>TerrTop</code>, the ceiling where the march gives up, over the tallest lift; older maps keep theirs, so their pixels don't change.</p>
+
+<p>The bake then measures, for every texel of the table, its signed distance to the coastline. A texel is land when its noise-free height (base floor, lift, and the relief its mask grows on an average ridge) stands above the sea. Between a land texel and a sea texel the waterline is put where that height crosses sea level, and a two-pass chamfer carries the distance across each side. Each sea texel also keeps the height of the land nearest it, which is how a point offshore knows whether it lies under a cliff or off a beach. Near a <code>/cliff</code> polyline the test asks for land that much above the sea, so the coast is cut back into high ground and leaves a cliff of about that height. The bake is pure geometry: it runs before the noise is seeded, so the per-point wobble is added later.</p>
+
+<p>Per point, <code>fc-height-proc</code> hands its height to <code>fc-coast</code>. It reads the distance (Catmull-Rom), adds two octaves of noise so the line wanders into coves and points (and, on cliffed shores near the camera, a fine octave that roughens the faces), and reshapes the ground:</p>
+
+<div class="formula">shore(d) = sea + berm · (1 − e^(−d·slope/berm))      on land (d ≥ 0): beach face, then a flat berm
+shore(d) = sea − depth · (1 − e^(d·slope/depth))     offshore: shallows deepening to the floor
+cliff    = min(h, sea + CoastCliff · d)              a steep face rising from the waterline
+h'       = shore + smoothmax(cliff − shore − flat, 0)</div>
+
+<p>The two shore curves meet with the same slope at the waterline. High land is cut back by the cliff face and keeps its height above it. Low ground within <code>CoastFlat</code> of the shore curve is pressed flat onto it, within <code>CoastBeachW</code> of the water, so gentle land becomes a sloping beach of sand or cobble with a berm, and nothing inland dips under the sea. At a cliff's foot a wave-cut bench sits just under the water. A heightfield can't overhang, so the bench stands in for the notch and there are no arches. Offshore, the sea floor follows the distance, deepening to <code>CoastDepth</code>, so the water's colour can follow it. Thresholded noise raises stacks off cliffed shores (as tall as a fraction of the nearby cliff) and rocks in the surf, and the map's <code>/stack</code> features add placed ones. They are evaluated per point because they are narrower than a texel. <code>CoastReef</code> adds a patchy reef off low shores. The beach material (sand, mottled cobble in patches) chains onto the terrain's material hook. Erosion's droplets stop at the sea.</p>
+
+<p>The cost is a second 4×4 lookup and two or three noise samples per height sample near the coast: 82 µs per <code>fc-height</code> call in <code>spikes/coast.ps</code>, against 57 µs for the map alone. Far inland, high above the shore, the point returns after the lookup and the wobble.</p>
 
 <!-- ===================================================================== -->
 <h2 id="lod">5. Detail follows distance</h2>
@@ -708,6 +725,7 @@ showpage</code></pre>
   <li><strong>Rock still reads as folded rather than fractured</strong> at a distance: the strongest remaining critique of the mountains.</li>
   <li><strong>No trunks.</strong> They're hidden in dense spruce but would show at a forest edge seen close.</li>
   <li><strong>Maps cover only part of the world.</strong> Erosion covers about the first 1150 units of the view and the forest map 700; beyond them the terrain is purely procedural and the forest a painted texture.</li>
+  <li><strong>The coast is a heightfield:</strong> no arches, no undercut notches, no overhanging cliffs (#39).</li>
   <li><strong>Faint grain inside clouds</strong> from the jittered march steps.</li>
   <li><strong>Cost:</strong> close crowns take about 5 ms per pixel. A print-size render is an overnight job unless split across cores.</li>
 </ul>
