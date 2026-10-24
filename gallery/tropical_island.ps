@@ -1,0 +1,46 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+%%Title: Tropical island
+% Status: draft
+% fractal_clouds#40: the /Tropical preset on a volcanic island. From the
+% beach on its eastern shore, palms on the slope to the left, the lagoon
+% inside the fringing reef, surf breaking on the reef, and a second island
+% across the strait under trade-wind cumulus.
+%   -D Plan=true  the map from above, the camera marked
+% Preview: DPI=36 scripts/render.sh gallery/tropical_island.ps
+
+/Plan where { pop } { /Plan false def } ifelse
+/Seed where { pop } { /Seed 23 def } ifelse
+/AA where { pop } { /AA true def } ifelse
+
+% --- the map (x east, z north) ------------------------------------------------
+/MapOn where { pop } { /MapOn true def } ifelse
+/MapSea where { pop } { /MapSea 0 def } ifelse
+/MapRect where { pop } { /MapRect [ -1200 -1000 1200 1400 ] def } ifelse
+/MapBackground where { pop } { /MapBackground [ -20 0 ] def } ifelse       % open sea
+/MapFeatures where { pop } { /MapFeatures [
+    [ /volcano 55 520  -560 60 ]                     % the island the camera stands on
+    [ /volcano 75 300   420 1000 ]                   % across the strait
+] def } ifelse
+/MapPlanN where { pop } { /MapPlanN 240 def } ifelse
+
+% --- the camera -----------------------------------------------------------------
+/TerrOX where { pop } { /TerrOX -290 def } ifelse
+/TerrOZ where { pop } { /TerrOZ 0 def } ifelse
+/Yaw where { pop } { /Yaw 38 def } ifelse
+/HFov where { pop } { /HFov 60 def } ifelse
+/CamHeight where { pop } { /CamHeight 1.6 def } ifelse
+/Pitch where { pop } { /Pitch 1 def } ifelse
+/TMax where { pop } { /TMax 1600 def } ifelse
+/SunAzim where { pop } { /SunAzim 150 def } ifelse    % high, behind the camera on the right
+Plan { /Erode where { pop } { /Erode false def } ifelse } if
+
+(lib/fc_presets.ps) run
+[ /Tropical ] fc-presets
+(lib/fc_landscape.ps) run
+
+Plan {
+    320 200 fc-map-plan
+    (C) TerrOX TerrOZ Yaw fc-map-plan-camera
+} { 320 200 fc-landscape } ifelse
+showpage

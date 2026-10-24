@@ -91,6 +91,44 @@
     /SplitTone << /GradeSplit 0.5 >>
     /CoolMuted << /GradeTemp -0.3 /GradeSat 0.72 /GradeLift 0.006 /GradeSplit 0.3 >>
     /Vignette << /Vignette 0.3 >>
+
+% --- coasts (#40): a whole look each, for a map with MapSea (lib/fc_coast.ps) --
+% light, air, sea, beach and trees; the piece brings the map and the camera
+% (and SunAzim). gallery/tropical_island.ps and gallery/pnw_coast.ps.
+    /Tropical <<
+        /SunElev 62 /Turbidity 1 /HazeDist 1500 /HazeH 60
+        /CloudLayers [ << /Type /Cumulus /Lo 62 /Hi 92 /Threshold 0.52 /CoverAmp 0.5
+                          /Scale 0.06 /Wind 20 >> ]
+        /ToneCurve /ACES /GradeSat 1.08
+        /Ocean true /WaterClear 2.5
+        /SeaShallow [ 0.12 0.80 0.74 ] /SeaDeep [ 0.02 0.16 0.26 ] /SeaDepth 2.4
+        /SandCol [ 0.86 0.82 0.70 ] /SandHeight 0.8
+        /CoastSand [ 0.84 0.79 0.66 ] /CoastCobbles 0 /CoastRocks 0.2 /CoastStacks 0
+        /CoastReef [ 60 30 0.15 ] /SurfDepth 0.35 /WindDir 60
+        /SnowLine 500 /TreesOn true /FsLine 70
+        /FsMix [ 0 0 0 0 0 0 0 1 ] /FsCell 2.2 /FsSnag 0 /FsFallen 0
+        /FsAlb [ 0.30 0.42 0.12 ] /FsFloor [ 0.40 0.37 0.24 ]
+        /FsGrass [ 0.36 0.48 0.14 ] /FsGrass2 [ 0.52 0.50 0.24 ]
+    >>
+    /PNWCoast <<
+        /SunElev 30 /Turbidity 3 /HazeDist 320 /HazeH 25
+        /CloudLayers [
+            << /Type /Stratus /Lo 4 /Hi 20 /Threshold 0.62 /CoverAmp 0.6 /Gain 6
+               /Steps 32 /Scale 0.03 /Shape { fc-coast-fog } >>
+            << /Type /Stratus /Lo 34 /Hi 46 >>
+        ]
+        /GradeTemp -0.4 /GradeSat 0.62 /GradeLift 0.01 /GradeSplit 0.3
+        /Ocean true /WaterClear 0.8
+        /SeaShallow [ 0.16 0.30 0.28 ] /SeaDeep [ 0.03 0.08 0.10 ] /SeaDepth 1.2
+        /SandCol [ 0.42 0.41 0.39 ] /SandHeight 0.8
+        /CoastSand [ 0.44 0.42 0.39 ] /CoastCobble [ 0.36 0.35 0.34 ]
+        /CoastCobbles 0.5 /CoastCobbleK 1.2 /CoastStacks 0.9 /CoastRocks 0.9 /CoastDrift 1
+        /Rock [ 0.22 0.22 0.23 ] /Rock2 [ 0.30 0.29 0.28 ] /Scree [ 0.34 0.33 0.32 ]
+        /SnowLine 500 /TreesOn true /FsLine 90
+        /FsMix [ 0 0 0 0 0 0.6 0.4 ] /FsSnag 0.04
+        /FsAlb [ 0.17 0.22 0.13 ] /FsFloor [ 0.14 0.13 0.10 ]
+        /FsGrass [ 0.30 0.36 0.20 ] /FsGrass2 [ 0.42 0.42 0.30 ]
+    >>
 >> def
 
 } ifelse
