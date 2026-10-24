@@ -46,6 +46,7 @@
 /ShaftDist HazeDist fc-default
 
 /SfTab ShaftSteps 1 add array def
+/SfTT ShaftSteps 1 add array def      % green transmittance at the step ends
 /SfOk false def
 /SfKx 0 def /SfKy 0 def /SfKz 0 def /SfKc 0 def
 /SfJI -1 def /SfJJ -1 def /SfJT -1 def /SfJk 0 def
@@ -63,8 +64,10 @@
 } bind def
 
 % green-channel transmittance from the camera to distance s on the ray
+% (the small-exponent fallback is per call, as in fc-haze, so a nearly level
+% ray doesn't lose its precision to 1 - exp(-x))
 /fc-shaft-tr {                                   % s -> T
-    SfLin { } { SfA mul neg 2.71828 exch exp 1 exch sub SfA div } ifelse
+    dup SfA mul abs 0.0001 ge { SfA mul neg 2.71828 exch exp 1 exch sub SfA div } if
     SfD0 mul neg 2.71828 exch exp
 } bind def
 
@@ -76,7 +79,6 @@
 % and probes spread over the whole ray were too sparse to keep the
 % near ones smooth
 /fc-shaft-march {                                % - -> -
-    /SfLin My abs HazeH mul 0.000001 lt def
     /SfA My HazeH div def
     /SfD0 2.71828 CamY HazeH div neg exp HazeDist div HazeW 1 get mul def
     % the end: TMax, or where a rising ray is HazeH above the higher of the
@@ -90,7 +92,7 @@
     /SfDt SfE ShaftSteps div def
     /SfJ fc-shaft-jitter def
     /SfAcc 0 def /SfT0 1 def
-    SfTab 0 0 put
+    SfTab 0 0 put SfTT 0 1 put
     0 1 ShaftSteps 1 sub {
         /SfI exch def
         SfI 1 add SfDt mul fc-shaft-tr /SfT1 exch def
@@ -100,7 +102,7 @@
             Mx SfS mul My SfS mul CamY add Mz SfS mul ShaftOct fc-cloud-shadow-oct
             1 exch sub SfW mul SfAcc add /SfAcc exch def
         } if
-        SfTab SfI 1 add SfAcc put
+        SfTab SfI 1 add SfAcc put SfTT SfI 1 add SfT1 put
         /SfT0 SfT1 def
     } for
     % the shadowed share of the marched haze, for the rest
@@ -111,16 +113,40 @@
 /fc-sf-max { 2 copy lt { exch } if pop } bind def
 /fc-sf-min { 2 copy gt { exch } if pop } bind def
 
-% the shadowed in-scatter up to distance t on the table's ray
+% the shadowed in-scatter up to distance t on the table's ray; within a
+% step it is interpolated by transmittance, not distance, so it never
+% exceeds the haze light up to t (1 - T(t)) however fast the density changes
 /fc-shaft-at {                                   % t -> L
     dup SfE ge {
         fc-shaft-tr SfTE exch sub SfMean mul SfTab ShaftSteps get add
     } {
-        SfDt div dup 0 le { pop 0 } {
-            dup floor cvi /SfN exch def SfN sub
+        dup 0 le { pop 0 } {
+            dup SfDt div floor cvi ShaftSteps 1 sub fc-sf-min /SfN exch def
+            fc-shaft-tr SfTT SfN get exch sub
+            SfTT SfN get SfTT SfN 1 add get sub dup 1e-12 gt { div } { pop pop 0 } ifelse
             SfTab SfN 1 add get SfTab SfN get sub mul SfTab SfN get add
         } ifelse
     } ifelse
+} bind def
+
+% subtract the shadowed haze light L (green) at distance t from r g b. The
+% haze adds more in some channels than in green (HazeChroma), so channel c
+% loses L scaled by its own haze over green's: (1 - T^(w_c/w_g)) / (1 - T),
+% T green's transmittance to t. Clamped at 0
+/fc-shaft-sub {                                  % r g b t L -> r g b
+    ShaftDark mul /SfL exch def
+    fc-shaft-tr /SfTg exch def
+    /SfB exch def /SfG exch def /SfR exch def
+    SfL 0 gt 1 SfTg sub 0.000001 gt and {
+        [ SfR SfG SfB ] 0 1 2 {
+            /SfC exch def
+            dup SfC get
+            HazeCol SfC get SfL mul
+            1 SfTg HazeW SfC get HazeW 1 get div exp sub 1 SfTg sub div mul
+            sub dup 0 lt { pop 0 } if
+            exch
+        } for pop
+    } { SfR SfG SfB } ifelse
 } bind def
 
 /fc-shaft-key { SfOk { Mx SfKx eq My SfKy eq and Mz SfKz eq and CamY SfKc eq and } { false } ifelse } bind def
@@ -141,23 +167,13 @@
 /fc-haze {                                       % r g b t -> r g b
     dup /SfHt exch def fc-haze-closed
     fc-shaft-key {
-        SfHt fc-shaft-at ShaftDark mul /SfL exch def
-        SfL 0 gt {
-            /SfB exch def /SfG exch def /SfR exch def
-            SfR HazeCol 0 get SfL mul sub
-            SfG HazeCol 1 get SfL mul sub
-            SfB HazeCol 2 get SfL mul sub
-        } if
+        SfHt SfHt fc-shaft-at fc-shaft-sub
     } if
 } bind def
 
 /fc-sky {                                        % dx dy dz -> r g b
     fc-shaft-key { 2 index Mx eq 2 index My eq and 1 index Mz eq and } { false } ifelse
     4 1 roll fc-sky-plain 4 -1 roll {
-        SfEnd fc-shaft-at ShaftDark mul /SfL exch def
-        /SfB exch def /SfG exch def /SfR exch def
-        SfR HazeCol 0 get SfL mul sub
-        SfG HazeCol 1 get SfL mul sub
-        SfB HazeCol 2 get SfL mul sub
+        SfEnd SfEnd fc-shaft-at fc-shaft-sub
     } if
 } bind def
