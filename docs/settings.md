@@ -57,7 +57,8 @@ means, is a breaking change):
   order they need. Libraries load each other by those paths, so the files must
   sit in `lib/` there.
 
-**Internal** (may change or vanish in any release, even a patch one):
+**Internal** (may change or vanish in any release, even a patch one, except
+the last item, which follows the version policy below):
 
 - every other name the libraries `def`: a library's scratch names, which sit
   under its own prefix because PostScript has no locals (`Er...` in
@@ -66,15 +67,17 @@ means, is a breaking change):
   are building blocks, not API; `ProfileProcs` merely names them);
 - the **file layout**: which procedure lives in which `lib/fc_*.ps`, the load
   order, and loading any file but the two above by itself;
-- the **pictures**: the same settings may render different pixels in a
-  different release (a bug fix, a new default, a better noise). Renders
+- the **pictures**, beyond the version policy below: the same settings may
+  render different pixels in a different release (a new default, a better
+  noise), though never in a patch release. Renders
   reproduce only for one release, one pscat version and one platform. Pin all
   three.
 
 **Names a project must not use.** Settings share `userdict` with everything
-else, so a project's own libraries and pieces must not define a name that the
-tables list, a name that starts with `Fc` or `fc-`, or a file called
-`lib/fc_*.ps`. Give your own libraries a prefix of your own (`lib/<project>_*.ps`).
+else. A piece sets the documented settings and redefines the documented hooks
+(that is the interface), but its own libraries and helper procedures must not
+define any other name that the tables list, any name that starts with `Fc` or
+`fc-`, or a file called `lib/fc_*.ps`. Give your own libraries a prefix of your own (`lib/<project>_*.ps`).
 `scripts/check_names.sh` finds two libraries that `def` the same name; it
 works on a project's `lib/` too, with the `fc_` files next to its own.
 

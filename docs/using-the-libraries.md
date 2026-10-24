@@ -20,8 +20,10 @@ single file: its figures are inlined, so it opens from anywhere, with no
 checkout. (In the repo the page points at images beside it.) Its link to
 `settings.md` goes to the file at the release's tag on GitHub.
 
-Nothing else is released: scenes, pieces and the render scripts stay in this
-repo. `docs/settings.md` ("The public interface") says which names a release
+Nothing else is released: this repo's scene files (`scenes/`), its pieces and
+the render scripts stay here. The scene *format* (`fc-settings`, see
+`docs/settings.md`) is part of the library, so a project writes its own scene
+files. `docs/settings.md` ("The public interface") says which names a release
 promises and which are internal.
 
 ## Pinning a release in your project
@@ -31,7 +33,7 @@ promises and which are internal.
 2. Pin a version, which installs it:
 
    ```sh
-   scripts/fetch_fc.sh 0.1.0       # writes .fc-version, then installs
+   scripts/fetch_fc.sh 0.1.0       # installs, then writes .fc-version
    ```
 
    `.fc-version` holds just the version (`0.1.0`), like `.pscat-version`.
@@ -69,8 +71,8 @@ between releases (see "Versions" in `docs/settings.md`), so a project that
 keeps reference renders refreshes them when it upgrades.
 
 The presets (`lib/fc_presets.ps`: time of day, weather, terrain, season, and
-the colour-grade presets once a release has them) and scene files are part of
-the release and of the public interface. A project's own presets go into
+the colour-grade presets once a release has them) and the scene-file format
+are part of the release and of the public interface. A project's own presets go into
 `FcPresets` from its own piece or scene file.
 
 ## Cutting a release
@@ -104,8 +106,9 @@ The release's `fractal_clouds-X.Y.Z-techniques.html` is the page: download it
 from the release and open it. To give it an address, the options are:
 
 - **GitHub Pages**: publish the release asset (or run
-  `python3 -I scripts/standalone_html.py . site/index.html` in a Pages
-  workflow) from a `gh-pages` branch or a Pages deploy. This needs the owner to
+  `python3 -I scripts/standalone_html.py . site/index.html
+  https://github.com/ArtColony/fractal_clouds/blob/vX.Y.Z/docs` in a Pages
+  workflow, so the link to `settings.md` points at the tagged file) from a `gh-pages` branch or a Pages deploy. This needs the owner to
   enable Pages for the repo (Settings), so it is not done here.
 - **A Claude Artifact**: publish the standalone file (8.5 MB, under the 16 MB
   limit) as an Artifact. It is private until shared and needs no repo setting.

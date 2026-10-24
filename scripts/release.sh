@@ -29,7 +29,7 @@ repo="${FC_REPO:-ArtColony/fractal_clouds}"
 name="fractal_clouds-$ver"
 
 scripts/check_names.sh
-if [ -n "$(git status --porcelain -- lib docs/settings.md docs/techniques.html LICENSE)" ]; then
+if [ -n "$(git status --porcelain -- lib docs gallery/previews LICENSE .pscat-version)" ]; then
   echo "release: uncommitted changes in the released files; the release is built from HEAD" >&2
 fi
 
@@ -40,7 +40,7 @@ trap 'rm -rf "$work"' EXIT
 
 # the committed tree, with the images techniques.html points at
 mkdir "$work/src"
-git archive HEAD lib docs gallery/previews LICENSE | tar -x -C "$work/src"
+git archive HEAD lib docs gallery/previews LICENSE .pscat-version | tar -x -C "$work/src"
 
 stage="$work/$name"
 mkdir -p "$stage/docs" "$stage/lib"
@@ -50,7 +50,7 @@ cp "$work/src/docs/settings.md" "$stage/docs/"
 python3 -I scripts/standalone_html.py "$work/src" "$stage/docs/techniques.html" \
   "https://github.com/$repo/blob/v$ver/docs"
 echo "$ver" > "$stage/VERSION"
-cat .pscat-version > "$stage/PSCAT_VERSION"
+cp "$work/src/.pscat-version" "$stage/PSCAT_VERSION"
 
 # lib/ must hold fc_ libraries only (a consumer's own libraries live beside them)
 if [ "$(ls "$work/src/lib" | wc -l)" != "$(ls "$stage/lib" | wc -l)" ]; then

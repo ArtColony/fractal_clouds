@@ -5,7 +5,7 @@
 #
 #   scripts/fetch_fc.sh            # install the version in .fc-version
 #   scripts/fetch_fc.sh --check    # fail if lib/fc_*.ps differ from that release
-#   scripts/fetch_fc.sh 0.2.0      # write .fc-version, then install
+#   scripts/fetch_fc.sh 0.2.0      # install 0.2.0, then write .fc-version
 #
 # Run from anywhere; it works on the project root (the directory above
 # scripts/). It puts
@@ -32,11 +32,16 @@ check=0
 case "${1:-}" in
   --check) check=1; shift ;;
   -*) echo "usage: $0 [--check | VERSION]" >&2; exit 2 ;;
-  ?*) echo "$1" > .fc-version; shift ;;
+  ?*) ver="$1"; shift ;;
 esac
-[ -f .fc-version ] || { echo "fetch_fc: no .fc-version (write the version to pin, e.g. 0.1.0)" >&2; exit 2; }
-ver="$(tr -d '[:space:]' < .fc-version)"
+if [ -z "${ver:-}" ]; then
+  [ -f .fc-version ] || { echo "fetch_fc: no .fc-version (write the version to pin, e.g. 0.1.0)" >&2; exit 2; }
+  ver="$(tr -d '[:space:]' < .fc-version)"
+fi
 ver="${ver#v}"
+if ! [[ "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
+  echo "fetch_fc: '$ver' is not a version (MAJOR.MINOR.PATCH)" >&2; exit 2
+fi
 name="fractal_clouds-$ver"
 
 tmp="$(mktemp -d)"
@@ -47,10 +52,17 @@ else
   gh release download "v$ver" -R "$repo" -p "$name.tar.gz" -p SHA256SUMS -D "$tmp"
 fi
 if command -v sha256sum >/dev/null; then sum=sha256sum; else sum="shasum -a 256"; fi
-(cd "$tmp" && $sum -c SHA256SUMS --ignore-missing)
-tar -xzf "$tmp/$name.tar.gz" -C "$tmp"
-rel="$tmp/$name"
-[ "$(cat "$rel/VERSION")" = "$ver" ] || { echo "fetch_fc: the archive is not version $ver" >&2; exit 1; }
+# check exactly this archive's line, so a manifest that doesn't list it fails
+# (some sha256sum builds accept --ignore-missing when nothing was checked)
+grep -F "  $name.tar.gz" "$tmp/SHA256SUMS" > "$tmp/this.sum" || { echo "fetch_fc: SHA256SUMS has no entry for $name.tar.gz" >&2; exit 1; }
+(cd "$tmp" && $sum -c this.sum)
+mkdir "$tmp/x"
+tar -xzf "$tmp/$name.tar.gz" -C "$tmp/x"
+rel="$tmp/x/$name"
+[ "$(cat "$rel/VERSION" 2>/dev/null)" = "$ver" ] || { echo "fetch_fc: the archive is not version $ver" >&2; exit 1; }
+for f in lib/fc_landscape.ps lib/fc_presets.ps docs/settings.md docs/techniques.html PSCAT_VERSION; do
+  [ -f "$rel/$f" ] || { echo "fetch_fc: the archive has no $f" >&2; exit 1; }
+done
 
 if [ "$check" = 1 ]; then
   status=0
@@ -68,7 +80,8 @@ mkdir -p lib docs/fractal_clouds
 rm -f lib/fc_*.ps
 cp "$rel"/lib/fc_*.ps lib/
 cp "$rel/VERSION" "$rel/PSCAT_VERSION" "$rel/docs/settings.md" "$rel/docs/techniques.html" docs/fractal_clouds/
-echo "fetch_fc: installed fractal_clouds $ver in lib/ and docs/fractal_clouds/"
+echo "$ver" > .fc-version
+echo "fetch_fc: installed fractal_clouds $ver in lib/ and docs/fractal_clouds/ (pinned in .fc-version)"
 
 # the release was tested with one pscat; renders only reproduce on the same one
 if [ -f .pscat-version ] && [ "$(cat "$rel/PSCAT_VERSION")" != "$(cat .pscat-version)" ]; then
