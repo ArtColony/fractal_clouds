@@ -638,7 +638,7 @@ sea (their load is lost).
 
 The bake covers a square `ErSize` wide, centred `ErDist` ahead of the
 camera along `Yaw`. Outside it, the terrain is procedural, blended over the
-square's outer 6%.
+square's outer 6%, unless `ErFar` adds a coarser map for the far distance.
 
 | Setting | Default | What it does | Used |
 |---|---|---|---|
@@ -654,6 +654,14 @@ square's outer 6%.
 | `ErBaseOct` | 5 | Procedural octaves baked into the map. | 5 |
 | `ErDelta` | true | Keep only erosion's *change* and add it to the full procedural terrain. false replaces the terrain with the map, which loses detail. | true, false |
 | `FineAmp`, `FineScale` | 0.07, 7 | Detail added back in replace mode (`ErDelta` false). | |
+| `ErThermal` | 0 | Thermal erosion (#30): this many thermal passes after each of `ErRounds` rounds of droplets; 0 is off. Steep rock weathers into scree, which slides down and piles up as talus at the angle of repose below cliffs. About 0.35 s per pass at `ErN` 512 (5 passes × 4 rounds add about 7 s); the droplets draw the same random numbers either way. | 0, 5 |
+| `ErRounds` | 4 | Rounds of droplets the thermal passes alternate with (with `ErThermal`). | |
+| `ErTalus` | 33 | Angle of repose, degrees: scree on steeper ground slides on. Thermal ignores the sea stop that droplets have (`MapSea`): scree can slide below sea level, which may soften coast cliffs. | 30–38 |
+| `ErThermalRate` | 0.5 | Share of half the excess slope that moves per pass, at most what is loose. | |
+| `ErWeather` | 0.03 | Share of the excess weathered from rock into scree per pass. Small keeps cliffs and makes talus below them; large (0.5) makes every steep slope loose, which flattens the whole range to the angle of repose. | 0.01–0.05 |
+| `ErFar` | false | A second, coarser erosion map for the far distance (#30), so ranges beyond the main square show drainage too. The main map blends into it over its outer 6%, and it blends into the procedural terrain over its own. It has its own random stream (from `Seed`) and puts the main one back, so the forest is unchanged. No flow or rivers on it. At its coarse texel (about 7 units) the droplets mostly fill basins with sediment and soften slopes; they cut few readable channels, even at 200000 drops. Adds about 15 s to the bake at the defaults (5 s sampling, 10 s droplets at 384²; more with `ErFarDrops`), and about 6% to render time where the view reaches past the main square. Only worth it when the view reaches past the main square: raise `TMax` (and `HazeDist`). | false, true |
+| `ErFarN`, `ErFarDrops` | 384, 40000 | Far map resolution and droplets. | |
+| `ErFarSize`, `ErFarDist` | 2600, 1100 | Far map area, world units, and its centre's distance ahead. | |
 
 ## Forest (`fc_trees.ps`, with `TreesOn`)
 
