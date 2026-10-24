@@ -242,10 +242,56 @@ heights in `/Clear`, `/Overcast` and `/Storm` assume the standard terrain
 | `WaterRise` | null | A number sets `WaterY` this far above the ground under the camera (worked out during setup, from the terrain before erosion). | 1.4 |
 | `Rivers` | false | Carve rivers along the erosion map's drainage and fill them (needs `Erode`). Adds the flow pass to the bake and the river bake after it. | false, true |
 | `MapWater` | false | Fill the terrain map's `/lake` features (`MapOn`) with water at their levels, each over its polygon and shore band. | true |
+| `StandAt` | null | `[x z]` in map coordinates (the terrain's own: what `MapFeatures` use, `x` east, `z` north): stand the camera there. Sets `TerrOX`/`TerrOZ` as `fc_landscape.ps` loads, overriding the piece's own. The height still comes from `CamAbove`, `CamLift` or `CamHeight`. | [430 0] |
+| `LookAt` | null | `[x z]` or `[x y z]` in map coordinates: aim the centre of the frame there. `Yaw` is set as the file loads (before the erosion and forest windows, which lie along it, are placed) and `Pitch` during `fc-landscape-setup`, once the camera height and the ground at the target (`fc-height`, eroded) are known; over water (`WaterY`, or a map's `MapSea`) it aims at the surface instead. A map lake's level (`MapWater`) isn't consulted: give `[x y z]` to aim at its water rather than its bed. `y` gives the target's height outright. Overrides the piece's `Yaw` and `Pitch`. A target where the camera stands is ignored, with a message. | [190 185] (a peak) |
+| `LookTilt` | 0 | Degrees added to the `Pitch` that `LookAt` works out: positive tilts the view up, so the target sits lower in the frame: tan(`LookTilt`)/tan(`HFov`/2) half frame widths, about a quarter of the height per 10° on a 320×200 frame at `HFov` 60. | 0, 4 |
 
-The camera always stands at x = z = 0, looking along +z before `Yaw`.
-To stand somewhere else in the terrain, move the terrain under it with
-`TerrOX`/`TerrOZ`.
+The camera always stands at x = z = 0 in the world, looking along +z before
+`Yaw`. To stand somewhere else in the terrain, the terrain moves under it:
+`TerrOX`/`TerrOZ`, or `StandAt` and `LookAt` to name map points instead of
+trying offsets and angles. With `MapOn`, `fc-map-plan` marks a camera placed
+this way and the point it aims at, so a view can be planned on the plan
+(`-D Plan=true` in `gallery/charted_range.ps`):
+
+```sh
+scripts/render.sh -D Plan=true -D 'StandAt=[430 0]' -D 'LookAt=[190 185]' gallery/charted_range.ps
+scripts/frame.sh -D 'StandAt=[430 0]' -D 'LookAt=[190 185]' -D LookTilt=4 gallery/charted_range.ps
+```
+
+## Composition passes (`scripts/frame.sh`, `render.sh --sweep`, `lib/fc_frame.ps`)
+
+Two quick looks before paying for detail, both through `scripts/render.sh`
+(so they are timed in `timings.tsv`):
+
+- **Framing pass.** `scripts/frame.sh gallery/foo.ps` (the same as
+  `scripts/render.sh --frame`) renders at `Res` 0.5 with `AA` off and draws a
+  rule-of-thirds grid, the horizon (eye level: where rays are level, from
+  `Pitch` and `HFov`; the log prints its height as a percentage from the top)
+  and, with `LookAt`, a red circle on the aim point. It writes
+  `renders/foo-frame.png`. `-D Res=...` or `-D AA=...` override the defaults;
+  other `-D` options pass through as usual.
+- **Contact sheets.** `scripts/render.sh --sweep NAME=SPEC gallery/foo.ps`
+  renders one frame per value (`SPEC` is `A:B`, `A:B:STEP` or `A,B,C`) at
+  `Res` 0.25, labels each `NAME = value` in its corner, and composites them
+  into `renders/foo-sweep.png` (the frames are `foo-sweep-001.png`, ...).
+  `--grid 3x2` sets the sheet's columns and rows. `--sweep Seed=1:9` is the
+  seed sheet: `Seed` makes the range, and a frame you like is a `Seed` you
+  can set. pscat's own `--sweep-seed SPEC` works too, but it overrides every
+  `srand` call with the same value (the noises, the trees, the erosion
+  droplets and the jitter all reseed from it, instead of from the offsets of
+  `Seed`), so its frames can't be reproduced by a setting. A swept
+  setting has to be one the piece reads with `/NAME where` (or leaves to a
+  library's default); `--frame` and `--sweep` combine. pscat refuses `--lint`
+  with a sweep, so sweeps aren't linted.
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `FrameGrid` | false | `lib/fc_frame.ps`: draw the thirds grid, horizon and aim point over the page just before `showpage` (`--frame` sets it). | true |
+| `FrameLabel` | null | `lib/fc_frame.ps`: a name, such as `/Seed`; its value is printed in the bottom-left corner before `showpage` (`--sweep` sets it). | /Seed |
+
+`lib/fc_frame.ps` wraps `showpage`, so it works on any piece without changes;
+`render.sh` loads it ahead of the piece only for these passes. Its procedure
+`pw ph fc-frame-overlay` draws the grid and horizon on a `pw`×`ph` frame.
 
 ## Profiling (`lib/fc_bench.ps`, with `Profile`)
 
@@ -520,6 +566,8 @@ takes the domain warp away near features. `fc-map-bake` samples it all
 into a `MapN`² table when the library loads; a piece that changes the map
 afterwards calls `fc-map-bake` again, before `fc-landscape-setup` (the
 erosion bake reads the terrain). `fc-map-plan` draws the map from above;
+`(label) x z yaw fc-map-plan-camera` marks a viewpoint on it and
+`x z fc-map-plan-target` an aim point (it marks `StandAt`/`LookAt` itself);
 `gallery/charted_range.ps` shows the lot. Only `TerrFn` 3 uses the map.
 
 | Setting | Default | What it does | Used |

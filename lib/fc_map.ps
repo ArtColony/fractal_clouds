@@ -26,6 +26,12 @@
 %   (label) x z yaw fc-map-plan-camera -
 %                                    mark a viewpoint on the plan (the
 %                                    current one is TerrOX TerrOZ Yaw)
+%   x z fc-map-plan-target -         mark an aim point: a red cross, with a
+%                                    dashed line from the current camera
+%                                    (TerrOX TerrOZ)
+%   fc-map-plan marks the piece's own camera itself when it sets StandAt
+%   or LookAt (lib/fc_landscape.ps), and LookAt's point with
+%   fc-map-plan-target
 %
 % The map is MapGrid (a painted mask, or null) with MapFeatures on top:
 %
@@ -552,6 +558,14 @@
     } forall
     (fc-map-plan: heights min ) print MpLo 20 string cvs print ( max ) print MpHi 20 string cvs print
     ( over ) print [ MqX0 MqZ0 MqX1 MqZ1 ] { 9 string cvs print ( ) print } forall ( ) =
+    % the camera StandAt / LookAt placed, and the point it aims at
+    /StandAt where { pop StandAt null ne } { false } ifelse
+    /LookAt where { pop LookAt null ne } { false } ifelse or {
+        (camera) TerrOX TerrOZ Yaw fc-map-plan-camera
+        /LookAt where { pop LookAt null ne } { false } ifelse {
+            LookAt 0 get LookAt LookAt length 1 sub get fc-map-plan-target
+        } if
+    } if
 } bind def
 
 % (label) x z yaw fc-map-plan-camera -    a red dot, the field of view, a label
@@ -568,6 +582,18 @@
     } forall
     /Helvetica findfont 7 scalefont setfont
     MpCpx 4 add MpCpy 4 sub moveto show
+    grestore
+} bind def
+
+% x z fc-map-plan-target -    a red cross at an aim point, dashed from the camera
+/fc-map-plan-target {
+    fc-map-plan-pt /MpTy exch def /MpTx exch def
+    gsave
+    1 0.15 0.1 setrgbcolor 0.7 setlinewidth
+    gsave [ 2 2 ] 0 setdash
+    TerrOX TerrOZ fc-map-plan-pt moveto MpTx MpTy lineto stroke
+    grestore
+    MpTx 3 sub MpTy 3 sub moveto 6 6 rlineto MpTx 3 sub MpTy 3 add moveto 6 -6 rlineto stroke
     grestore
 } bind def
 
