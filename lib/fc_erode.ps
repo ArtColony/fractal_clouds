@@ -187,6 +187,8 @@
 % angle of repose; with all ground loose (ErWeather large) it is the plain
 % rule, which flattens every steep slope. Passes alternate their scan
 % direction so material doesn't creep one way. Draws no random numbers.
+% Unlike the droplets, it doesn't stop at the sea (MapSea): scree can
+% slide below sea level, which may soften coast cliffs.
 /fc-erode-scree {                                % the droplet's change, into the scree depth
     ErLoose Ei 2 copy get Eamt 1 Efx sub mul 1 Efy sub mul add 0 fc-max put
     ErLoose Ei 1 add 2 copy get Eamt Efx mul 1 Efy sub mul add 0 fc-max put
