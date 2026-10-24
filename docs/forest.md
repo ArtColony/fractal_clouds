@@ -55,8 +55,9 @@ per band (each a `render.sh` run with a `Crop`), and stitches them. Every
 band does the whole setup, so the seeded scene is the same in each. (At
 the time the cloud-march jitter continued differently per band and a band's
 first row had no row above it for edge antialiasing; since #27 the jitter is
-a hash of the pixel and a crop samples its neighbours' depth, so bands stitch
-into exactly the whole-frame render.) Crops with the final settings (`-D Crop=...`) were
+read from a blue-noise tile at the pixel, and since #19 a band samples its
+neighbours' depth keys (`PixSeed`), so bands stitch into exactly the
+whole-frame render.) Crops with the final settings (`-D Crop=...`) were
 checked at full detail before the large render: foreground forest,
 mid-distance slope and a cliff inside the forest map.
 

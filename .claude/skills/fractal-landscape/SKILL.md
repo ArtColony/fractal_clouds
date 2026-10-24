@@ -114,7 +114,7 @@ The cuts are fractions from the top (two cuts, three bands); put the cuts so
 the expensive rows (forest, water: lower in the frame) get narrower bands. Each band repeats the bakes. Run it in
 the background (tens of minutes to an hour); the result is
 `renders/<name>.png`. The bands match a whole-frame render pixel for pixel
-(#27), so the cuts leave no seams. Copy the chosen render
+(#19, #27), so the cuts leave no seams. Copy the chosen render
 to `gallery/previews/` (or the example's `docs/` directory) by hand:
 `renders/` is git-ignored.
 

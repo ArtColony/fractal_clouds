@@ -52,7 +52,7 @@
 /AmbBot [ 0.34 0.38 0.48 ] fc-colour
 /PixAng 0.0035 fc-default
 /CloudLayers null fc-default         % null: the one layer above
-/CloudDense 0.3 fc-default           % a step deeper than this (optical depth) is shortened, to half at most
+/CloudDense 0 fc-default             % > 0: a step deeper than this (optical depth) is shortened, to half at most
 
 % --- presets ----------------------------------------------------------------
 % Every key a layer has, with the values the presets start from: the gallery
@@ -484,11 +484,13 @@
             /Px Mx Ct mul def /Py My Ct mul CamY add def /Pz Mz Ct mul def
             Px Py Pz Ct fc-cloud-oct fc-layer-density dup 0 gt {
                 /Cd exch def
-                % dense: shorten this step (to half at most) so no one
-                % sample takes much more than a quarter of the light
-                ClSig Cd mul Cdt mul dup CloudDense gt {
-                    CloudDense exch div dup 0.5 lt { pop 0.5 } if Cdt mul /Cdt exch def
-                } { pop } ifelse
+                % CloudDense: shorten a dense step (to half at most), so no
+                % one sample takes too much of the light
+                CloudDense 0 gt {
+                    ClSig Cd mul Cdt mul dup CloudDense gt {
+                        CloudDense exch div dup 0.5 lt { pop 0.5 } if Cdt mul /Cdt exch def
+                    } { pop } ifelse
+                } if
                 /Ca 1 2.71828 ClSig Cd mul Cdt mul neg exp sub def
                 ClFade { Ct ClF0 gt { /Ca Ca TMax Ct sub ClF1 mul mul def } if } if
                 Px Py Pz Cd Cph fc-cloud-light Ct fc-haze

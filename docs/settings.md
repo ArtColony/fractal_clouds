@@ -359,7 +359,7 @@ changes `Pitch`, `Yaw` or `HFov` afterwards calls `fc-camera-update` and then
 | `DensOct` | 5 | Most noise octaves, for near clouds; distant clouds use fewer. | 5 |
 | `ShadOct`, `ShadStep` | 3, 3.2 | Octaves and spacing of the two probes toward the sun. | |
 | `CloudSteps` | 96 | Most samples per ray. | |
-| `CloudDense` | 0.3 | Optical depth (`Sigma · density · step`) above which a march step is shortened to that depth, to half its length at most, so no one sample decides much of a pixel's light (less grain inside thick cloud). Applies to every layer. A large value turns it off. | 0.3 |
+| `CloudDense` | 0 | If above 0, a march step whose optical depth (`Sigma · density · step`) exceeds it is shortened to that depth, to half its length at most, so no one sample decides much of a pixel's light. Off by default: with the blue-noise jitter it lowered the per-pixel error inside the storm by a quarter but not the visible (blurred) grain, for 7–10% more time (#27). Applies to every layer. | 0, 0.3 |
 | `AmbTop`, `AmbBot` | derived (or [0.62 0.72 0.88], [0.34 0.38 0.48] without `SkyModel`) | Ambient light at the layer's top and bottom (sRGB). With the sky model, 1.2 and 0.31 of the derived `SkyAmb` unless the piece sets them. | |
 | `CloudLayers` | null | null marches the one layer the settings above describe. Otherwise an array of layers (below), marched one after another, nearest band first. | null, `[/Cumulus /Altocumulus /Cirrus]` |
 
