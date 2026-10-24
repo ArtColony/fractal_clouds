@@ -226,10 +226,16 @@ valleys, then lakes, whatever their order in the list):
 | `[ /valley depth width x0 z0 x1 z1 … ]` | Carves: the mask falls to 0 along the polyline and the ground drops `depth`. |
 | `[ /lake level depth shore x0 z0 x1 z1 x2 z2 … ]` | A closed polygon: inside it the mask is 0 and the bed sits `depth` below `level`, blending to the surroundings over `shore` units inside the edge. The piece puts its water plane at `level` (`gallery/charted_range.ps` uses `evening_lake`'s water hooks). |
 
-Heights have a ceiling: the march stops above `TerrTop` (`TerrBase +
-1.25 TerrH`, 59), so lift plus about `1.16 TerrH + TerrBase` must stay
-under it, or the tops are cut flat. Raise `TerrH` for taller maps. Peak
-heights over about `TerrBase + 1.16 TerrH` are clamped.
+Heights have two ceilings. A peak or ridge asks for a mask of at most 1,
+so heights above about `lift + TerrBase + 1.02 TerrH` (47 with the
+defaults and no lift) all give the tallest ridges the noise makes there.
+And the march stops above `TerrTop` (`TerrBase + 1.25 TerrH`, 59): the
+ground can reach about `lift + TerrBase + 1.16 TerrH`, so a lift over
+about 5 can cut the tops flat. Raise `TerrH` for taller maps.
+
+A lake's bed is flat only at the scale of the map: the valley-floor detail
+(about ±`0.2 DetailAmp TerrH`, ±1.7 units with the defaults) stays, so a
+lake shallower than that shows rocks and islands of bed.
 
 ## Terrain surface and light (`fc_terrain.ps`)
 

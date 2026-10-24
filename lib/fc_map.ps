@@ -175,10 +175,13 @@
             } forall ]
         } forall ] def
     } if
-    /MapTab MapN MapN mul 3 mul array def        % lift mask pin per texel
-    0 1 MapN 1 sub { /MpJ exch def
+    % lift mask pin per texel, with one texel of margin all round (sampled
+    % past the rectangle) so lookups at its edge have all four neighbours
+    /MpW2 MapN 2 add def
+    /MapTab MpW2 MpW2 mul 3 mul array def
+    -1 1 MapN { /MpJ exch def
         /MpZ MpZ0 MpJ MpTz mul add def
-        0 1 MapN 1 sub { /MpI exch def
+        -1 1 MapN { /MpI exch def
             /MpX MpX0 MpI MpTx mul add def
             /MpL MapBackground 0 get def /MpM MapBackground 1 get def /MpP 0 def
             MapGrid null ne { MpX MpZ fc-map-grid-at /MpM exch def } if
@@ -209,9 +212,8 @@
                     MpB MpP gt { /MpP MpB def } if
                 } if
             } forall
-            MapTab MpJ MapN mul MpI add 3 mul  MpL put
-            MapTab MpJ MapN mul MpI add 3 mul 1 add  MpM put
-            MapTab MpJ MapN mul MpI add 3 mul 2 add  MpP put
+            /MpGk MpJ 1 add MpW2 mul MpI add 1 add 3 mul def
+            MapTab MpGk MpL put  MapTab MpGk 1 add MpM put  MapTab MpGk 2 add MpP put
         } for
     } for
     (fc-map: ) print MapN 9 string cvs print (^2 table, ) print MapFeatures length 9 string cvs print
@@ -231,7 +233,7 @@
     MapTab MpGk 2 add get MpGw0 mul  MapTab MpGk 5 add get MpGw1 mul add
     MapTab MpGk 8 add get MpGw2 mul add  MapTab MpGk 11 add get MpGw3 mul add
     MpGv mul MpP add /MpP exch def
-    /MpGk MpGk MapN 3 mul add def
+    /MpGk MpGk MpW2 3 mul add def
 } bind def
 
 % x z -> lift mask pin
@@ -242,13 +244,14 @@
     MpZ0 MpLz sub  2 copy lt { exch } if pop  MpLz MpZ1 sub  2 copy lt { exch } if pop
     dup 0 le { pop 1 } { MapFeather div 1 exch sub dup 0 lt { pop 0 } if } ifelse /MpW exch def
     MpW 0 le { MapBackground 0 get MapBackground 1 get 0 } {
-        MpLx MpX0 sub MpTx div dup 1 lt { pop 1 } if dup MapN 2.001 sub gt { pop MapN 2.001 sub } if /MpGx exch def
-        MpLz MpZ0 sub MpTz div dup 1 lt { pop 1 } if dup MapN 2.001 sub gt { pop MapN 2.001 sub } if /MpGz exch def
+        % texel coordinates, 0..MapN-1 over the rectangle, 1 more in the table
+        MpLx MpX0 sub MpTx div dup 0 lt { pop 0 } if dup MapN 1.0001 sub gt { pop MapN 1.0001 sub } if 1 add /MpGx exch def
+        MpLz MpZ0 sub MpTz div dup 0 lt { pop 0 } if dup MapN 1.0001 sub gt { pop MapN 1.0001 sub } if 1 add /MpGz exch def
         /MpGi MpGx floor cvi def /MpGj MpGz floor cvi def
         MpGx MpGi sub fc-map-cw /MpGw3 exch def /MpGw2 exch def /MpGw1 exch def /MpGw0 exch def
         MpGz MpGj sub fc-map-cw
         /MpL 0 def /MpM 0 def /MpP 0 def
-        /MpGk MpGj 1 sub MapN mul MpGi add 1 sub 3 mul def       % texel (i-1, j-1)
+        /MpGk MpGj 1 sub MpW2 mul MpGi add 1 sub 3 mul def       % texel (i-1, j-1)
         4 -1 roll fc-map-tab-row 3 -1 roll fc-map-tab-row exch fc-map-tab-row fc-map-tab-row
         MpM 0 lt { /MpM 0 def } if
         MpP 0 lt { /MpP 0 def } if MpP 1 gt { /MpP 1 def } if

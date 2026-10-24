@@ -37,13 +37,15 @@
 % --- the viewpoints: x z yaw, in map coordinates -----------------------------
 /Views [ [ 0 -250 0 ] [ 430 0 -72 ] ] def
 View 2 eq {
-    /TerrOX where { pop } { /TerrOX 430 def /TerrOZ 0 def } ifelse
+    /TerrOX where { pop } { /TerrOX 430 def } ifelse
+    /TerrOZ where { pop } { /TerrOZ 0 def } ifelse
     /Yaw where { pop } { /Yaw -72 def } ifelse
     /Pitch where { pop } { /Pitch 2 def } ifelse
     /CamLift where { pop } { /CamLift 0.55 def } ifelse
     /TMax where { pop } { /TMax 1200 def } ifelse
 } {
-    /TerrOX where { pop } { /TerrOX 0 def /TerrOZ -250 def } ifelse
+    /TerrOX where { pop } { /TerrOX 0 def } ifelse
+    /TerrOZ where { pop } { /TerrOZ -250 def } ifelse
     /Yaw where { pop } { /Yaw 0 def } ifelse
     /Pitch where { pop } { /Pitch 3 def } ifelse
     /CamAbove where { pop } { /CamAbove 7 def } ifelse
@@ -54,7 +56,8 @@ Plan { /Erode where { pop } { /Erode false def } ifelse } if   % the plan is the
 
 % --- light and air (world-fixed, so both views share them) --------------------
 /SunDir where { pop } { /SunDir [ 0.60 0.45 0.30 ] def } ifelse   % morning, from the east
-/CloudLo where { pop } { /CloudLo 60 def /CloudHi 88 def } ifelse
+/CloudLo where { pop } { /CloudLo 60 def } ifelse
+/CloudHi where { pop } { /CloudHi 88 def } ifelse
 /CoverAmp where { pop } { /CoverAmp 0.38 def } ifelse
 /Threshold where { pop } { /Threshold 0.57 def } ifelse
 /HazeDist where { pop } { /HazeDist 900 def } ifelse
