@@ -524,7 +524,7 @@ T = exp(−(t_bed − t_water) / WaterClear)</div>
 
 <p>Every renderer ray starts above the origin (<code>(0, CamY, 0)</code>), so a reflected ray is marched from a virtual camera: the point straight above the origin on the line through the water point with the view ray's heading and the reflected ray's slope. Started at the water point (<code>MarchT0</code>), it marches and shades the dry scene exactly. Its haze is counted from the water point, and so is the haze on the clouds it passes: <code>fc-clouds</code> calls <code>fc-haze</code> by name, so it is swapped for one that starts at the water while they are marched. The first lake (<code>gallery/evening_lake.ps</code>, #11) mirrored the camera below the water and hazed the reflected clouds from there, where the exponential haze is densest, so its reflected clouds came out too hazy.</p>
 
-<p>The one approximation: a ripple's sideways tilt is dropped from the reflected ray (only its slope is kept), since a ray with another heading wouldn't pass above the origin. The sky, which needs no march, is looked up along the full reflected direction.</p>
+<p>Two approximations remain. A ripple's sideways tilt is dropped from the reflected ray (only its slope is kept), since a ray with another heading wouldn't pass above the origin; the sky, which needs no march, is looked up along the full reflected direction. And the cloud march can't be told to start at the water, so it also crosses the stretch from the virtual camera up to the water point; that stretch lies below the water, so this only matters for water above a cloud base.</p>
 
 <!-- ===================================================================== -->
 <h2 id="render">13. Writing the image</h2>

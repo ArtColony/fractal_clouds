@@ -351,11 +351,11 @@ and its own colour are hooks (`fc-water-normal`, `fc-water-colour`, below).
 | `ShoreCol` | [0.60 0.56 0.48] | Its colour: sand and pebbles (sRGB). | default |
 | `ShoreStones` | 0.5 | Stone cover along the shore and in the shallows, 0..1. | 0.5 |
 | `StoneScale` | 1.6 | 1 / stone size. | 1.6 |
-| `RiverLo` | 20000 | Catchment, in square world units, where a channel starts (20000 is 2 km²). | 20000 |
+| `RiverLo` | 10000 | Catchment, in square world units, where a channel starts (10000 is 1 km²). | 10000 |
 | `RiverHi` | 400000 | Catchment where a channel is full size; strength grows on a log scale between the two. | 400000 |
-| `RiverWidth` | 8 | Width of a full-size channel, world units; a young stream is 35% of it. | 8 |
-| `RiverDepth` | 1.6 | Depth carved into the erosion map at full size. | 1.6 |
-| `RiverFill` | 0.6 | How full of water the channels are, 0..1. | 0.6 |
+| `RiverWidth` | 14 | Width of a full-size channel (the groove; the water is narrower), world units. A young stream is 35% of it. | 14 |
+| `RiverDepth` | 2 | Depth carved into the erosion map at full size. | 2 |
+| `RiverFill` | 0.7 | How full of water the channels are, 0..1. | 0.7 |
 | `ErFlowOn` | false | (`fc_erode.ps`) Compute the flow map without rivers (`Rivers` turns it on). | |
 
 | Procedure | Stack | What it does |

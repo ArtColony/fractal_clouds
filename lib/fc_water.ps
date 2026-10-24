@@ -111,6 +111,10 @@
                 AqRc neg 1 AqRc { /AqDy exch def
                     AqRc neg 1 AqRc { /AqDx exch def
                         1 AqDx dup mul AqDy dup mul add AqRr dup mul div sub
+                        % (only inside the map: an index past a row's end would wrap)
+                        AqI AqDx add 1 ge AqI AqDx add ErN 2 sub le and
+                        AqJ AqDy add 1 ge and AqJ AqDy add ErN 2 sub le and
+                        not { pop 0 } if
                         dup 0 gt {
                             AqDd mul
                             AqK AqDy ErN mul add AqDx add /AqKk exch def
@@ -242,14 +246,14 @@
     /AqRx AqRx AqRn div def /AqRy AqRy AqRn div def /AqRz AqRz AqRn div def
     /AqDh Mx dup mul Mz dup mul add sqrt def
     /AqRh 1 AqRy dup mul sub 0 fc-max sqrt 0.000001 fc-max def
-    AqDh 0.0001 lt {
-        AqRx AqRy AqRz fc-landscape-sky
-    } {
+    % the view's heading (any one straight down, where the point is above the origin)
+    AqDh 0.000001 lt { /AqHx 0 def /AqHz 1 def } { /AqHx Mx AqDh div def /AqHz Mz AqDh div def } ifelse
+    {
         % the virtual camera: straight above the origin, on the line through
         % the water point along (heading of D, slope of R)
         /AqS AqSurfT AqDh mul AqRh div def
         /AqSvX Mx def /AqSvY My def /AqSvZ Mz def /AqSvC CamY def /AqSvM MarchT0 def
-        /Mx AqSvX AqDh div AqRh mul def /Mz AqSvZ AqDh div AqRh mul def /My AqRy def
+        /Mx AqHx AqRh mul def /Mz AqHz AqRh mul def /My AqRy def
         /AqOy AqLev AqS AqRy mul sub def
         /CamY AqOy def /MarchT0 AqS def
         fc-water-dry-hit /AqH exch def
@@ -270,7 +274,7 @@
         /fc-haze /AqHazeOrig load def
         /Mx AqSvX def /My AqSvY def /Mz AqSvZ def /CamY AqSvC def /MarchT0 AqSvM def
         Cr AqR Tr mul add Cg AqG Tr mul add Cb AqB Tr mul add
-    } ifelse
+    } exec
 } bind def
 
 /fc-water-shade {                                % t -> r g b
@@ -313,16 +317,19 @@
     AqLakes { dup 1 get exch fc-water-plane } forall
     % a river: the dry hit is under its surface; step back to where the ray
     % went in, then bisect
-    RvBaked AqWet not and AqBedT 0 gt and {
-        Mx AqBedT mul Mz AqBedT mul fc-river-level My AqBedT mul CamY add gt {
+    % (the nearest hit so far: the ground, or a lake the river runs into)
+    RvBaked AqBest 0 gt and {
+        Mx AqBest mul Mz AqBest mul fc-river-level My AqBest mul CamY add gt {
             /AqDt ErTex 0.5 mul Mx dup mul Mz dup mul add sqrt 0.01 fc-max div def
-            /AqB AqBedT def /AqA AqBedT def
-            64 {
+            /AqB AqBest def /AqA AqBest def /AqOut false def
+            128 {
                 /AqA AqA AqDt sub MarchT0 fc-max def
-                Mx AqA mul Mz AqA mul fc-river-level My AqA mul CamY add le { exit } if
+                Mx AqA mul Mz AqA mul fc-river-level My AqA mul CamY add le { /AqOut true def exit } if
                 /AqB AqA def
                 AqA MarchT0 le { exit } if
             } repeat
+            % no way out found (in the water from the start): leave it dry
+            AqOut {
             8 {
                 /AqM AqA AqB add 2 div def
                 Mx AqM mul Mz AqM mul fc-river-level My AqM mul CamY add le
@@ -331,6 +338,7 @@
             /AqBest AqA AqB add 2 div def
             Mx AqBest mul Mz AqBest mul fc-river-level /AqLev exch def
             /AqWet true def /AqRiv true def
+            } if
         } if
     } if
     AqBest
