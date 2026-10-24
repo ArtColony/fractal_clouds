@@ -1,0 +1,66 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+%%Title: Pacific Northwest coast
+% Status: draft
+% fractal_clouds#40: the /PNWCoast preset. A cove between two cliffed,
+% forested headlands; driftwood along the top of its cobble beach, sea
+% stacks off the points, low overcast, and sea fog lying in the cove and
+% drifting through the spruce and cedar on the cliff tops.
+%   -D Plan=true  the map from above, the camera marked
+% Preview: DPI=36 scripts/render.sh gallery/pnw_coast.ps
+
+/Plan where { pop } { /Plan false def } ifelse
+/Seed where { pop } { /Seed 31 def } ifelse
+/AA where { pop } { /AA true def } ifelse
+
+% --- the map (x east, z north): the sea to the north ---------------------------
+/MapOn where { pop } { /MapOn true def } ifelse
+/MapSea where { pop } { /MapSea 0 def } ifelse
+/MapRect where { pop } { /MapRect [ -600 -600 600 600 ] def } ifelse
+/MapBackground where { pop } { /MapBackground [ -20 0 ] def } ifelse
+/MapLiftRange where { pop } { /MapLiftRange [ -20 30 ] def } ifelse
+/MapLiftGrid where { pop } { /MapLiftGrid [                % ground height, far (north) row first
+    (            )
+    (            )
+    (            )
+    (            )
+    (            )
+    (%%%%#  #%%%%)
+    (%%%%#==#%%%%)
+    (%%%%%++%%%%%)
+    (%%%%%%%%%%%%)
+    (%%%%%%%%%%%%)
+    (%%%%%%%%%%%%)
+    (%%%%%%%%%%%%)
+] def } ifelse
+/MapFeatures where { pop } { /MapFeatures [
+    [ /cliff 22 90  -600 40  -300 60  -140 40  -90 -40 ]       % the western headland
+    [ /cliff 22 90   600 40   300 60   140 40   90 -40 ]       % the eastern one
+    [ /stack 18 10  -230 110 ]
+    [ /stack 13 7   -175 150 ]
+    [ /stack 20 12   230 120 ]
+    [ /stack 12 7    300 95 ]
+    [ /stack 9 6     175 165 ]
+] def } ifelse
+/MapPlanN where { pop } { /MapPlanN 240 def } ifelse
+
+% --- the camera: on the beach at the back of the cove ----------------------------
+/TerrOX where { pop } { /TerrOX -10 def } ifelse
+/TerrOZ where { pop } { /TerrOZ -95 def } ifelse
+/Yaw where { pop } { /Yaw 22 def } ifelse
+/HFov where { pop } { /HFov 62 def } ifelse
+/CamHeight where { pop } { /CamHeight 2.5 def } ifelse
+/Pitch where { pop } { /Pitch 2 def } ifelse
+/TMax where { pop } { /TMax 1200 def } ifelse
+/SunAzim where { pop } { /SunAzim -40 def } ifelse
+Plan { /Erode where { pop } { /Erode false def } ifelse } if
+
+(lib/fc_presets.ps) run
+[ /PNWCoast ] fc-presets
+(lib/fc_landscape.ps) run
+
+Plan {
+    320 200 fc-map-plan
+    (C) TerrOX TerrOZ Yaw fc-map-plan-camera
+} { 320 200 fc-landscape } ifelse
+showpage
