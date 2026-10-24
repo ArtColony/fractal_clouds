@@ -38,7 +38,7 @@
 /WaterCol [ 0.10 0.15 0.16 ] fc-colour   % body colour seen straight down, sRGB
 /WaterClear 0.6 fc-default           % path through the water over which the bed fades (1/e)
 /RippleAmp 0.035 fc-default          % ripple slope
-/RippleScale 0.5 fc-default          % 1 / ripple wavelength, world units
+/RippleScale 2 fc-default            % 1 / ripple wavelength, world units (5 m)
 /WindDir 20 fc-default               % degrees from +x toward +z: ripples' crests run across it
 /WindStreaks 0.7 fc-default          % calm and rough streaks along the wind, 0..1
 /StreakScale 0.012 fc-default        % 1 / streak spacing across the wind
@@ -48,9 +48,9 @@
 /ShoreCol [ 0.60 0.56 0.48 ] fc-colour   % its colour (sand, pebbles), sRGB
 /ShoreStones 0.5 fc-default          % stone cover along the shore, 0..1
 /StoneScale 1.6 fc-default           % 1 / stone size
-/RiverLo 6 fc-default                % flow (in mean texel flows) where channels start
-/RiverHi 40 fc-default               % ... and where they are full strength
-/RiverWidth 6 fc-default             % channel width, world units
+/RiverLo 20000 fc-default            % catchment (square units) where a channel starts
+/RiverHi 400000 fc-default           % ... and where it is full size
+/RiverWidth 8 fc-default             % full-size channel width, world units
 /RiverDepth 1.6 fc-default           % carve depth, world units
 /RiverFill 0.6 fc-default            % how full the channels are, 0..1
 
@@ -76,82 +76,74 @@
 } bind def
 
 % --- rivers --------------------------------------------------------------------
-% The droplets of fc-erode-bake leave the water they carried through each
-% texel in ErFlow. Channels follow the strongest flow: strength rises from
-% RiverLo to RiverHi mean flows, is widened by a box blur to RiverWidth,
-% and is carved RiverDepth deep into the erosion map (so fc-height, the
-% march and the shading all see it). The level is flat across a channel:
-% the lowest bed nearby plus RiverFill of the depth.
+% fc-erode-bake leaves each texel's catchment in ErFlow (how many texels
+% drain through it). A channel starts where the catchment reaches RiverLo
+% square units and is full size from RiverHi (strength 0..1 on a log
+% scale between them). Every channel texel presses a rounded groove into
+% the erosion map, as wide as RiverWidth and as deep as RiverDepth at full
+% strength (less for a young stream), so fc-height, the march and the
+% shading all see it. The level is flat across a channel: the lowest bed
+% nearby plus RiverFill of the depth.
 /fc-water-rivers {
     /AqT0 usertime def
     /RvN ErN ErN mul def
-    /AqS 0 def ErFlow { AqS add /AqS exch def } forall
-    /AqMean AqS RvN div 0.000001 fc-max def
-    % strength along the droplets' paths, none in the map's blended edge
-    /AqMg ErN 0.06 mul cvi 3 add def
-    /RvS RvN array def
-    0 1 ErN 1 sub { /AqJ exch def
-        0 1 ErN 1 sub { /AqI exch def
+    /AqMg ErN 0.06 mul cvi 4 add def               % keep out of the map's blended edge
+    /AqLr RiverHi RiverLo div ln def
+    /RvC RvN array def 0 1 RvN 1 sub { RvC exch 0 put } for
+    /AqC 0 def
+    AqMg 1 ErN AqMg sub 1 sub { /AqJ exch def
+        AqMg 1 ErN AqMg sub 1 sub { /AqI exch def
             /AqK AqJ ErN mul AqI add def
-            AqI AqMg lt AqJ AqMg lt or AqI ErN AqMg sub ge or AqJ ErN AqMg sub ge or { 0 } {
-                RiverLo RiverHi ErFlow AqK get AqMean div fc-smooth
-            } ifelse
-            RvS AqK 3 -1 roll put
+            ErFlow AqK get ErTex dup mul mul RiverLo div dup 1 gt {
+                ln AqLr div 1 fc-min sqrt /AqSs exch def
+                /AqC AqC 1 add def
+                /AqRr RiverWidth 2 div AqSs 0.65 mul 0.35 add mul ErTex div 0.8 fc-max def
+                /AqDd RiverDepth AqSs mul def
+                AqRr ceiling cvi /AqRc exch def
+                AqRc neg 1 AqRc { /AqDy exch def
+                    AqRc neg 1 AqRc { /AqDx exch def
+                        1 AqDx dup mul AqDy dup mul add AqRr dup mul div sub
+                        dup 0 gt {
+                            AqDd mul
+                            AqK AqDy ErN mul add AqDx add /AqKk exch def
+                            RvC AqKk get fc-max RvC AqKk 3 -1 roll put
+                        } { pop } ifelse
+                    } for
+                } for
+            } { pop } ifelse
         } for
     } for
-    % widen: a box blur (rows, then columns), scaled so the middle stays full
-    /AqR RiverWidth ErTex div 2 div round cvi 1 fc-max def
-    /AqTmp RvN array def
-    [ [ 1 ErN ] [ ErN 1 ] ] {
-        aload pop /AqStep exch def /AqLine exch def      % along the blur, between lines
-        0 1 ErN 1 sub { /AqJ exch def
-            0 1 ErN 1 sub { /AqI exch def
-                0
-                AqI AqR sub 0 fc-max 1 AqI AqR add ErN 1 sub fc-min {
-                    AqStep mul AqJ AqLine mul add RvS exch get add
-                } for
-                AqR 2 mul 1 add div
-                AqTmp AqJ AqLine mul AqI AqStep mul add 3 -1 roll put
-            } for
-        } for
-        RvS AqTmp /RvS exch def /AqTmp exch def
-    } forall
-    /AqTmp null def
+    % carve
     0 1 RvN 1 sub { /AqK exch def
-        RvS AqK RvS AqK get AqR 2 mul 1 add mul 0.75 mul 1 fc-min put
-        % carve
-        RvS AqK get 0 gt {
-            ErMap AqK ErMap AqK get RvS AqK get RiverDepth mul TerrH div sub put
-        } if
+        RvC AqK get 0 gt { ErMap AqK ErMap AqK get RvC AqK get TerrH div sub put } if
     } for
     % the bed in the channels, at full detail
     /AqHb RvN array def
-    /AqC 0 def
+    /AqCut RiverDepth 0.05 mul def
     0 1 ErN 1 sub { /AqJ exch def
         0 1 ErN 1 sub { /AqI exch def
             /AqK AqJ ErN mul AqI add def
-            RvS AqK get 0.05 gt {
+            RvC AqK get AqCut gt {
                 ErX0 AqI ErTex mul add ErZ0 AqJ ErTex mul add TerrOct fc-height
-                /AqC AqC 1 add def
             } { 1000 } ifelse
             AqHb AqK 3 -1 roll put
         } for
     } for
-    % level: the lowest bed and the strongest channel within a texel, filled
+    % level: the lowest bed and the deepest groove within a texel, filled
     /RvLev RvN array def
     0 1 RvN 1 sub { RvLev exch -1000 put } for
     1 1 ErN 2 sub { /AqJ exch def
         1 1 ErN 2 sub { /AqI exch def
             /AqK AqJ ErN mul AqI add def
-            RvS AqK get 0.05 gt {
+            RvC AqK get AqCut gt {
                 /AqLo 1000 def /AqHi 0 def
                 -1 1 1 { ErN mul AqK add /AqRow exch def
                     -1 1 1 { AqRow add
                         AqHb 1 index get AqLo fc-min /AqLo exch def
-                        RvS exch get AqHi fc-max /AqHi exch def
+                        RvC exch get AqHi fc-max /AqHi exch def
                     } for
                 } for
-                RvLev AqK AqLo AqHi RiverDepth mul RiverFill mul add put
+                RvLev AqK AqLo AqHi RiverFill mul add put
             } if
         } for
     } for
@@ -173,7 +165,7 @@
     } repeat
     /AqHb null def /AqTmp null def
     /RvBaked true def
-    (fc-water: rivers over ) print AqC 9 string cvs print ( texels, ms ) print usertime AqT0 sub =
+    (fc-water: rivers from ) print AqC 9 string cvs print ( texels, ms ) print usertime AqT0 sub =
 } bind def
 
 % --- the surface ------------------------------------------------------------------
