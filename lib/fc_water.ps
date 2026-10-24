@@ -297,7 +297,8 @@
 } bind def
 
 % the reflection off a level film at distance t and height y (the sea's wet
-% sand, #38)
+% sand, #38). It overwrites AqLev, AqSurfT and AqNr*, so it is for use
+% outside fc-water-shade
 /fc-water-reflect-at {                           % t y -> r g b
     /AqLev exch def /AqSurfT exch def
     /AqNrx 0 def /AqNry 1 def /AqNrz 0 def

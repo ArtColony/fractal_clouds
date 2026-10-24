@@ -387,7 +387,10 @@ ripples as wind chop) and `fc-water-colour` (colour by depth), and wraps
 `fc-water-shade` (sun glitter and foam), `fc-landscape-surface` (wet sand),
 `fc-terrain-material` (sand on the beach and the bed) and `fc-water-dry-hit`
 (the march under the sea stops about `6 WaterClear` past the surface, where
-the bed no longer shows). The chop is the lake's ripples, so a sea raises
+the bed no longer shows; this needs `WaterY`, and it shortens `TMax` for the
+march and puts it back, until `fc_landscape.ps` has a separate march bound).
+Only the sea is changed: the plane at `WaterY`. Rivers, and map lakes above
+it, keep the lake's ripples and colour, with no surf, wet sand or sand. The chop is the lake's ripples, so a sea raises
 `RippleAmp` (0.07 in `spikes/ocean_shore.ps`) and points `WindDir`. Waves
 change the shading only: the hit is still the flat plane (`docs/techniques.html`
 §12, The sea, has the numbers). Depth below is sea level minus the
@@ -408,12 +411,12 @@ depth along the ray. With `Ocean` false nothing here loads.
 | `FoamCrest` | 0.85 | Swell height (−1..1, the components' weighted sum) where crests start to foam, fully from 0.2 higher; 1 or more: no crest foam. | 0.85 |
 | `FoamScale` | 1.2 | 1 / foam lace size. Noise thresholded so a cover of *f* leaves about *f* of the surface white; under three pixels it fades to the flat mean. | 1.2 |
 | `SurfDepth` | 0.35 | Water shallower than this breaks (the surf zone, fading in from 0.7 of it). | 0.35 |
-| `SurfSpacing` | 1.5 | Distance between breaker lines, world units. The lines follow the depth contours: their phase is the distance to the waterline, estimated as depth over the bed's slope, plus a wander. | 1.5 |
+| `SurfSpacing` | 1.5 | Distance between breaker lines, world units. The lines follow the depth contours: their phase is the distance to the waterline, estimated as depth over the bed's slope, plus a wander. Lines under three pixels apart fade to their mean cover. | 1.5 |
 | `SurfTrail` | 0.3 | Foam trail behind each breaker (seaward, after a sharp shoreward front), as a fraction of the spacing (1/e). | 0.3 |
 | `SurfFoam` | 1 | Surf foam cover, 0..1; 0 turns off the breakers and the swash line at the waterline. | 1 |
-| `WetSand` | 0.1 | Height above the water of the wet band, where the ground mirrors the sky (Fresnel on a level film; one reflection march per pixel). 0: none. | 0.1 |
+| `WetSand` | 0.1 | Height above the water of the wet band, where the ground mirrors the sky and clouds (Fresnel on a level film; no ground in the reflection). Measured on the same `SeaDepthOct` height as the surf, so the swash meets it; its edge widens to the height a pixel spans. 0: none. | 0.1 |
 | `WetMirror` | 0.75 | How mirror-like the wet band is, 0..1. | 0.75 |
-| `GlitterGain` | 1 | Sun glitter: a microfacet lobe (Beckmann) on the wave normal, its width `GlitterRough` plus the slope the waves lose with distance, so near glints break up and far ones merge into a smooth path. Shadowed by terrain and clouds. 0: none. | 1 |
+| `GlitterGain` | 1 | Sun glitter: a microfacet lobe (Beckmann, with Smith shadowing-masking) on the wave normal, its width `GlitterRough` plus the slope the waves lose with distance, so near glints break up and far ones merge into a smooth path. Shadowed by terrain and clouds. 0: none. | 1 |
 | `GlitterRough` | 0.03 | Slope spread the waves don't resolve. | 0.03 |
 | `SandHeight` | 0.8 | Sand on the sea bed and up to this height above the water (on gentle ground), before `fc_water`'s wet ground. 0: none. | 0.8 |
 | `SandCol` | [0.74 0.67 0.52] | Its colour, sRGB. | default |
@@ -421,7 +424,7 @@ depth along the ray. With `Ocean` false nothing here loads.
 | Procedure | Stack | What it does |
 |---|---|---|
 | `fc-ocean-lace` | `f → f'` | Foam cover to the lace's cover at the current water point. |
-| `fc-water-reflect-at` | `t y → r g b` | (`fc_water.ps`) The reflection off a level film at distance `t` and height `y`: the wet sand's. |
+| `fc-water-reflect-at` | `t y → r g b` | (`fc_water.ps`) The reflection off a level film at distance `t` and height `y`: the wet sand's. It overwrites `AqLev`, `AqSurfT` and `AqNrx AqNry AqNrz`, so call it outside `fc-water-shade`. |
 
 ## Hooks a piece can redefine
 

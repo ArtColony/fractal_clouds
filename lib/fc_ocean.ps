@@ -21,6 +21,9 @@
 % farther out a crest would shift what it hides by under two pixels (see
 % docs/techniques.html section 12, The sea).
 %
+% Only the sea is changed: rivers, and map lakes above the sea plane, keep
+% fc_water's ripples and colour (and get no surf, wet sand or sand).
+%
 % Depth here is sea level minus the ground's height (SeaDepthOct octaves)
 % straight under the surface point, not fc_water's depth along the ray.
 %
@@ -62,20 +65,30 @@
 % fc_water marches the ground under the plane to find the bed it shows
 % through the water; past about six WaterClear of water it no longer shows,
 % so the march stops there instead of running out to TMax under open sea
-% (reflected rays climb, so they march as before)
+% (reflected rays climb, so they march as before). It needs WaterY: map
+% lakes alone keep the full march.
+% TMax is shortened for the march and put back: fc_landscape has no
+% separate march bound yet (a MarchT1 there would be the cleaner hook).
+% While OcSkyOnly is true (the wet sand's reflection) there is no ground.
+/OcSkyOnly false def /OcSea false def
 /OcDryPrev /fc-water-dry-hit load def
 /fc-water-dry-hit {                              % -> t | -1
+    OcSkyOnly { -1 } {
     WaterY null ne My 0 lt and { WaterY CamY lt } { false } ifelse {
         /OcTm TMax def
         WaterY CamY sub My div WaterClear 6 mul add TMax fc-min /TMax exch def
         OcDryPrev
         /TMax OcTm def
     } { OcDryPrev } ifelse
+    } ifelse
 } bind def
 
 % --- waves ----------------------------------------------------------------------
 /OcNormPrev /fc-water-normal load def
 /fc-water-normal {                               % x z t -> nx ny nz
+    OcSea not { OcNormPrev } { fc-ocean-normal } ifelse
+} bind def
+/fc-ocean-normal {                               % x z t -> nx ny nz
     /OcT exch def /OcZ exch def /OcX exch def
     % depth straight down
     AqLev OcX OcZ SeaDepthOct fc-height sub /OcD exch def
@@ -85,11 +98,11 @@
     SurfDepth 3 mul 0 OcD fc-smooth SwellShoal mul 1 add SwellAmp mul /OcA exch def
     /OcGx 0 def /OcGz 0 def /OcH 0 def /OcLost 0 def
     OcWaves { /OcW exch def
-        SwellLen OcW 0 get mul /OcL exch def
-        OcL OcFp 3 mul div 1 fc-min /OcFd exch def
+        SwellLen OcW 0 get mul /OcWv exch def
+        OcWv OcFp 3 mul div 1 fc-min /OcFd exch def
         OcFd 0.05 gt {
             SwellSpread OcW 1 get mul WindDir add /OcDg exch def
-            OcX OcDg cos mul OcZ OcDg sin mul add 360 mul OcL div OcW 3 get add /OcP exch def
+            OcX OcDg cos mul OcZ OcDg sin mul add 360 mul OcWv div OcW 3 get add /OcP exch def
             OcA OcW 2 get mul OcFd mul OcP cos mul /OcS exch def
             /OcGx OcGx OcS OcDg cos mul add def
             /OcGz OcGz OcS OcDg sin mul add def
@@ -111,7 +124,11 @@
 } bind def
 
 % --- colour by depth -------------------------------------------------------------
+/OcColPrev /fc-water-colour load def
 /fc-water-colour {                               % t depth -> r g b
+    OcSea not { OcColPrev } { fc-ocean-colour } ifelse
+} bind def
+/fc-ocean-colour {                               % t depth -> r g b
     pop pop
     2.71828 OcD 0 fc-max SeaDepth div neg exp /OcM exch def
     % sky light, and sunlight (more of it over a bright bed)
@@ -139,8 +156,18 @@
     } { OcF } ifelse
 } bind def
 
+% Smith G1 for Beckmann slopes of variance OcS2: 2 / (1 + sqrt(1 + s² tan²))
+/fc-ocean-g1 {                                   % cos -> g
+    dup mul dup 1 exch sub exch div OcS2 mul 1 add sqrt 1 add 2 exch div
+} bind def
+
 /OcShadePrev /fc-water-shade load def
 /fc-water-shade {                                % t -> r g b
+    % the sea: the plane at WaterY, not a river or a lake above it
+    AqRiv not WaterY null ne and { AqLev WaterY sub abs 0.0001 lt } { false } ifelse /OcSea exch def
+    OcSea { fc-ocean-shade } { OcShadePrev } ifelse
+} bind def
+/fc-ocean-shade {                                % t -> r g b
     OcShadePrev /OcB exch def /OcG exch def /OcR exch def
     % sun glitter: a microfacet lobe, widened by the slope the waves lose
     GlitterGain 0 gt SunDir 1 get 0 gt and {
@@ -155,6 +182,11 @@
         OcE 30 lt {
             2.71828 OcE neg exp 3.14159 OcS2 mul OcNh dup mul dup mul mul div
             1 OcHv sub 5 exp 0.98 mul 0.02 add mul
+            % Smith shadowing-masking (Beckmann, rational form) for the view
+            % and the sun: without it the 1/(4 N.V) term blows up at grazing
+            OcNv fc-ocean-g1 mul
+            AqNrx SunDir 0 get mul AqNry SunDir 1 get mul add AqNrz SunDir 2 get mul add
+            0.05 fc-max fc-ocean-g1 mul
             4 OcNv mul div 1.5 mul GlitterGain mul /OcSp exch def
             OcSp 0.002 gt ShadowsOn and { AqPx AqLev AqPz fc-terrain-shadow OcSp mul /OcSp exch def } if
             /OcR SunCol 0 get OcSp mul OcR add def
@@ -176,7 +208,11 @@
         SurfDepth SurfDepth 0.7 mul OcDd fc-smooth
         OcDd OcSl div SurfSpacing div
         OcX 0.06 mul 4.1 add OcZ 0.06 mul 0.3 add fc-noise2 0.9 mul add
-        dup floor sub SurfTrail div neg 2.71828 exch exp mul SurfFoam mul
+        dup floor sub SurfTrail div neg 2.71828 exch exp
+        % lines under three pixels apart fade to their mean (no moire)
+        SurfSpacing OcFp 3 mul div 1 fc-min /OcBf exch def
+        OcBf mul 1 OcBf sub SurfTrail mul 1 2.71828 1 SurfTrail div neg exp sub mul add
+        mul SurfFoam mul
         fc-max
         % ... and the swash at the waterline
         0 SurfDepth 0.15 mul OcDd fc-smooth 1 exch sub 0.9 mul SurfFoam mul fc-max
@@ -202,26 +238,32 @@
 /OcSurfPrev /fc-landscape-surface load def
 /fc-landscape-surface {                          % t -> r g b
     dup /OcT exch def OcSurfPrev
-    AqWet not WetSand 0 gt and { TreesOn { FsMat 1 ne } { true } ifelse } { false } ifelse {
-        % the shaded ground's height (Kh), not the ray's at the hit: the
-        % march's bisection leaves an error of a few hundredths, as much as
-        % the band, which aliased into moire
-        /OcX Kx def /OcZ Kz def /OcY Kh def
-        OcX OcZ fc-water-level /OcL exch def
-        OcL -999 gt {
-            OcY OcL sub
-            OcX 0.4 mul 7.3 add OcZ 0.4 mul 2.2 add fc-noise2 0.5 sub WetSand mul 0.5 mul add
-            /OcE exch def
-            OcE WetSand lt OcE WetSand -0.5 mul gt and {
-                WetSand WetSand 0.3 mul OcE fc-smooth WetMirror mul
-                My neg 0 fc-max 1 exch sub 5 exp 0.98 mul 0.02 add mul /OcW exch def
-                OcW 0.01 gt {
+    AqWet not WetSand 0 gt and WaterY null ne and { TreesOn { FsMat 1 ne } { true } ifelse } { false } ifelse {
+        % the ground's height as the depth, swash and breakers see it
+        % (SeaDepthOct octaves), so foam meets the band; the full-detail
+        % height speckles it
+        /OcWx Kx def /OcWz Kz def
+        OcWx OcWz fc-water-level /OcWl exch def
+        OcWl WaterY sub abs 0.0001 lt {
+            OcWx OcWz SeaDepthOct fc-height OcWl sub
+            OcWx 0.4 mul 7.3 add OcWz 0.4 mul 2.2 add fc-noise2 0.5 sub WetSand mul 0.5 mul add
+            /OcWe exch def
+            % the edge widens to the height a pixel spans on the slope
+            OcT PixAng mul My abs 0.05 fc-max div
+            1 Ny dup mul sub 0 fc-max sqrt Ny 0.05 fc-max div mul /OcWp exch def
+            OcWe WetSand OcWp add lt OcWe WetSand -0.5 mul OcWp sub gt and {
+                WetSand OcWp add WetSand 0.3 mul OcWp sub OcWe fc-smooth WetMirror mul
+                My neg 0 fc-max 1 exch sub 5 exp 0.98 mul 0.02 add mul /OcWw exch def
+                OcWw 0.01 gt {
                     /OcB exch def /OcG exch def /OcR exch def
-                    % (a little above the ground, so the march doesn't meet the sand it leaves)
-                    OcT OcY 0.05 add fc-water-reflect-at
-                    OcB sub OcW mul OcB add 3 1 roll
-                    OcG sub OcW mul OcG add 3 1 roll
-                    OcR sub OcW mul OcR add 3 1 roll
+                    % sky and clouds only: no march over the ground (cheaper,
+                    % and it can't meet the sand it leaves)
+                    /OcSkyOnly true def
+                    OcT My OcT mul CamY add fc-water-reflect-at
+                    /OcSkyOnly false def
+                    OcB sub OcWw mul OcB add 3 1 roll
+                    OcG sub OcWw mul OcG add 3 1 roll
+                    OcR sub OcWw mul OcR add 3 1 roll
                 } if
             } if
         } if
@@ -234,9 +276,9 @@
 /OcMatPrev /fc-terrain-material load def
 /fc-terrain-material {
     SandHeight 0 gt {
-        Kx Kz fc-water-level /OcL exch def
-        OcL -999 gt {
-            Kh OcL sub
+        Kx Kz fc-water-level /OcMl exch def
+        WaterY null ne { OcMl WaterY sub abs 0.0001 lt } { false } ifelse {
+            Kh OcMl sub
             Kx 0.05 mul 1.1 add Kz 0.05 mul 5.6 add fc-noise2 0.5 sub SandHeight mul add
             SandHeight SandHeight 0.6 mul 3 -1 roll fc-smooth
             0.72 0.85 Ny fc-smooth mul /OcSd exch def
