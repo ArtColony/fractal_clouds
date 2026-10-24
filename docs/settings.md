@@ -29,6 +29,76 @@ means only the default has been rendered.
 
 See `docs/techniques.html` for how each part works.
 
+## The public interface
+
+A project that uses the libraries from a release (`docs/using-the-libraries.md`)
+can rely on the names in this file and on nothing else. A release's version
+number (`VERSION`, a tag `vX.Y.Z`) promises exactly this surface.
+
+**Public** (documented here; renaming or removing one, or changing what it
+means, is a breaking change):
+
+- every **setting** in the tables: its name, its meaning and its default
+  (Seed, Yaw, TerrH, CloudLayers, WaterY, ...), including the options the
+  render script defines for a piece (`Res`, `AA`, `Crop`: their defaults live
+  in `lib/fc_render.ps`, so a project sets them before its `run` lines, as any
+  setting, or has its render script define them first, as this repo's
+  `scripts/render.sh -D` does);
+- the **entry points**: `fc-landscape`, `fc-landscape-setup`, `fc-presets`,
+  `fc-preset`, `fc-settings` and the `FcPresets` dictionary (a project adds its
+  own presets to it), the built-in **presets** and their names (Time of day,
+  Weather, Terrain, Season, and Tone and grade, the colour-grade presets
+  `/Filmic`, `/Warm`, ...), and **scene files**;
+- the **hooks** (`fc-landscape-hit`, `-surface`, `-sky`, `-grade`,
+  `fc-forest-dens`, `fc-terrain-material`, `fc-terrain-base`, `fc-pixel`) and
+  the procedures in the "Procedure" tables and the colour-grade and camera
+  procedures (`fc-grade`, `fc-grade-update`, `fc-camera-update`), with their
+  stack effects;
+- the **state a hook may read**: `Mx My Mz`, `PixAng`, `LnT LnR LnG LnB`, and
+  the material variables `Alb KlMul KskyMul KbMul`;
+- the **loading contract**: a project loads `lib/fc_presets.ps` (optional) and
+  `lib/fc_landscape.ps` with `(lib/fc_x.ps) run` from the directory it renders
+  from, after its settings, as above, and `lib/fc_storm.ps` (also optional)
+  after `fc_landscape.ps`, as `gallery/storm.ps` does. `fc_landscape.ps` loads
+  the rest in the order they need. Libraries load each other by those paths, so the files must
+  sit in `lib/` there.
+
+**Internal** (may change or vanish in any release, even a patch one, except
+the last item, which follows the version policy below):
+
+- every other name the libraries `def`: a library's scratch names, which sit
+  under its own prefix because PostScript has no locals (`Er...` in
+  `fc_erode.ps`, `Aq...` in `fc_water.ps`, ...), and every `fc-...` procedure
+  that this file does not list (`fc-noise3`, `fc-terrain-hit`, `fc-height`, ...
+  are building blocks, not API; `ProfileProcs` merely names them);
+- the **file layout**: which procedure lives in which `lib/fc_*.ps`, the load
+  order, and loading any file but the three above by itself;
+- the **pictures**, beyond the version policy below: the same settings may
+  render different pixels in a different release (a new default, a better
+  noise), though never in a patch release. Renders
+  reproduce only for one release, one pscat version and one platform. Pin all
+  three.
+
+**Names a project must not use.** Settings share `userdict` with everything
+else. A piece sets the documented settings and redefines the documented hooks
+(that is the interface), but its own libraries and helper procedures must not
+define any other name that the tables list, any name that starts with `Fc` or
+`fc-`, or a file called `lib/fc_*.ps`. Give your own libraries a prefix of your own (`lib/<project>_*.ps`).
+A project can copy `scripts/check_names.sh` to find two libraries that
+`def` the same name (a scratch variable: it does not look at hyphenated
+procedure names, which the libraries chain on purpose). Run in a project's
+`lib/` it also flags a project library that sets a documented setting such as
+`/Yaw` with `def`; that is a false alarm for a settings file, and a real clash
+in a library that uses the name for its own scratch.
+
+**Versions.** `MAJOR.MINOR.PATCH`. A patch release keeps every picture
+pixel-identical and changes nothing public. Before 1.0, a minor release may
+add or change settings, hooks and defaults and may change pictures (its
+release notes say which); from 1.0, only a major release removes or renames a
+public name or changes its meaning. A new setting is meant to default to
+"off", so a piece that doesn't know it renders as before; but a release that
+changes a default says so in its notes, and is a minor release.
+
 ## Presets and scene files (`lib/fc_presets.ps`)
 
 A **preset** is a named dictionary of settings; a **scene file** is the same
@@ -544,6 +614,22 @@ sea (their load is lost).
 | `SkyLight` | 1.15 | Strength of that sky light. | 1.15 |
 | `Bounce` | [0.40 0.36 0.30] | Warm light reflected up from the ground below. | |
 | `BumpAmp` | 0.55 | How strongly steep rock breaks into lit and shaded facets. | 0, 0.55 |
+| `CrevAmp` | 0 | Crevices (#21), 0–1: darkens bare steep rock where it is concave at pixel scale (cracks, gullies), from the Laplacian over the normal's two-pixel footprint. Costs two more `fc-height` samples per steep shaded pixel. | 0 |
+| `CrestAmp` | 0 | Brightens sharp convex edges on bare steep rock (same curvature). | 0 |
+| `CrevK` | 0.6 | Curvature (change of slope across two pixels) that gives the full `CrevAmp` / `CrestAmp`. Smaller is harsher. | |
+| `StrataAmp` | 0 | Rock strata on cliffs (#21), 0–1: steep bare rock is shaded as a staircase of ledges and steep faces, with a dark recess at the foot of each face and vertical joints that split each bed into blocks. Shading only (the geometry and the bakes don't change); fades out where a bed is under about 3 pixels high, and takes over half of `BumpAmp` on cliffs. 0 is off. | 0 |
+| `StrataStep` | 2.5 | Height of one bed, world units. | |
+| `StrataTread` | 0.55 | Fraction of each bed that is ledge, on average (±0.2 per bed, kept within 0.05–0.95); the rest is the face. | |
+| `StrataWarp` | 0.35 | How much the beds pinch and swell (a fine noise added to the stratum coordinate). | |
+| `LedgeSnow` | 0 | Snow along the ledges' lips, from 14 below the snowline up. | |
+| `StrataDip` | [0.18 0.08] | The beds' tilt: they fall this much per unit x and z. | |
+| `StrataSteep` | [0.45 0.8] | Beds show fully where the ground's normal `Ny` is below the first value, not at all above the second. | |
+| `StrataPatch` | 0.5 | About what share of the cliffs shows bedding, in broad patches (1: all of them). | |
+| `CrackAmp` | 0.5 | How dark the recess under each ledge is. | |
+| `JointAmp`, `JointW` | 0.45, 0.06 | How dark and how wide (in joint-noise units) the vertical joints are. | |
+| `JointFreq`, `JointN` | 0.3, 4 | Joint spacing: a noise at `JointFreq` along the strike, with `JointN` joints per unit of it. | |
+| `JointTilt` | 0.35 | How far each block's face turns its own way. | |
+| `JointDir` | [0.8 0.6] | Strike of the beds (unit x z). | |
 | `ShadowsOn` | true | Terrain casts shadows (a march toward the sun per lit pixel). | true |
 | `CloudShadowsOn` | true | Clouds shade the ground. | true |
 | `CloudSkyDim` | 0 | Above 0: clouds overhead (`fc-cloud-sky`) dim the ground's sky light and warm bounce, by this fraction of what they block, so the ground under a storm is darker and cooler. Costs `Probes` density probes per layer per ground pixel. | 0.75 (storm) |
@@ -554,7 +640,7 @@ sea (their load is lost).
 
 The bake covers a square `ErSize` wide, centred `ErDist` ahead of the
 camera along `Yaw`. Outside it, the terrain is procedural, blended over the
-square's outer 6%.
+square's outer 6%, unless `ErFar` adds a coarser map for the far distance.
 
 | Setting | Default | What it does | Used |
 |---|---|---|---|
@@ -570,6 +656,14 @@ square's outer 6%.
 | `ErBaseOct` | 5 | Procedural octaves baked into the map. | 5 |
 | `ErDelta` | true | Keep only erosion's *change* and add it to the full procedural terrain. false replaces the terrain with the map, which loses detail. | true, false |
 | `FineAmp`, `FineScale` | 0.07, 7 | Detail added back in replace mode (`ErDelta` false). | |
+| `ErThermal` | 0 | Thermal erosion (#30): this many thermal passes after each of `ErRounds` rounds of droplets; 0 is off. Steep rock weathers into scree, which slides down and piles up as talus at the angle of repose below cliffs. About 0.35 s per pass at `ErN` 512 (5 passes × 4 rounds add about 7 s); the droplets draw the same random numbers either way. | 0, 5 |
+| `ErRounds` | 4 | Rounds of droplets the thermal passes alternate with (with `ErThermal`). | |
+| `ErTalus` | 33 | Angle of repose, degrees: scree on steeper ground slides on. Thermal ignores the sea stop that droplets have (`MapSea`): scree can slide below sea level, which may soften coast cliffs. | 30–38 |
+| `ErThermalRate` | 0.5 | Share of half the excess slope that moves per pass, at most what is loose. | |
+| `ErWeather` | 0.03 | Share of the excess weathered from rock into scree per pass. Small keeps cliffs and makes talus below them; large (0.5) makes every steep slope loose, which flattens the whole range to the angle of repose. | 0.01–0.05 |
+| `ErFar` | false | A second, coarser erosion map for the far distance (#30), so ranges beyond the main square show drainage too. The main map blends into it over its outer 6%, and it blends into the procedural terrain over its own. It has its own random stream (from `Seed`) and puts the main one back, so the forest is unchanged. No flow or rivers on it. At its coarse texel (about 7 units) the droplets mostly fill basins with sediment and soften slopes; they cut few readable channels, even at 200000 drops. Adds about 15 s to the bake at the defaults (5 s sampling, 10 s droplets at 384²; more with `ErFarDrops`), and about 6% to render time where the view reaches past the main square. Only worth it when the view reaches past the main square: raise `TMax` (and `HazeDist`). | false, true |
+| `ErFarN`, `ErFarDrops` | 384, 40000 | Far map resolution and droplets. | |
+| `ErFarSize`, `ErFarDist` | 2600, 1100 | Far map area, world units, and its centre's distance ahead. | |
 
 ## Forest (`fc_trees.ps`, with `TreesOn`)
 
