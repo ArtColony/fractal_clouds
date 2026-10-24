@@ -41,7 +41,7 @@ display faces).
 | `scripts/render_bands.sh` | One large frame as parallel horizontal bands, stitched |
 | `scripts/regress.sh` | Pixel-regression check of the gallery against `tests/regress/linux/` or a git ref; run by CI (`.github/workflows/ci.yml`) |
 | `docs/pscat-issues.md` | pscat bugs and skill-doc problems, waiting to be filed upstream |
-| `.claude/skills/` | The `pscat`, `psart` and `psviz` agent skills, copied from the pscat release |
+| `.claude/skills/` | The `pscat`, `psart` and `psviz` agent skills, copied from the pscat release, and `fractal-landscape`, this repo's own: a one-line request to a piece (presets, framing pass, crops, banded render, Codex review) |
 | `.mcp.json` | Registers `pscat-mcp` for Claude Code |
 
 ## Making a landscape
