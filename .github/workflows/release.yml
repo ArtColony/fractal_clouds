@@ -1,0 +1,46 @@
+# Attach a release of the libraries to the GitHub release for a pushed tag.
+# A person cuts a release: docs/using-the-libraries.md, "Cutting a release".
+#
+#   git tag -a v0.1.0 -m "fractal_clouds 0.1.0" && git push origin v0.1.0
+#
+# scripts/release.sh builds dist/: fractal_clouds-VERSION.tar.gz (lib/fc_*.ps,
+# docs/settings.md, a self-contained docs/techniques.html, LICENSE, VERSION,
+# PSCAT_VERSION), the same techniques page by itself, and SHA256SUMS. A tag
+# with a suffix (v0.1.0-rc.1) is marked a pre-release. Re-pushing a tag that
+# already has a release replaces its files.
+name: release
+on:
+  push:
+    tags: ["v*"]
+permissions: {}
+jobs:
+  release:
+    permissions:
+      contents: write
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Build
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          case "$TAG" in v[0-9]*.[0-9]*.[0-9]*) ;; *) echo "tag $TAG is not vMAJOR.MINOR.PATCH" >&2; exit 1 ;; esac
+          scripts/release.sh "${TAG#v}"
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            pre=""
+            case "$TAG" in *-*) pre="--prerelease" ;; esac
+            gh release create "$TAG" dist/* --title "fractal_clouds ${TAG#v}" --generate-notes $pre
+          fi

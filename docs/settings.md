@@ -29,6 +29,76 @@ means only the default has been rendered.
 
 See `docs/techniques.html` for how each part works.
 
+## The public interface
+
+A project that uses the libraries from a release (`docs/using-the-libraries.md`)
+can rely on the names in this file and on nothing else. A release's version
+number (`VERSION`, a tag `vX.Y.Z`) promises exactly this surface.
+
+**Public** (documented here; renaming or removing one, or changing what it
+means, is a breaking change):
+
+- every **setting** in the tables: its name, its meaning and its default
+  (Seed, Yaw, TerrH, CloudLayers, WaterY, ...), including the options the
+  render script defines for a piece (`Res`, `AA`, `Crop`: their defaults live
+  in `lib/fc_render.ps`, so a project sets them before its `run` lines, as any
+  setting, or has its render script define them first, as this repo's
+  `scripts/render.sh -D` does);
+- the **entry points**: `fc-landscape`, `fc-landscape-setup`, `fc-presets`,
+  `fc-preset`, `fc-settings` and the `FcPresets` dictionary (a project adds its
+  own presets to it), the built-in **presets** and their names (Time of day,
+  Weather, Terrain, Season, and Tone and grade, the colour-grade presets
+  `/Filmic`, `/Warm`, ...), and **scene files**;
+- the **hooks** (`fc-landscape-hit`, `-surface`, `-sky`, `-grade`,
+  `fc-forest-dens`, `fc-terrain-material`, `fc-terrain-base`, `fc-pixel`) and
+  the procedures in the "Procedure" tables and the colour-grade and camera
+  procedures (`fc-grade`, `fc-grade-update`, `fc-camera-update`), with their
+  stack effects;
+- the **state a hook may read**: `Mx My Mz`, `PixAng`, `LnT LnR LnG LnB`, and
+  the material variables `Alb KlMul KskyMul KbMul`;
+- the **loading contract**: a project loads `lib/fc_presets.ps` (optional) and
+  `lib/fc_landscape.ps` with `(lib/fc_x.ps) run` from the directory it renders
+  from, after its settings, as above, and `lib/fc_storm.ps` (also optional)
+  after `fc_landscape.ps`, as `gallery/storm.ps` does. `fc_landscape.ps` loads
+  the rest in the order they need. Libraries load each other by those paths, so the files must
+  sit in `lib/` there.
+
+**Internal** (may change or vanish in any release, even a patch one, except
+the last item, which follows the version policy below):
+
+- every other name the libraries `def`: a library's scratch names, which sit
+  under its own prefix because PostScript has no locals (`Er...` in
+  `fc_erode.ps`, `Aq...` in `fc_water.ps`, ...), and every `fc-...` procedure
+  that this file does not list (`fc-noise3`, `fc-terrain-hit`, `fc-height`, ...
+  are building blocks, not API; `ProfileProcs` merely names them);
+- the **file layout**: which procedure lives in which `lib/fc_*.ps`, the load
+  order, and loading any file but the three above by itself;
+- the **pictures**, beyond the version policy below: the same settings may
+  render different pixels in a different release (a new default, a better
+  noise), though never in a patch release. Renders
+  reproduce only for one release, one pscat version and one platform. Pin all
+  three.
+
+**Names a project must not use.** Settings share `userdict` with everything
+else. A piece sets the documented settings and redefines the documented hooks
+(that is the interface), but its own libraries and helper procedures must not
+define any other name that the tables list, any name that starts with `Fc` or
+`fc-`, or a file called `lib/fc_*.ps`. Give your own libraries a prefix of your own (`lib/<project>_*.ps`).
+A project can copy `scripts/check_names.sh` to find two libraries that
+`def` the same name (a scratch variable: it does not look at hyphenated
+procedure names, which the libraries chain on purpose). Run in a project's
+`lib/` it also flags a project library that sets a documented setting such as
+`/Yaw` with `def`; that is a false alarm for a settings file, and a real clash
+in a library that uses the name for its own scratch.
+
+**Versions.** `MAJOR.MINOR.PATCH`. A patch release keeps every picture
+pixel-identical and changes nothing public. Before 1.0, a minor release may
+add or change settings, hooks and defaults and may change pictures (its
+release notes say which); from 1.0, only a major release removes or renames a
+public name or changes its meaning. A new setting is meant to default to
+"off", so a piece that doesn't know it renders as before; but a release that
+changes a default says so in its notes, and is a minor release.
+
 ## Presets and scene files (`lib/fc_presets.ps`)
 
 A **preset** is a named dictionary of settings; a **scene file** is the same
