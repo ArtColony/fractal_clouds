@@ -43,6 +43,9 @@
 % is lit as a staircase of ledges (treads) and steep faces (risers), with a
 % dark recess at the foot of each riser and vertical joints cutting each bed
 % into blocks that face slightly different ways. 0 turns it off.
+/CrevAmp 0 fc-default                % 0..1: darkening in cracks (concave at pixel scale) on rock
+/CrestAmp 0 fc-default               % brightening on sharp convex edges on rock
+/CrevK 0.6 fc-default                % curvature (slope change across 2 px) for the full effect
 /StrataAmp 0 fc-default              % 0..1: how strongly cliffs step
 /StrataStep 2.5 fc-default           % height of one bed, world units
 /StrataTread 0.55 fc-default         % fraction of a bed that is ledge
@@ -223,6 +226,12 @@
     Ke
     Kx Kz Ke add Ko fc-height Kh sub neg
     /Nz exch def /Ny exch def /Nx exch def
+    % crevices (#21): the Laplacian over the same two-pixel footprint, from
+    % two more samples; positive in cracks and gullies, negative on crests
+    CrevAmp 0 gt CrestAmp 0 gt or Ny Nx Nx mul Nz Nz mul add Ny Ny mul add sqrt div 0.92 lt and {
+        Kh Nx sub Kh Nz sub add  Kx Ke sub Kz Ko fc-height add  Kx Kz Ke sub Ko fc-height add
+        Kh 4 mul sub Ke div
+    } { 0 } ifelse /Kcv exch def
     /Nn Nx Nx mul Ny Ny mul add Nz Nz mul add sqrt def
     /Nx Nx Nn div def /Ny Ny Nn div def /Nz Nz Nn div def
     % sky visibility and concavity from four samples 7 units out: how high
@@ -279,6 +288,14 @@
     /fc-terrain-material where { pop fc-terrain-material } if
     /Ksn 0 def
     StrataAmp 0 gt Ny 0.92 lt and { fc-terrain-strata } if
+    % crevices darken, crest edges catch a little more light, on bare rock
+    Kcv 0 ne {
+        1 StrataSteep 0 get StrataSteep 1 get Ny fc-smooth sub  1 Ksnow sub mul  1 Kfor sub mul  KbMul mul
+        /Kcw exch def
+        Kcv 0 gt { 0 CrevK Kcv fc-smooth CrevAmp neg } { 0 CrevK Kcv neg fc-smooth CrestAmp } ifelse
+        mul Kcw mul 1 add /Kcr exch def
+        /Alb [ Alb { Kcr mul } forall ] def
+    } if
     % fractured rock: tilt the shading normal by a three-octave noise gradient
     % on steep, snow-free ground, so faces break into planes in the light
     BumpAmp 0 gt Ny 0.88 lt and Ksnow 0.9 lt and {
