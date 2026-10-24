@@ -68,6 +68,8 @@
 % are sRGB here and converted below (null means the spruce setting). A
 % piece can define its own table before loading. Keys:
 %   env droop tiers   the crown profile (see fc-tree-prof)
+%   rag lobes         (optional, 1) how ragged the outline is, and how many
+%                     lobes it has around the trunk
 %   rad               crown radius as a fraction of the height
 %   hmul              height, relative to FsHMin..FsHMax (at most 1)
 %   base baseDense    crown base, as a fraction of the height, in the open
@@ -89,15 +91,15 @@
     << /name (pine) /env 0.5 /droop 0.12 /tiers 5 /rad 0.30 /hmul 0.95
        /base 0.40 /baseDense 0.58 /trunk 0.013
        /alb [ 0.30 0.33 0.14 ] /alb2 [ 0.25 0.31 0.16 ] /shade [ 0.16 0.22 0.18 ]
-       /autumn null /bark [ 0.44 0.27 0.14 ] /lo 1000 /hi 1001 >>
+       /autumn null /bark [ 0.44 0.27 0.14 ] /rag 2.2 /lobes 2.5 /lo 1000 /hi 1001 >>
     << /name (larch) /env 1.15 /droop 0.38 /tiers 9 /rad 0.23 /hmul 1
        /base 0.12 /baseDense 0.40 /trunk 0.011
        /alb [ 0.38 0.46 0.18 ] /alb2 [ 0.33 0.42 0.17 ] /shade [ 0.20 0.27 0.19 ]
-       /autumn [ 0.74 0.52 0.14 ] /bark [ 0.33 0.25 0.19 ] /lo 1000 /hi 1001 >>
+       /autumn [ 0.74 0.52 0.14 ] /bark [ 0.33 0.25 0.19 ] /rag 1.4 /lobes 1.5 /lo 1000 /hi 1001 >>
     << /name (broadleaf) /env 0.45 /droop 0.08 /tiers 4 /rad 0.33 /hmul 0.8
        /base 0.30 /baseDense 0.48 /trunk 0.012
        /alb [ 0.33 0.44 0.16 ] /alb2 [ 0.28 0.40 0.18 ] /shade [ 0.17 0.26 0.18 ]
-       /autumn [ 0.72 0.42 0.12 ] /bark [ 0.42 0.39 0.35 ] /lo -12 /hi -4 >>
+       /autumn [ 0.72 0.42 0.12 ] /bark [ 0.42 0.39 0.35 ] /rag 2.6 /lobes 3 /lo -12 /hi -4 >>
 ] fc-default
 FsSpecies {
     /Fsd exch def
@@ -106,6 +108,8 @@ FsSpecies {
         Fsd Fsk get dup null eq { pop Fsv } { [ exch { 2.2 exp } forall ] } ifelse
         Fsd Fsk 3 -1 roll put
     } forall
+    Fsd /rag known not { Fsd /rag 1 put } if         % optional keys
+    Fsd /lobes known not { Fsd /lobes 1 put } if
 } forall
 /FsNsp FsMix length FsSpecies length fc-min def
 /FsMixed FsNsp 1 gt def
@@ -279,7 +283,7 @@ FsSpecies {
 % small on screen (FcPx: world units per pixel where it stands), before
 % they can alias into pixel noise.
 /FcPx 0.01 def
-/FcEnv FsEnv def /FcDroop FsDroop def /FcTiers FsTiers def
+/FcEnv FsEnv def /FcDroop FsDroop def /FcTiers FsTiers def /FcRag 1 def /FcLobes 1 def
 /fc-tree-prof {
     /Fpz exch def /Fpx exch def
     Fpx dup mul Fpz dup mul add sqrt FcR div /Fpu exch def
@@ -287,10 +291,10 @@ FsSpecies {
         FcR FcPx div 4 sub 8 div dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if /Fpl exch def
         Fpl 0 gt {
             1 Fpu sub FcEnv exp FcDroop add FcTiers mul floor /Fpk exch def
-            Fpu 0.02 lt { 0 } { Fpz Fpx atan } ifelse 0.0167 mul FcK 0.37 mul add
-            Fpk 1.7 mul FcK 0.13 mul add fc-noise2 1 sub 0.15 mul Fpl mul 1 add
+            Fpu 0.02 lt { 0 } { Fpz Fpx atan } ifelse 0.0167 FcLobes mul mul FcK 0.37 mul add
+            Fpk 1.7 mul FcK 0.13 mul add fc-noise2 1 sub 0.15 FcRag mul mul Fpl mul 1 add
             % and whole whorls are longer or shorter than their neighbours
-            Fpk 2.9 mul FcK 0.7 mul add FcK 0.21 mul 3.3 add fc-noise2 1 sub 0.2 mul Fpl mul 1 add mul
+            Fpk 2.9 mul FcK 0.7 mul add FcK 0.21 mul 3.3 add fc-noise2 1 sub 0.2 FcRag mul mul Fpl mul 1 add mul
             Fpu exch div /Fpu exch def
         } if
         % the smooth envelope
@@ -388,6 +392,7 @@ FsSpecies {
             % what stands over this point: its top and its base over the ground
             FcKind 0 eq {
                 /FcEnv FcSp /env get def /FcDroop FcSp /droop get def /FcTiers FcSp /tiers get def
+                /FcRag FcSp /rag get def /FcLobes FcSp /lobes get def
                 Fcdx Fcdz fc-tree-prof
                 dup 0 ge FcB 0 gt and {
                     % lifted: the crown from the base up, the trunk below it
