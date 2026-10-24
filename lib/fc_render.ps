@@ -33,6 +33,11 @@
 % left) and FrU, FrV its centre's u, v, also for the precomputed pixels:
 % a per-pixel hash (for jitter, say) should read those.
 %
+% The frame fills pw x ph units of the current user space, at one sample
+% per device pixel: translate and scale first to place a landscape inside a
+% larger page (#33; Crop and PixSeed still count in the frame). FrMtx keeps
+% the matrix it was drawn with, for overlays drawn later (lib/fc_frame.ps).
+%
 % /RowTimes true (default false) prints `fc-row-t0 MS` (usertime when the
 % render starts, i.e. after the bakes) and then `fc-row J MS` after each
 % row, for render_bands.sh --auto.
@@ -67,11 +72,18 @@
     5 1 roll /FrV exch def /FrU exch def /FrJ exch def /FrI exch def
 } bind def
 
+% row -> -: called with each finished row string (FrJ is its row, FrI0 its
+% first column) before it is drawn; lib/fc_passes.ps keeps a copy
+/fc-render-row where { pop } { /fc-render-row { pop } bind def } ifelse
+
 /fc-byte { 255 mul round cvi dup 255 gt { pop 255 } if dup 0 lt { pop 0 } if } bind def
 
 /fc-render {                                     % pw ph -> -
     /FrPh exch def /FrPw exch def
-    matrix defaultmatrix 0 get abs /FrDpp exch def    % device px per point
+    % device pixels per unit of the current user space (#33): a piece can
+    % translate and scale first to place the frame in a larger page
+    1 0 dtransform dup mul exch dup mul add sqrt /FrDpp exch def
+    /FrMtx matrix currentmatrix def               % for overlays drawn later
     /IW FrPw FrDpp mul Res mul round cvi 1 fc-max def
     /IH FrPh FrDpp mul Res mul round cvi 1 fc-max def
     /PixAng TanH 2 mul IW div def
@@ -127,6 +139,7 @@
             fc-byte FrRow FrI FrI0 sub 3 mul 1 add 3 -1 roll put
             fc-byte FrRow FrI FrI0 sub 3 mul 3 -1 roll put
         } for
+        FrRow fc-render-row
         RowTimes { (fc-row ) print FrJ 9 string cvs print ( ) print usertime = } if
         /FrJ FrJ 1 add def
         FrKeyRow FrKeyUp /FrKeyRow exch def /FrKeyUp exch def
