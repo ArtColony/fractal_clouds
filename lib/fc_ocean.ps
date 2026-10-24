@@ -33,7 +33,7 @@
 /SeaDepth 1.5 fc-default             % depth over which shallow turns deep (1/e), world units
 /SeaDepthOct 5 fc-default            % terrain octaves for the depth
 /FoamCol [ 0.90 0.92 0.93 ] fc-colour      % foam albedo, sRGB
-/FoamCrest 0.55 fc-default           % swell height (-1..1) where crests start to foam; > 1: none
+/FoamCrest 0.85 fc-default           % swell height (-1..1) where crests start to foam; 1 or more: none
 /FoamScale 1.2 fc-default            % 1 / foam lace size
 /SurfDepth 0.35 fc-default           % water shallower than this breaks
 /SurfSpacing 1.5 fc-default          % distance between breaker lines, world units
@@ -42,7 +42,7 @@
 /WetSand 0.1 fc-default              % height above the water of the wet band; 0: none
 /WetMirror 0.75 fc-default           % how mirror-like the wet band is, 0..1
 /GlitterGain 1 fc-default            % sun glitter; 0: none
-/GlitterRough 0.06 fc-default        % slope spread the waves don't resolve
+/GlitterRough 0.03 fc-default        % slope spread the waves don't resolve
 /SandHeight 0.8 fc-default           % sand on the bed and up to this height above the water; 0: none
 /SandCol [ 0.74 0.67 0.52 ] fc-colour      % sRGB
 
@@ -161,7 +161,7 @@
         } if
     } if
     % foam: steep swell crests ...
-    FoamCrest 0.15 add FoamCrest 0.35 add OcH fc-smooth 0.8 mul
+    FoamCrest FoamCrest 0.2 add OcH fc-smooth 0.8 mul
     % ... the breakers in the surf zone: a sharp front on the shoreward
     % side, the trail fading out to sea ...
     SurfFoam 0 gt OcD SurfDepth lt and {

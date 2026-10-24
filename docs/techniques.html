@@ -550,6 +550,31 @@ T = exp(−(t_bed − t_water) / WaterClear)</div>
 
 <p>Two approximations remain. A ripple's sideways tilt is dropped from the reflected ray (only its slope is kept), since a ray with another heading wouldn't pass above the origin; the sky, which needs no march, is looked up along the full reflected direction. And the cloud march can't be told to start at the water, so it also crosses the stretch from the virtual camera up to the water point; that stretch lies below the water, so this only matters for water above a cloud base.</p>
 
+<h3 id="ocean">The sea</h3>
+
+<p><code>lib/fc_ocean.ps</code> (<code>Ocean</code>, #38) turns the plane into a sea through the same hooks. Everything keys on one number per water pixel: the <em>depth</em>, sea level minus the ground's height straight under the surface point (<code>SeaDepthOct</code> octaves). That is not the depth the lake's hook is given, which is measured where the view ray meets the bed and, at grazing angles, lies far behind the surface point.</p>
+
+<p><b>Waves.</b> The swell is four directional sine waves around the wind (wavelengths 1, 0.63, 0.41 and 0.27 of <code>SwellLen</code>, headings spread by <code>SwellSpread</code>), summed as slopes; the chop on top is the lake's ripples, called through the replaced hook. Each component fades out as its wavelength nears three pixels along the view, and the slope it loses tilts the normal toward the camera, the same rule as the ripples, so detail falls off with distance like the terrain's octaves and the far sea doesn't sparkle. In water shallower than <code>3 SurfDepth</code> the swell steepens (<code>SwellShoal</code>). The waves change the normal only. At the issue's views (a camera 1–4 units above the sea) a swell of slope 0.1 and wavelength 12 stands 0.19 units high: near the camera the view ray falls more steeply than any wave face, so no crest can hide the water behind it; from about 40 units out it could, but a wavelength there is ten pixels and a crest would move the trough behind it by under two, which the toward-camera tilt already stands in for. A height hook in the hit would cost a second march for every water pixel, so it was left out.</p>
+
+<p><b>Colour.</b> The water's own colour runs from <code>SeaShallow</code> (turquoise) to <code>SeaDeep</code> (dark blue-green) as exp(−depth / <code>SeaDepth</code>), lit by the sky and, more over a shallow bright bed, the sun. The bed itself still shows through by <code>WaterClear</code>, and it is sand: a material hook paints <code>SandCol</code> on gentle ground below <code>SandHeight</code> above the water. Since the bed stops showing after a few <code>WaterClear</code> of path, the march under the sea stops at six of them past the surface instead of running out to <code>TMax</code>.</p>
+
+<p><b>Foam.</b> Three sources, each a cover 0..1, the largest wins: crests, where the swell's weighted height passes <code>FoamCrest</code> (when components line up); breakers, in water shallower than <code>SurfDepth</code>; and a swash line at the waterline. The breaker lines must follow the beach, not the open swell, so their phase is the distance to the waterline, estimated as depth over the bed's slope (four more height samples), divided by <code>SurfSpacing</code>, plus a slow wander. Each cycle is a sawtooth, a sharp front on the shoreward side and a trail decaying out to sea over <code>SurfTrail</code> of the spacing: the foam a wave leaves behind once it has broken. A cover <i>f</i> becomes lace by thresholding noise stretched along the wind at 1 − <i>f</i>, so dense foam is solid and thin foam breaks into streaks; under three pixels the lace fades to its mean. Foam is lit by the sun on the wave normal (with terrain and cloud shadow) and by the sky.</p>
+
+<div class="formula">D = exp(−tan²θ_h / σ²) / (π σ² cos⁴θ_h)      glitter = 1.5 · SunCol · F(h·v) · D / (4 n·v)
+σ² = GlitterRough² + ½ (slope lost by the swell and the ripples)²</div>
+
+<p><b>Glitter and wet sand.</b> The reflected ray keeps only the normal's slope (above), so the sun would never glint off a wave that tilts sideways; glitter is added as a Beckmann highlight on the full normal instead. Its width grows with the slope the waves lose to distance, so near the camera single facets catch the sun and far out they merge into a smooth path. Ground less than <code>WetSand</code> above the water is wet sand: it is shaded as ground, then mixed with a reflection off a level film, by Fresnel and <code>WetMirror</code>, which is the bright band a wave leaves as it pulls back.</p>
+
+<figure>
+  <img src="prs/38-ocean/open_sea.png" alt="Open sea under a low sun: blue-green swell with lighter wave backs and a glitter path." loading="lazy">
+  <figcaption>Open sea toward the sun, a full-detail crop of <code>spikes/ocean_shore.ps</code>.</figcaption>
+</figure>
+
+<figure>
+  <img src="prs/38-ocean/surf_line.png" alt="Surf: lines of foam breaking onto a sand beach, with a mirror-bright band of wet sand." loading="lazy">
+  <figcaption>The surf line of the same frame: breakers, swash, shallows over sand and wet sand.</figcaption>
+</figure>
+
 <!-- ===================================================================== -->
 <h2 id="render">13. Writing the image</h2>
 

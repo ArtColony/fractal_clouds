@@ -6,6 +6,7 @@
 % sandy shelf, then open sea to the north. The camera stands on the dunes
 % looking out to sea, toward a low sun, so one frame holds the surf line,
 % wet sand, the shallows, open swell and the glitter path.
+%   -D View=2          the surf line, along the beach
 %   -D Ocean=false     the plain lake water, for comparison
 %   -D Probe=true      print the ground height along the view and stop
 % Not a gallery piece: #39 adds coastal terrain, #40 the seascapes.
@@ -26,14 +27,24 @@
 /DetailAmp where { pop } { /DetailAmp 0.05 def } ifelse     % a smooth shelf, low dunes
 /Erode where { pop } { /Erode false def } ifelse
 
+% View 1: from the dunes out to sea, toward the sun (glitter, open swell);
+% View 2: low on the beach, looking west along the surf, the sun behind
+/View where { pop } { /View 1 def } ifelse
 /TerrOX where { pop } { /TerrOX 0 def } ifelse
-/TerrOZ where { pop } { /TerrOZ 130 def } ifelse
-/Yaw where { pop } { /Yaw 15 def } ifelse
-/Pitch where { pop } { /Pitch -8 def } ifelse
+View 2 eq {
+    /TerrOZ where { pop } { /TerrOZ 133 def } ifelse
+    /Yaw where { pop } { /Yaw -40 def } ifelse
+    /Pitch where { pop } { /Pitch -7 def } ifelse
+    /CamHeight where { pop } { /CamHeight -1.0 def } ifelse     % 1.5 above the sea
+} {
+    /TerrOZ where { pop } { /TerrOZ 130 def } ifelse
+    /Yaw where { pop } { /Yaw 15 def } ifelse
+    /Pitch where { pop } { /Pitch -8 def } ifelse
+    /CamHeight where { pop } { /CamHeight 1.5 def } ifelse      % 4 above the sea
+} ifelse
 /HFov where { pop } { /HFov 55 def } ifelse
-/CamHeight where { pop } { /CamHeight 1.5 def } ifelse      % 4 above the sea
 
-% --- light: a low afternoon sun ahead, a little to the right -----------------
+% --- light: a low afternoon sun, north-east (ahead and right in View 1) -----
 /SunDir where { pop } { /SunDir [ 0.45 0.21 0.87 ] def } ifelse
 /CloudLo where { pop } { /CloudLo 60 def } ifelse
 /CloudHi where { pop } { /CloudHi 80 def } ifelse
