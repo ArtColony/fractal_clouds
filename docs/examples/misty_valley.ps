@@ -1,0 +1,25 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+%%Title: Misty valley
+% Status: draft
+% A misty forested valley at dusk: the /Evening light, thick low haze,
+% forested foothills. Test of the fractal-landscape skill.
+% Preview: DPI=36 scripts/render.sh docs/examples/misty_valley.ps
+
+/Seed where { pop } { /Seed 11 def } ifelse
+/AA where { pop } { /AA true def } ifelse
+/Yaw where { pop } { /Yaw -33 def } ifelse
+/Pitch where { pop } { /Pitch 1 def } ifelse
+/HFov where { pop } { /HFov 55 def } ifelse
+/CamAbove where { pop } { /CamAbove 9 def } ifelse
+/TerrOX where { pop } { /TerrOX 180 def /TerrOZ 400 def } ifelse
+/HazeDist where { pop } { /HazeDist 300 def } ifelse
+/HazeH where { pop } { /HazeH 30 def } ifelse
+/Turbidity where { pop } { /Turbidity 3 def } ifelse
+
+(lib/fc_presets.ps) run
+[ /Evening /Clear /Alpine ] fc-presets
+
+(lib/fc_landscape.ps) run
+320 200 fc-landscape
+showpage
