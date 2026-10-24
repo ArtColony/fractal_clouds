@@ -62,7 +62,7 @@ FcPresets /Dusk << /SunElev 2 /SunAzim 70 /Exposure 2.4 >> put
 
 A few settings override each other when both exist (a number in `SunElev`
 beats `SunDir`), so a preset skips `SunDir`, `SunElev` and `SunAzim` when
-the piece defined `SunDir` or the other way round (the same for the moon's
+the piece defined `SunDir` (a `SunElev` of null does not count) or the other way round (the same for the moon's
 three). Another case a preset cannot see is a piece that set `CloudLo`,
 `Threshold` and the like while using a preset that sets `CloudLayers`
 (`/Overcast`, `/Storm`): the layer list wins. Set `/CloudLayers null` in the
@@ -123,7 +123,7 @@ time of day, weather, terrain, and (optionally) season.
 |---|---|---|
 | `/Spring` | `SnowLine` 25, `FsAutumn` 0 | |
 | `/Summer` | `SnowLine` 27, `FsAutumn` 0 | `gallery/alpine_forest.ps`'s early summer |
-| `/Autumn` | `SnowLine` 24, `FsAutumn` 1 | Larches gold, broadleaves turned (needs `TreesOn`) |
+| `/Autumn` | `SnowLine` 24, `FsAutumn` 1 | Turns the larches gold and the broadleaves, but only if the stand has them: the default `FsMix [1]` is all spruce, which ignores it, so also set `FsMix` (experimental) |
 | `/Winter` | `SnowLine` −8, `FsAutumn` 0 | Snow on every slope that is not too steep |
 
 `/Alpine` sets a snow line, so a season listed *before* it wins. The cloud

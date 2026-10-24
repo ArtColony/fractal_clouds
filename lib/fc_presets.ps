@@ -80,12 +80,12 @@
     /MoonDir [ /MoonElev ]  /MoonElev [ /MoonDir ]  /MoonAzim [ /MoonDir ]
 >> def
 
-/FcPrFree {                          % /Name -> bool: it and its rivals are unset
+/FcPrFree {                          % /Name -> bool: it and its rivals are unset (a null rival counts as unset)
     /FcPrN exch def
     FcPrN where { pop false } {
         true
         FcPrRival FcPrN known {
-            FcPrRival FcPrN get { where { pop pop false } if } forall
+            FcPrRival FcPrN get { /FcPrR exch def FcPrR where { FcPrR get null ne { pop false } if } if } forall
         } if
     } ifelse
 } bind def
