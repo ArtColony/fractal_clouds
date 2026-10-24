@@ -1,0 +1,36 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+%%Title: Oncoming storm
+% Status: draft
+% fractal_clouds#15: a cumulonimbus over the range of gallery/alpine_forest.ps,
+% seen from a shoulder above the valley: a flat dark base with a rain
+% curtain under it, the anvil spreading left from the top, virga under it,
+% and the range below in its shadow under a dimmed sky.
+% The storm is lib/fc_storm.ps, loaded after the landscape.
+% Preview: DPI=36 scripts/render.sh gallery/storm.ps.
+
+/Seed where { pop } { /Seed 5 def } ifelse
+/AA where { pop } { /AA true def } ifelse
+/Pitch where { pop } { /Pitch 6 def } ifelse
+/Yaw where { pop } { /Yaw -17 def } ifelse
+/HFov where { pop } { /HFov 55 def } ifelse
+/TerrOX where { pop } { /TerrOX 180 def /TerrOZ 400 def } ifelse
+/CamAbove where { pop } { /CamAbove 40 def } ifelse
+/SnowLine where { pop } { /SnowLine 27 def } ifelse
+% afternoon sun, high, from behind the storm's right shoulder: lit tops,
+% the near face and the base in shade, the shadow falling toward us
+/SunElev where { pop } { /SunElev 45 def } ifelse
+/SunAzim where { pop } { /SunAzim 40 def } ifelse
+/HazeDist where { pop } { /HazeDist 800 def } ifelse
+% the storm takes the skylight from the ground under it (lib/fc_terrain.ps)
+/CloudSkyDim where { pop } { /CloudSkyDim 0.75 def } ifelse
+% the storm (lib/fc_storm.ps): ahead and a little right of centre, the
+% anvil drifting left
+/StormDist where { pop } { /StormDist 430 def } ifelse
+/StormAzim where { pop } { /StormAzim -5 def } ifelse
+/StormWind where { pop } { /StormWind 200 def } ifelse
+
+(lib/fc_landscape.ps) run
+(lib/fc_storm.ps) run
+320 200 fc-landscape
+showpage
