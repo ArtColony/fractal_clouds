@@ -105,7 +105,21 @@
         % warp the domain with two smooth noises, so ridges wander
         /Hwx Hx2 0.5 mul 11.3 add Hz2 0.5 mul 2.1 add fc-noise2 0.5 sub WarpAmp 2 mul mul Hx2 add def
         /Hwz Hx2 0.5 mul 4.7 add Hz2 0.5 mul 17.9 add fc-noise2 0.5 sub WarpAmp 2 mul mul Hz2 add def
-        fc-terrain-massif fc-terrain-relief
+        % massif: two smooth octaves, pushed toward 0 (valleys) or 1 (ranges)
+        % (fc-terrain-massif and fc-terrain-relief below, inline: this is
+        % the hot path)
+        Hwx MassifScale mul 31.1 add Hwz MassifScale mul 8.3 add fc-noise2 0.65 mul
+        Hwx MassifScale mul 2 mul 5.9 add Hwz MassifScale mul 2 mul 23.7 add fc-noise2 0.35 mul add
+        MassifLo sub MassifHi MassifLo sub div dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if
+        dup dup mul exch 2 mul 3 exch sub mul /Hm exch def
+        % ridges, capped at 5 octaves so peaks don't sprout needles
+        Hwx Hwz Ho 5 2 copy gt { exch } if pop fc-ridged 1.15 exp /Hrd exch def
+        % gullies and texture: erosion fBm on the remaining octaves
+        Ho 2 gt {
+            Hwx 2.6 mul 1.9 add Hwz 2.6 mul 6.1 add Ho 1.5 sub fc-eroded 0.5 sub DetailAmp mul
+        } { 0 } ifelse
+        Hm 0.6 mul 0.4 add mul
+        Hm Hrd 0.92 mul 0.18 add mul 0.06 add add
     } ifelse
     } ifelse } ifelse
     TerrH mul TerrBase add

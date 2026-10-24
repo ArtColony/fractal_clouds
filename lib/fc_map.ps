@@ -80,9 +80,11 @@
 
 % y -> mask    the massif mask that puts a ridge crest at height y
 % (fc-terrain-relief: h = TerrH (mask (0.92 ridges + 0.18) + 0.06) + TerrBase,
-% with ridges about 1 on a crest)
+% with ridges about 0.85 on the highest crest under a bump, measured with
+% spikes/map_pins.ps, so 0.92 ridges + 0.18 = 0.962); a mask of 1 is the
+% most it can ask, so peaks top out near TerrBase + 1.02 TerrH
 /fc-map-mask-for {
-    TerrBase sub TerrH div 0.06 sub 1.1 div dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if
+    TerrBase sub TerrH div 0.06 sub 0.962 div dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if
 } bind def
 
 % Distance from (MpX, MpZ) to the polyline in array MpA from index i0
@@ -184,7 +186,7 @@
             MapFeatures { /MpF exch def
                 MpF 0 get dup /peak eq exch /ridge eq or {
                     MpF 3 false fc-map-dist pop MpF 2 get fc-map-bump /MpB exch def
-                    MpF 1 get fc-map-mask-for MpB mul dup MpM gt { /MpM exch def } { pop } ifelse
+                    MpF 1 get MpL sub fc-map-mask-for MpB mul dup MpM gt { /MpM exch def } { pop } ifelse
                     MpB MpP gt { /MpP MpB def } if
                 } if
             } forall

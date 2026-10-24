@@ -2,7 +2,7 @@
 %%BoundingBox: 0 0 320 200
 % Where the pinned peaks of a map piece actually stand (fractal_clouds#13).
 % Runs a piece's plan (default gallery/charted_range.ps), then for every
-% /peak in MapFeatures finds the highest ground within twice its spread
+% /peak in MapFeatures finds the highest ground within its spread
 % (5-unit steps, procedural terrain at 6 octaves) and prints how far that
 % summit is from where the map put it, and its height against the one asked.
 %   scripts/render.sh -D "Piece=(gallery/charted_range.ps)" spikes/map_pins.ps
@@ -12,7 +12,7 @@
 Piece run
 MapFeatures { /PnF exch def
     PnF 0 get /peak eq {
-        /PnX PnF 3 get def /PnZ PnF 4 get def /PnR PnF 2 get 2 mul def
+        /PnX PnF 3 get def /PnZ PnF 4 get def /PnR PnF 2 get def
         /PnBest -1e9 def
         PnR neg 5 PnR { /PnDz exch def
             PnR neg 5 PnR { /PnDx exch def

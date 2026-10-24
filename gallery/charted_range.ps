@@ -8,7 +8,8 @@
 %   -D View=1   from the lake's south shore, looking north at the twins (default)
 %   -D View=2   from the eastern hills, looking across the valley
 %   -D Plan=true the map from above, with both cameras marked
-% Preview: DPI=36 scripts/render.sh gallery/charted_range.ps.
+% Preview: DPI=36 scripts/render.sh gallery/charted_range.ps (about 2 min a view;
+% 72 dpi about 8).
 
 /View where { pop } { /View 1 def } ifelse
 /Plan where { pop } { /Plan false def } ifelse
@@ -23,9 +24,9 @@
 /MapPlanRect where { pop } { /MapPlanRect [ -800 -560 800 440 ] def } ifelse  % the plan fills the page
 /MapPlanN where { pop } { /MapPlanN 320 def } ifelse
 /MapFeatures where { pop } { /MapFeatures [
-    [ /ridge  40 150  -600 220  -330 230  -170 180  0 150  190 185  360 230  620 200 ]  % the main ridge
-    [ /peak   56 130  -170 180 ]                                      % West Twin
-    [ /peak   52 120   190 185 ]                                      % East Twin
+    [ /ridge  36 150  -600 220  -330 230  -170 180  0 150  190 185  360 230  620 200 ]  % the main ridge
+    [ /peak   48 130  -170 180 ]                                      % West Twin
+    [ /peak   44 120   190 185 ]                                      % East Twin
     [ /ridge  24  90   -90 120  -170 20  -230 -80 ]                   % a spur toward the lake
     [ /valley  3  50    60 120    90 60   50 0   20 -40 ]             % the river, col to lake
     [ /lake  -0.5 4 50  -150 -40  -30 -15  110 -30  180 -100  140 -190  0 -215  -130 -185  -190 -110 ]
@@ -44,8 +45,9 @@ View 2 eq {
 } {
     /TerrOX where { pop } { /TerrOX 0 def /TerrOZ -250 def } ifelse
     /Yaw where { pop } { /Yaw 0 def } ifelse
-    /Pitch where { pop } { /Pitch 5 def } ifelse
+    /Pitch where { pop } { /Pitch 3 def } ifelse
     /CamAbove where { pop } { /CamAbove 7 def } ifelse
+    /HFov where { pop } { /HFov 46 def } ifelse
 } ifelse
 /HFov where { pop } { /HFov 60 def } ifelse
 Plan { /Erode where { pop } { /Erode false def } ifelse } if   % the plan is the procedural terrain
@@ -53,7 +55,7 @@ Plan { /Erode where { pop } { /Erode false def } ifelse } if   % the plan is the
 % --- light and air (world-fixed, so both views share them) --------------------
 /SunDir where { pop } { /SunDir [ 0.60 0.45 0.30 ] def } ifelse   % morning, from the east
 /CloudLo where { pop } { /CloudLo 60 def /CloudHi 88 def } ifelse
-/CoverAmp where { pop } { /CoverAmp 0.45 def } ifelse
+/CoverAmp where { pop } { /CoverAmp 0.38 def } ifelse
 /Threshold where { pop } { /Threshold 0.57 def } ifelse
 /HazeDist where { pop } { /HazeDist 900 def } ifelse
 /SnowLine where { pop } { /SnowLine 27 def } ifelse
