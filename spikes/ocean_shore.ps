@@ -1,0 +1,66 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+% Status: draft
+% fractal_clouds#38: a test coast for lib/fc_ocean.ps. A map (lib/fc_map.ps)
+% whose one /lake polygon is the sea floor: a low plain to the south, a
+% sandy shelf, then open sea to the north. The camera stands on the dunes
+% looking out to sea, toward a low sun, so one frame holds the surf line,
+% wet sand, the shallows, open swell and the glitter path.
+%   -D Ocean=false     the plain lake water, for comparison
+%   -D Probe=true      print the ground height along the view and stop
+% Not a gallery piece: #39 adds coastal terrain, #40 the seascapes.
+
+/Seed where { pop } { /Seed 5 def } ifelse
+/AA where { pop } { /AA true def } ifelse
+/Probe where { pop } { /Probe false def } ifelse
+
+% --- the coast: the sea floor is one big /lake, its shore band the shelf ------
+/MapOn where { pop } { /MapOn true def } ifelse
+/MapRect where { pop } { /MapRect [ -1600 -800 1600 2400 ] def } ifelse
+/MapBackground where { pop } { /MapBackground [ 5 0.02 ] def } ifelse
+/MapFeatures where { pop } { /MapFeatures [
+    [ /lake -2.5 6 400  -3000 140  -1200 170  -400 130  300 160  1200 120  3000 150
+                        3000 4000  -3000 4000 ]
+    [ /ridge 26 160  -1400 300  -1000 520  -700 900 ]       % a headland on the left
+] def } ifelse
+/DetailAmp where { pop } { /DetailAmp 0.05 def } ifelse     % a smooth shelf, low dunes
+/Erode where { pop } { /Erode false def } ifelse
+
+/TerrOX where { pop } { /TerrOX 0 def } ifelse
+/TerrOZ where { pop } { /TerrOZ 130 def } ifelse
+/Yaw where { pop } { /Yaw 0 def } ifelse
+/Pitch where { pop } { /Pitch -8 def } ifelse
+/HFov where { pop } { /HFov 55 def } ifelse
+/CamHeight where { pop } { /CamHeight 1.5 def } ifelse      % 4 above the sea
+
+% --- light: a low afternoon sun ahead, a little to the right -----------------
+/SunDir where { pop } { /SunDir [ 0.55 0.30 0.78 ] def } ifelse
+/CloudLo where { pop } { /CloudLo 60 def } ifelse
+/CloudHi where { pop } { /CloudHi 80 def } ifelse
+/CoverAmp where { pop } { /CoverAmp 0.35 def } ifelse
+/Threshold where { pop } { /Threshold 0.62 def } ifelse
+/HazeDist where { pop } { /HazeDist 900 def } ifelse
+
+% --- the sea ----------------------------------------------------------------------
+/WaterY where { pop } { /WaterY -2.5 def } ifelse
+/Ocean where { pop } { /Ocean true def } ifelse
+/WaterClear where { pop } { /WaterClear 1.0 def } ifelse
+/RippleAmp where { pop } { /RippleAmp 0.07 def } ifelse     % the chop
+/RippleScale where { pop } { /RippleScale 1.5 def } ifelse
+/WindDir where { pop } { /WindDir 80 def } ifelse           % onshore, from the north
+/ShoreStones where { pop } { /ShoreStones 0 def } ifelse
+/ShoreEdge where { pop } { /ShoreEdge 0 def } ifelse
+
+(lib/fc_landscape.ps) run
+
+Probe {
+    fc-landscape-setup
+    (camera y ) print CamY 40 string cvs print (\n) print
+    [ 0 40 80 100 120 140 160 200 260 400 ] { /PrZ exch def
+        (z ) print PrZ 40 string cvs print (  h ) print
+        0 PrZ 6 fc-height 40 string cvs print (\n) print
+    } forall
+} {
+    320 200 fc-landscape
+    showpage
+} ifelse
