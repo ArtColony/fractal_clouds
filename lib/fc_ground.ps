@@ -34,6 +34,7 @@
 /StoneDens 0.3 fc-default
 /StoneSize 0.11 fc-default
 /GroundRough 0.12 fc-default         % rough near ground: height per unit of wavelength (0: none)
+/GroundFar 0.6 fc-default            % two-pixel footprint (units) beyond which the ground isn't roughened (full at a third of it)
 /GroundPatch 0.5 fc-default          % 0..1: how strongly rocks gather in patches
 /GrassAmp 1 fc-default               % strength of the grass texture (0: none)
 /GrassDry [ 0.56 0.52 0.33 ] fc-colour   % sRGB: sun-dried grass in patches
@@ -108,7 +109,7 @@
     /GnPz exch def /GnPx exch def
     GnPx 0 eq GnPz 0 eq and { 0 } {
         GnPx GnPz BoulderCell BoulderDens BoulderSize 0 fc-ground-layer
-        GroundRough 0 gt { fc-ground-rough add } if
+        GroundRough 0 gt GnF GroundFar lt and { fc-ground-rough add } if
     } ifelse
 } bind def
 
@@ -128,11 +129,14 @@
             1 2.5 GnWl GnF div fc-smooth mul add
         } if
     } for
+    % only on the near ground: rough mid-distance slopes would shed the
+    % snow there, and the look would change with the image size
+    GroundFar GroundFar 0.33 mul GnF fc-smooth mul
 } bind def
 
 % below this many octaves the footprint is over twice the biggest boulder
-% and nothing shows: skip the layer without the exp
-/GnOctMin 1 BoulderSize 2 mul GnRoughOcts 0 get 2 copy lt { exch } if pop TerrScale mul div ln 2 ln div def
+% and over GroundFar, and nothing shows: skip the layer without the exp
+/GnOctMin 1 BoulderSize 2 mul GroundFar 2 copy lt { exch } if pop TerrScale mul div ln 2 ln div def
 /fc-height-base /fc-height load def
 /fc-height {                                     % x z oct -> h
     dup GnOctMin gt { 3 copy fc-height-base 4 1 roll fc-ground-rocks add } { fc-height-base } ifelse

@@ -35,3 +35,15 @@ Won in round 1, realism and aesthetics, in both orders: no further rounds.
 `GroundOn` stays false in the library (other pieces and spikes are
 unchanged) and is turned on in the five gallery pieces with near ground:
 mountains, alpine_forest, evening_lake, charted_range and storm.
+
+After the win, `GroundFar` (0.6) keeps the roughness to the near ground
+(it reached mid-distance slopes at 640 px and broke up their snow). As a
+check for turning it on in `mountains`, the whole gallery frame at
+640×400 (`mountains/off.png`, `mountains/on.png`, not a judged round of
+the protocol) also went to the new one in both orders, realism and
+aesthetics: "rougher foreground ridges feel more like weathered rock",
+"irregular snow boundaries look more natural".
+
+Cost, `mountains` at 640×400 with `Profile`: render 664 s off, 781 s on
+(+18%); `fc-height` 51.7 → 64.1 µs a call over the same ~10 M calls (the
+machine was shared with other renders, so take these as ±10%).
