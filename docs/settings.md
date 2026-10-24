@@ -261,7 +261,7 @@ saturation, vignette, lift. The grade presets below set these.
 
 | Setting | Default | What it does | Used |
 |---|---|---|---|
-| `GradeTemp` | 0 | White balance: above 0 warmer (red ×(1 + 0.15·t), blue ×(1 − 0.15·t)), below 0 cooler. | −0.4 … 0.4 |
+| `GradeTemp` | 0 | White balance: above 0 warmer (red ×(1 + 0.15·t), green ×(1 + 0.02·t), blue ×(1 − 0.15·t)), below 0 cooler. | −0.4 … 0.4 |
 | `GradeSat` | 1 | Saturation about the luminance (Rec. 709 weights); below 1 mutes. | 0.72, 0.75, 0.9 |
 | `GradeSplit` | 0 | Split toning strength, 0–1: shadows lean toward `GradeShadows`, highlights toward `GradeHighlights`, blended by luminance about `GradePivot`. | 0.3, 0.5 |
 | `GradeShadows` | [0.32 0.45 0.52] | Shadow tint, sRGB; only its hue counts (it is scaled to luminance 1). Teal by default. | |

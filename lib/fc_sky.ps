@@ -512,7 +512,7 @@ fc-sun-update
 /TnGain 1.1 def
 /fc-srgb-oetf {                                  % linear 0..1 -> sRGB code value
     dup 0.0031308 le { dup 0 lt { pop 0 } if 12.92 mul } {
-        dup 1 gt { pop 1 } if 0.41667 exp 1.055 mul 0.055 sub
+        dup 1 gt { pop 1 } if 1 2.4 div exp 1.055 mul 0.055 sub
     } ifelse
 } bind def
 /fc-tone-aces-rrt {                              % v -> v'  (Hill's RRT+ODT fit)
