@@ -50,6 +50,7 @@
 /MapOn false fc-default
 /MapNoise 0 fc-default               % how much noise massif shows through, away from pinned ground
 /MapPin 1 fc-default                 % how fully pinned ground loses the domain warp
+/TerrCoast false def                 % fc_coast.ps sets it: fc-height-proc then calls fc-coast
 
 % fc-height: the eroded map where fc_erode.ps has baked one (plus fine
 % procedural detail), the procedural terrain elsewhere
@@ -123,6 +124,7 @@
     } ifelse
     } ifelse } ifelse
     TerrH mul TerrBase add
+    TerrCoast { fc-coast } if                  % the coast (fc_coast.ps, with MapSea)
 } bind def
 
 % massif: two smooth octaves at the warped point (Hwx Hwz), pushed toward 0

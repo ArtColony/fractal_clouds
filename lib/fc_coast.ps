@@ -1,0 +1,187 @@
+%!PS-Adobe-3.0
+% fc_coast.ps -- where the land meets the sea: a sea floor, beaches, cliffs,
+% stacks and rocks in the surf (fractal_clouds#39).
+%
+% fc_map.ps loads this file when MapSea is a number (a terrain map, MapOn,
+% with a sea level). The map's bake has measured every texel's signed
+% distance to the coastline (land positive) and the height of the land
+% nearest it; this file turns that into ground:
+%
+%   h fc-coast h'      fc-height-proc calls it last (TerrCoast), with the
+%                      map point in Hmx Hmz and the octaves in Ho
+%   x z fc-coast-dist d k
+%                      the wobbled distance to the coastline at a map point
+%                      and how cliffed the shore there is, 0..1
+%
+% and chains onto fc-terrain-material (sand and cobbles on the beaches,
+% seen through the shallows too). It also puts the water at MapSea when
+% the piece set no WaterY, so fc_landscape.ps loads fc_water.ps with the
+% sea as its plane.
+%
+% The ground along the coast, at signed distance d (wobbled by two noise
+% octaves so the line wanders into coves and points), is
+%
+%   cliff   min(h, MapSea + CoastCliff d)    a steep face rising from the
+%                                            waterline cuts back any high land
+%   shore   MapSea + CoastBerm (1 - e^(-d CoastSlope / CoastBerm))       on land
+%           MapSea - CoastDepth (1 - e^(d CoastSlope / CoastDepth))      offshore
+%           (one curve with slope CoastSlope at the waterline: a beach face
+%           rising to a flat berm, and shallows deepening to a floor)
+%   ground  the shore plus a smooth max(cliff - shore - flat, 0): low ground
+%           within CoastFlat of the shore is pressed flat onto it (fading out
+%           over CoastBeachW inland), so a low coast becomes a beach, and a
+%           high one keeps its cliff, standing on a wave-cut bench
+%
+% Then stacks (noise, off cliffed shores; and the map's /stack features)
+% and rocks in the surf are raised on top. A heightfield can't overhang,
+% so there are no arches and the wave-cut notch is the bench in front of
+% the cliff instead.
+%
+% Names: this file keeps its temporaries under Xc*.
+
+/CoastSlope 0.12 fc-default          % gradient of the beach face and the shallows
+/CoastDepth 14 fc-default            % the deep sea floor, below MapSea
+/CoastBerm 1.2 fc-default            % the berm: the beach's flat top, above MapSea
+/CoastFlat 1.5 fc-default            % low ground this close above the shore is pressed onto it
+/CoastBeachW 80 fc-default           % ... within this far of the water
+/CoastCliff 3.5 fc-default           % cliff faces' gradient (rise per unit across)
+/CoastCliffLo 4 fc-default           % the nearest land's height above MapSea where
+/CoastCliffHi 12 fc-default          % ... a low shore turns cliffed (benches, stacks)
+/CoastWobble 18 fc-default           % the coastline wanders this far either way
+/CoastWobbleScale 0.012 fc-default   % 1 / its wavelength
+/CoastRough 1.2 fc-default           % fine roughness of cliff faces, in units across
+/CoastBench [ 8 0.3 ] fc-default     % wave-cut bench at a cliff's foot: width, depth below MapSea
+/CoastStacks 0.5 fc-default          % stacks off cliffed shores, 0..1
+/CoastStackH 0.75 fc-default         % their height, as a fraction of the cliffs'
+/CoastStackOut 45 fc-default         % how far offshore they stand
+/CoastStackScale 0.045 fc-default    % 1 / their spacing
+/CoastRocks 0.5 fc-default           % rocks in the surf, 0..1
+/CoastReef null fc-default           % [ out width depth ]: a reef `out` offshore
+/CoastSand [ 0.78 0.71 0.55 ] fc-colour
+/CoastCobble [ 0.50 0.48 0.45 ] fc-colour
+/CoastCobbles 0.3 fc-default         % how much of the beaches is cobble, 0..1
+/CoastSandW 40 fc-default            % how far inland the beach reaches
+
+/TerrCoast true def
+% the sea is the water's plane unless the piece set its own
+/WaterY where { pop WaterY null eq { /WaterY MapSea def } if } if
+
+% x z -> d k    map point: wobbled distance to the coastline, cliffedness
+/fc-coast-dist {
+    /XcZ exch def /XcX exch def
+    XcX XcZ fc-map-coast-at /XcC exch def
+    /XcWx XcX CoastWobbleScale mul def /XcWz XcZ CoastWobbleScale mul def
+    XcWx 17.3 add XcWz 4.1 add fc-noise2 0.5 sub
+    XcWx 2.3 mul 5.2 add XcWz 2.3 mul 11.7 add fc-noise2 0.5 sub 0.45 mul add
+    CoastWobble 2 mul mul add
+    MapSea CoastCliffLo add MapSea CoastCliffHi add XcC fc-smooth
+} bind def
+
+% x k -> smooth max(x, 0) over a knee of half-width k
+/fc-coast-smax {
+    /XcSk exch def
+    dup XcSk ge { } { dup XcSk neg le { pop 0 } { XcSk add dup mul XcSk 4 mul div } ifelse } ifelse
+} bind def
+
+/fc-coast {                                      % h -> h (Hmx Hmz Ho)
+    /XcH exch def
+    Hmx Hmz fc-coast-dist /XcK exch def /XcD exch def
+    XcD CoastBeachW gt XcH MapSea CoastBerm add CoastFlat add gt and { XcH } {
+        % cliff faces: fine roughness, faded out with distance (octaves)
+        XcK 0 gt CoastRough 0 gt and Ho 4 gt and {
+            Hmx 0.21 mul 3.3 add Hmz 0.21 mul 7.7 add fc-noise2 0.5 sub
+            Hmx 0.55 mul 1.1 add Hmz 0.55 mul 2.9 add fc-noise2 0.5 sub 0.5 mul add
+            CoastRough 2 mul mul XcK mul 4 6 Ho fc-smooth mul XcD add /XcD exch def
+        } if
+        % the shore: beach face and berm on land, shallows deepening offshore
+        XcD 0 ge {
+            MapSea CoastBerm 1 2.71828 XcD CoastSlope mul CoastBerm div neg exp sub mul add
+        } {
+            MapSea CoastDepth 1 2.71828 XcD CoastSlope mul CoastDepth div exp sub mul sub
+        } ifelse /XcB exch def
+        XcD 0 lt {
+            % the wave-cut bench at a cliff's foot, then a steep drop
+            XcK 0 gt {
+                MapSea CoastBench 1 get sub  XcD neg CoastBench 0 get sub 0 fc-max CoastCliff mul sub
+                dup XcB gt { XcB sub XcK mul XcB add /XcB exch def } { pop } ifelse
+            } if
+            % a reef, patchy, `out` offshore
+            CoastReef null ne {
+                XcD neg CoastReef 0 get sub CoastReef 1 get 2 div sub abs CoastReef 1 get 2 div
+                2 copy ge { pop pop 0 } { div dup mul 1 exch sub dup mul } ifelse 1 XcK sub mul /XcRb exch def
+                XcRb 0 gt {
+                    MapSea CoastReef 2 get sub
+                    Hmx 0.08 mul 2.2 add Hmz 0.08 mul 6.6 add fc-noise2 0.5 sub CoastReef 2 get 2.4 mul mul add
+                    dup XcB gt { XcB sub XcRb mul XcB add /XcB exch def } { pop } ifelse
+                } if
+            } if
+        } if
+        % the ground: cut back to a cliff, low ground pressed onto the shore
+        XcH MapSea XcD CoastCliff mul add fc-min XcB sub
+        CoastFlat 1 CoastBeachW 0.5 mul CoastBeachW XcD fc-smooth sub mul sub
+        CoastFlat 0.7 mul 0.2 add fc-coast-smax XcB add /XcH exch def
+        % stacks off cliffed shores
+        CoastStacks 0 gt XcK 0.3 gt and XcD 0 lt and XcD CoastStackOut neg gt and {
+            Hmx CoastStackScale mul 9.7 add Hmz CoastStackScale mul 3.1 add fc-noise2 /XcN exch def
+            /XcT 0.93 CoastStacks 0.08 mul sub def
+            XcN XcT gt {
+                XcT XcT 0.02 add XcN fc-smooth
+                CoastStackOut neg CoastStackOut -0.75 mul XcD fc-smooth mul
+                1 -10 -5 XcD fc-smooth sub mul XcK mul /XcS exch def
+                XcC MapSea sub CoastStackH mul XcN XcT sub 1 XcT sub div 0.6 mul 0.7 add mul MapSea add
+                XcH sub XcS mul XcH add XcH fc-max /XcH exch def
+            } if
+        } if
+        % rocks in the surf
+        CoastRocks 0 gt XcD -14 gt and XcD 2 lt and {
+            Hmx 0.33 mul 4.4 add Hmz 0.33 mul 1.9 add fc-noise2 /XcN exch def
+            /XcT 0.86 CoastRocks 0.1 mul sub def
+            XcN XcT gt {
+                XcT XcT 0.05 add XcN fc-smooth -14 -8 XcD fc-smooth mul /XcS exch def
+                MapSea 0.5 add XcN XcT sub 6 mul add XcH sub XcS mul XcH add XcH fc-max /XcH exch def
+            } if
+        } if
+        XcH
+    } ifelse
+    % the map's own stacks
+    MapStacks { /XcSf exch def
+        Hmx XcSf 3 get sub dup mul Hmz XcSf 4 get sub dup mul add sqrt /XcSd exch def
+        XcSd XcSf 2 get 1.5 mul lt {
+            /XcH exch def
+            Hmx 0.3 mul 5.1 add Hmz 0.3 mul 8.3 add fc-noise2 0.5 sub XcSf 2 get 0.5 mul mul XcSd add
+            XcSf 2 get 1.05 mul XcSf 2 get 0.85 mul 3 -1 roll fc-smooth
+            XcSf 1 get XcH sub mul XcH add XcH fc-max
+        } if
+    } forall
+} bind def
+
+% --- beaches ---------------------------------------------------------------------
+% fc-terrain-shade's material hook (after any earlier one): sand, and cobbles
+% in patches, on gentle ground near the water and under the shallows
+/XcMatPrev /fc-terrain-material where { pop /fc-terrain-material load } { { } } ifelse def
+/fc-terrain-material {
+    XcMatPrev
+    Kh MapSea sub /XcE exch def
+    XcE CoastBerm 1.6 add lt XcE -4 gt and {
+        Kx TerrOX add Kz TerrOZ add fc-coast-dist /XcMk exch def /XcMd exch def
+        XcMd CoastSandW lt {
+            1 CoastBerm 0.4 add CoastBerm 1.6 add XcE fc-smooth sub
+            0.80 0.93 Ny fc-smooth mul
+            1 CoastSandW 0.6 mul CoastSandW XcMd fc-smooth sub mul
+            1 XcMk 0.6 mul sub mul /XcMw exch def
+            XcMw 0 gt {
+                Kx 0.05 mul 3.9 add Kz 0.05 mul 7.2 add fc-noise2 /XcMn exch def
+                Kx 1.3 mul Kz 1.3 mul fc-noise2 0.5 mul 0.75 add /XcMm exch def
+                CoastSand [ CoastCobble { XcMm mul } forall ]
+                0.75 CoastCobbles 0.5 mul sub dup 0.1 add XcMn fc-smooth mix3v
+                Alb exch XcMw mix3v /Alb exch def
+                /KbMul KbMul 1 XcMw sub mul def          % sand isn't fractured rock
+            } if
+        } if
+    } if
+} bind def
+
+% with Profile, time the coast too
+/ProfileProcs where { pop
+    /ProfileProcs [ ProfileProcs aload pop /fc-coast ] def
+} if
