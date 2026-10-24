@@ -3,3 +3,4 @@ renders/
 
 .DS_Store
 .playwright-mcp/
+dist/

@@ -40,6 +40,8 @@ display faces).
 | `scripts/render.sh` | Render, lint and time pieces into `renders/` (git-ignored) |
 | `scripts/render_bands.sh` | One large frame as parallel horizontal bands, stitched |
 | `scripts/regress.sh` | Pixel-regression check of the gallery against `tests/regress/linux/` or a git ref; run by CI (`.github/workflows/ci.yml`) |
+| `docs/using-the-libraries.md` | Using `lib/fc_*.ps` from another repo: releases, pinning one with `.fc-version`, cutting a release |
+| `scripts/release.sh`, `scripts/fetch_fc.sh` | Build a release (tarball, standalone techniques page, `SHA256SUMS`); install the pinned one into a project |
 | `docs/pscat-issues.md` | pscat bugs and skill-doc problems, waiting to be filed upstream |
 | `.claude/skills/` | The `pscat`, `psart` and `psviz` agent skills, copied from the pscat release, and `fractal-landscape`, this repo's own: a one-line request to a piece (presets, framing pass, crops, banded render, Codex review) |
 | `.mcp.json` | Registers `pscat-mcp` for Claude Code |
@@ -78,6 +80,16 @@ DPI=288 scripts/render_bands.sh gallery/foo.ps 0.55 0.66 0.81
 
 Each piece sets its canvas with `%%BoundingBox: 0 0 W H`. Timings are
 appended to `renders/timings.tsv`.
+
+## Using the libraries in another project
+
+`lib/fc_*.ps` are released as versioned tarballs (a `vX.Y.Z` tag; the
+`release` workflow attaches `fractal_clouds-X.Y.Z.tar.gz`, a standalone
+`techniques.html` and `SHA256SUMS`). A project pins one in `.fc-version`, the
+way this repo pins pscat in `.pscat-version`, and installs it with a copy of
+`scripts/fetch_fc.sh`. `docs/using-the-libraries.md` has the steps, and
+`docs/settings.md` ("The public interface") says which names are promised.
+No release has been cut yet: the owner tags the first one.
 
 ## Upgrading pscat
 

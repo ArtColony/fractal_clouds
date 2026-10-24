@@ -105,6 +105,39 @@ should keep its temporaries under its own prefix.
   camera's field of view drawn on. It found why the mountains had
   vanished (the view looked across lowland) and why ridges looked like rings.
 
+### Sharing a library across repos (fractal_clouds#34)
+How fractal_clouds made `lib/fc_*.ps` usable from other ArtColony repos
+(`docs/using-the-libraries.md` has the steps). A template repo that grows a
+reusable library can copy the scheme:
+- **Versioned releases.** `scripts/release.sh VERSION` builds, from the
+  committed tree, a tarball (`lib/`, the settings reference, the techniques
+  page, `LICENSE`, `VERSION`, the tested `PSCAT_VERSION`) and `SHA256SUMS`;
+  `.github/workflows/release.yml` runs it when a `v*` tag is pushed and
+  attaches the files to the release. The tag is cut by a person, never by an
+  agent: a release is outward-facing.
+- **Pinning, as for pscat.** A consumer keeps `.fc-version` and a copy of
+  `scripts/fetch_fc.sh`, which downloads that release with `gh`, checks
+  `SHA256SUMS`, and replaces `lib/fc_*.ps`; `--check` in CI fails on a
+  hand-edited library. The libraries load each other as `(lib/fc_x.ps) run`
+  relative to the working directory, so they must be installed into the
+  consumer's `lib/`, not into a subfolder or a path outside it. Committing the
+  installed copy is the recommended default (offline clones, upgrades show as
+  diffs).
+- **A prefix and a public interface.** The `fc_` file prefix keeps the library
+  from replacing a pscat built-in and from colliding with the consumer's own
+  libraries; `scripts/check_names.sh` still finds two libraries `def`'ing the
+  same scratch name, and works on the consumer's `lib/` too.
+  `docs/settings.md` says that the documented names are the public API and
+  everything else (scratch names, undocumented `fc-` procedures, file layout,
+  and the exact pixels) is internal. Patch releases stay pixel-identical;
+  before 1.0 a minor release may change the look.
+- **Docs that need no checkout.** `docs/techniques.html` links images that sit
+  beside it, so `scripts/standalone_html.py` inlines them (8.5 MB) for the
+  release. Publishing it at an address is the owner's choice: GitHub Pages
+  (a repo setting), or an Artifact. Neither was switched on from the repo.
+- Not done: attestations (`gh attestation verify`, as for pscat) on the
+  release files, and a changelog file beyond the generated release notes.
+
 ### Rendering lessons worth carrying into any project
 - **Work in linear light.** Give palette colours in sRGB, convert them on
   load, light in linear, then tone-map and gamma-encode once at the end.
@@ -194,7 +227,8 @@ should keep its temporaries under its own prefix.
   projects have `lib/` code to test. When it's added, a Linux musl archive
   works headless.
 - **The full pscat-style SDLC** (`sdlcify`, claim/heartbeat scripts, release
-  pipeline). Gallery repos don't ship releases.
+  pipeline). Gallery repos don't ship releases; a repo with a shared library
+does (see "Sharing a library across repos").
 
 - **Stacked PRs merge into their base, not `main`.** GitHub retargets a
   stacked PR to `main` only when the branch below it is deleted on merge. In

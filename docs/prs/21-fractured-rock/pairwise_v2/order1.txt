@@ -1,0 +1,5 @@
+REALISM: A
+AESTHETICS: A
+- A’s mountain faces look more naturally eroded; B has conspicuous gridlike lines and horizontal bands.
+- A’s smoother shading gives the foreground a more cohesive, atmospheric appearance.
+- Both have convincing depth and dramatic peaks, but B’s surface artifacts distract from the landscape.

@@ -1,0 +1,89 @@
+%!PS-Adobe-3.0
+% fc_grade.ps -- a colour grade in linear light, just before the tone
+% curve (fractal_clouds#24). lib/fc_landscape.ps loads it, and makes
+% fc-grade its fc-landscape-grade hook, when any of these settings is
+% away from neutral; with all of them neutral nothing is loaded and the
+% pixels are exactly as before.
+%
+%   GradeTemp    0      white balance: > 0 warmer (more red, less blue),
+%                       < 0 cooler; 1 is a strong shift (about 15% each way)
+%   GradeSat     1      saturation about the luminance; < 1 mutes
+%   GradeSplit   0      split toning strength, 0..1: shadows lean toward
+%                       GradeShadows and highlights toward GradeHighlights
+%   GradeShadows    [0.32 0.45 0.52]   sRGB tints for split toning (only
+%   GradeHighlights [0.62 0.52 0.40]   their hue counts, not brightness)
+%   GradePivot   0.25   linear luminance where shadows turn to highlights
+%   GradeLift    0      a veil of light added to every pixel (lifted, milky
+%                       blacks, like lens flare); 0.01 is gentle
+%   Vignette     0      darkening toward the frame's edge: 1 - Vignette at
+%                       the left and right edges, more in the corners. It
+%                       follows the ray's angle off the view axis (cos^4),
+%                       so it is the same at any resolution or crop
+%
+%   r g b fc-grade r g b    the grade, in this order: white balance, split
+%                           toning, saturation, vignette, lift
+%
+% Settings come before (lib/fc_landscape.ps) run, as always. The view
+% axis for the vignette is taken as this file loads: a piece that changes
+% Pitch or Yaw afterwards calls fc-grade-update after fc-camera-update.
+
+/GradeTemp 0 fc-default
+/GradeSat 1 fc-default
+/GradeSplit 0 fc-default
+/GradeShadows [ 0.32 0.45 0.52 ] fc-colour
+/GradeHighlights [ 0.62 0.52 0.40 ] fc-colour
+/GradePivot 0.25 fc-default
+/GradeLift 0 fc-default
+/Vignette 0 fc-default
+
+/fc-grade-lum { 0.0722 mul exch 0.7152 mul add exch 0.2126 mul add } bind def   % r g b -> Y
+
+/fc-grade-tint {                                 % [r g b] -> [r g b]: gains with luminance 1
+    aload pop 3 copy fc-grade-lum 1e-6 2 copy lt { exch } if pop /GdY exch def
+    GdY div 3 1 roll GdY div 3 1 roll GdY div 3 1 roll [ 4 1 roll ]
+} bind def
+
+/fc-grade-update {
+    /GdWr 1 GradeTemp 0.15 mul add def
+    /GdWg 1 GradeTemp 0.02 mul add def
+    /GdWb 1 GradeTemp 0.15 mul sub def
+    /GdSh GradeShadows fc-grade-tint def
+    /GdHi GradeHighlights fc-grade-tint def
+    0 0 fc-ray /GdFz exch def /GdFy exch def /GdFx exch def
+    % 1 - cos^4 at the frame's left and right edges
+    /GdEdge 1 1 TanH dup mul add sqrt 1 exch div dup mul dup mul sub def
+} bind def
+fc-grade-update
+
+/fc-grade {                                      % r g b -> r g b (linear)
+    /GdB exch def /GdG exch def /GdR exch def
+    GradeTemp 0 ne {
+        /GdR GdR GdWr mul def /GdG GdG GdWg mul def /GdB GdB GdWb mul def
+    } if
+    GradeSplit 0 ne {
+        % w: 0 in the shadows, 1 in the highlights
+        GdR GdG GdB fc-grade-lum dup GradePivot add 1e-9 add div /GdW exch def
+        0 1 2 {
+            /GdI exch def
+            GdSh GdI get 1 GdW sub mul GdHi GdI get GdW mul add    % the tint here
+            1 sub GradeSplit mul 1 add                            % ...at strength GradeSplit
+            [ GdR GdG GdB ] GdI get mul
+        } for
+        /GdB exch def /GdG exch def /GdR exch def
+    } if
+    GradeSat 1 ne {
+        GdR GdG GdB fc-grade-lum /GdY exch def
+        /GdR GdR GdY sub GradeSat mul GdY add 0 2 copy lt { exch } if pop def
+        /GdG GdG GdY sub GradeSat mul GdY add 0 2 copy lt { exch } if pop def
+        /GdB GdB GdY sub GradeSat mul GdY add 0 2 copy lt { exch } if pop def
+    } if
+    Vignette 0 ne {
+        Mx GdFx mul My GdFy mul add Mz GdFz mul add dup mul dup mul    % cos^4
+        1 exch sub GdEdge div Vignette mul 1 exch sub 0 2 copy lt { exch } if pop
+        /GdV exch def
+        /GdR GdR GdV mul def /GdG GdG GdV mul def /GdB GdB GdV mul def
+    } if
+    GdR GradeLift add 0 2 copy lt { exch } if pop
+    GdG GradeLift add 0 2 copy lt { exch } if pop
+    GdB GradeLift add 0 2 copy lt { exch } if pop      % never below 0 (a negative breaks the /Exp curve)
+} bind def

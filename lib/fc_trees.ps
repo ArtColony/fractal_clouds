@@ -118,6 +118,29 @@ FsSpecies {
 /FsSpHi [ 0 1 FsNsp 1 sub { FsSpecies exch get /hi get } for ] def
 /FsSpBand false def FsSpHi { 999 lt { /FsSpBand true def } if } forall
 
+% FcSp -> -: its profile values in globals, which fc-tree-cell reads
+% (with one species they are set here once, not looked up per cell)
+/fc-tree-sp {
+    /FcSrad FcSp /rad get def /FcShmul FcSp /hmul get def /FcStrunk FcSp /trunk get def
+    /FcSbase FcSp /base get def /FcSbaseD FcSp /baseDense get def
+    /FcSenv FcSp /env get def /FcSdroop FcSp /droop get def /FcStiers FcSp /tiers get def
+    /FcSrag FcSp /rag get def /FcSlobes FcSp /lobes get def
+} bind def
+/FcSp FsSpecies 0 get def fc-tree-sp
+% bounds for fc-tree-cell's early out (#17), over every species (FcHs is
+% at most 1, the 1.001 covers its rounding): the widest trunk (a snag's),
+% the widest anything (a crown is capped at 0.55 cell, a log at 0.6), and
+% the widest a tree can be for fc-tree-cell's trunk test to run (FcL > 0)
+/FcHmulMax 0 FsSpecies { /hmul get fc-max } forall def
+/FcRtMax 0 FsSpecies { /trunk get fc-max } forall FcHmulMax mul FsHMax mul 1.6 mul 1.02 mul def
+/FcRmax FsCell 0.55 mul 0.6 fc-max FcRtMax fc-max def
+% and the tallest top for fc-tree-sunvis: FcH, or FcB FcH where a lifted
+% base is over 1 (a custom table's base near 1; FcB is at most 1.25 times
+% the larger of base and baseDense)
+/FcTopMax 0 FsSpecies { dup /base get 1 index /baseDense get fc-max 1.25 mul 1 fc-max
+    exch /hmul get mul fc-max } forall FsHMax mul 1.001 mul def
+/FcLmax FsCell 0.55 mul FsHMax FcHmulMax mul 1.001 mul 0.28 mul fc-max def
+
 % --- hash: a permutation of 0..255, and random tables indexed by it -------
 % Tables 0..5 are the ones the first forest used (keep their order, or
 % every tree moves); 6..8 pick the species, the crown base and snag height,
@@ -342,13 +365,30 @@ FsSpecies {
     /Fcj exch def /Fci exch def
     Fci Fcj fc-tree-hash /FcK exch def
     FsR 0 get FcK get FcD lt {
+        % where it stands, relative to the point
+        FcX Fci 0.5 add FsR 1 get FcK get 0.5 sub 0.9 mul add FsCell mul sub /Fcdx exch def
+        FcZ Fcj 0.5 add FsR 2 get FcK get 0.5 sub 0.9 mul add FsCell mul sub /Fcdz exch def
+        /Fchd Fcdx dup mul Fcdz dup mul add sqrt def
+        % (#17) the rest only if it can change something: no tree of this
+        % cell can be over the point, or nearer than FcHc; and in the march,
+        % its trunk can't be ahead if the ray moves away from the cell's
+        % axis, misses the widest trunk there could be, or no tree is near
+        % enough for a trunk (the bounds are set at load, after the table)
+        Fchd FcRmax sub FcHc 0 fc-max lt
+        FcRay FsTrunks and {
+            Fcdx Mx mul Fcdz Mz mul add dup 0 lt
+            exch dup mul Fchd dup mul FcRtMax dup mul sub FcA mul sub 0 gt and
+            FcLmax FcPx div 4 gt and
+            or
+        } if {
         % dominant trees, and a quarter of them young or suppressed
         FsR 3 get FcK get dup 0.25 lt { 4 mul 0.2 mul 0.42 add FsHMin mul /FcSup true def } {
             0.25 sub 1.333 mul 0.7 exp FsHMax FsHMin sub mul FsHMin add /FcSup false def } ifelse
         FcHs mul /FcH exch def
-        FsMixed { fc-tree-species } { FsSpecies 0 get } ifelse /FcSp exch def
-        /FcH FcH FcSp /hmul get mul def
-        /FcRt FcH FcSp /trunk get mul def
+        % (with one species, FcSp and its values stay as loaded)
+        FsMixed { fc-tree-species /FcSp exch def fc-tree-sp } if
+        /FcH FcH FcShmul mul def
+        /FcRt FcH FcStrunk mul def
         % alive, a snag, or fallen
         FsR 8 get FcK get dup FsSnag lt { pop 1 } { FsSnag FsFallen add lt { 2 } { 0 } ifelse } ifelse
         /FcKind exch def
@@ -359,13 +399,13 @@ FsSpecies {
             FcL 0 le { /FcKind 0 def } if
         } if
         FcKind 0 eq {
-            /FcR FcH FcSp /rad get mul FsR 4 get FcK get 0.3 mul 0.85 add mul FsCell 0.55 mul fc-min def
+            /FcR FcH FcSrad mul FsR 4 get FcK get 0.3 mul 0.85 add mul FsCell 0.55 mul fc-min def
             % trunks, and the crown lifted off the ground, where the crown is
             % wide enough on screen; higher in a dense stand, where the
             % lower branches have died, lowest at the edge and in the open
             /FcL FsTrunks { FcR FcPx div 4 sub 8 div 0 fc-max 1 fc-min } { 0 } ifelse def
             /FcB FcL 0 gt {
-                FcSp /base get dup FcSp /baseDense get exch sub 0.35 0.8 FcD fc-smooth mul add
+                FcSbase dup FcSbaseD exch sub 0.35 0.8 FcD fc-smooth mul add
                 FsR 7 get FcK get 0.5 mul 0.75 add mul FcL mul FcSup { 0.5 mul } if
             } { 0 } ifelse def
             % a crown that has lost its lower whorls is slimmer too
@@ -384,17 +424,14 @@ FsSpecies {
             } ifelse
         } ifelse
         FcKind 0 eq FcL 0 gt or {   % (a dead tree here always has a trunk)
-        FcX Fci 0.5 add FsR 1 get FcK get 0.5 sub 0.9 mul add FsCell mul sub /Fcdx exch def
-        FcZ Fcj 0.5 add FsR 2 get FcK get 0.5 sub 0.9 mul add FsCell mul sub /Fcdz exch def
-        /Fchd Fcdx dup mul Fcdz dup mul add sqrt def
         Fchd FcR sub dup FcHc lt { /FcHc exch def } { pop } ifelse
         Fchd FcR lt {
             % what stands over this point: its top and its base over the ground
             FcKind 0 eq {
-                /FcEnv FcSp /env get def /FcDroop FcSp /droop get def /FcTiers FcSp /tiers get def
+                /FcEnv FcSenv def /FcDroop FcSdroop def /FcTiers FcStiers def
                 % (the species' outline only near, where trunks show: far off it
                 % has faded into the envelope anyway)
-                FcL 0 gt { FcSp /rag get FcSp /lobes get } { 1 1 } ifelse /FcLobes exch def /FcRag exch def
+                FcL 0 gt { FcSrag FcSlobes } { 1 1 } ifelse /FcLobes exch def /FcRag exch def
                 Fcdx Fcdz fc-tree-prof
                 dup 0 ge FcB 0 gt and {
                     % lifted: the crown from the base up, the trunk below it
@@ -453,6 +490,7 @@ FsSpecies {
                     } if
                 } if
             } if
+        } if
         } if
         } if
     } if
@@ -613,7 +651,10 @@ FsSpecies {
             /FcY Fvpy Fvpx Fvpz FsO fc-height sub def
             % inside a tree's solid, or under the ground where a tree stands
             % (or well under it anywhere)
-            Fvpx Fvpz Fvd Fvhs fc-crowns FcY gt FcY 0 le and FcIn 0 lt or { /Fvv Fvv 0.3 mul def } if
+            % (#17: no tree there reaches above FsHMax FcHmulMax Fvhs)
+            FcY Fvhs FcTopMax mul gt not {
+                Fvpx Fvpz Fvd Fvhs fc-crowns FcY gt FcY 0 le and FcIn 0 lt or { /Fvv Fvv 0.3 mul def } if
+            } if
         } if
     } forall
     Fvv
