@@ -34,6 +34,7 @@ case "${1:-}" in
   -*) echo "usage: $0 [--check | VERSION]" >&2; exit 2 ;;
   ?*) ver="$1"; shift ;;
 esac
+[ $# -eq 0 ] || { echo "usage: $0 [--check | VERSION]" >&2; exit 2; }
 if [ -z "${ver:-}" ]; then
   [ -f .fc-version ] || { echo "fetch_fc: no .fc-version (write the version to pin, e.g. 0.1.0)" >&2; exit 2; }
   ver="$(tr -d '[:space:]' < .fc-version)"
@@ -45,16 +46,24 @@ fi
 name="fractal_clouds-$ver"
 
 tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
+installing=0
+# on any exit: a half-done install is rolled back to the libraries it replaced
+trap 'rc=$?; if [ "$installing" = 1 ]; then rm -f lib/fc_*.ps; mv lib/.fc_old/fc_*.ps lib/ 2>/dev/null || true; fi; rm -rf lib/.fc_new lib/.fc_old "$tmp"; exit $rc' EXIT
 if [ -n "${FC_FROM:-}" ]; then
   cp "$FC_FROM/$name.tar.gz" "$FC_FROM/SHA256SUMS" "$tmp/"
-else
+elif command -v gh >/dev/null; then
+  # gh needs a login (gh auth login, or GH_TOKEN in CI); the repo is public,
+  # so without gh plain curl works
   gh release download "v$ver" -R "$repo" -p "$name.tar.gz" -p SHA256SUMS -D "$tmp"
+else
+  for f in "$name.tar.gz" SHA256SUMS; do
+    curl -fsSL -o "$tmp/$f" "https://github.com/$repo/releases/download/v$ver/$f"
+  done
 fi
 if command -v sha256sum >/dev/null; then sum=sha256sum; else sum="shasum -a 256"; fi
 # check exactly this archive's line, so a manifest that doesn't list it fails
 # (some sha256sum builds accept --ignore-missing when nothing was checked)
-grep -F "  $name.tar.gz" "$tmp/SHA256SUMS" > "$tmp/this.sum" || { echo "fetch_fc: SHA256SUMS has no entry for $name.tar.gz" >&2; exit 1; }
+awk -v n="$name.tar.gz" '$2 == n || $2 == "*" n { print; found = 1 } END { exit !found }' "$tmp/SHA256SUMS" > "$tmp/this.sum" || { echo "fetch_fc: SHA256SUMS has no entry for $name.tar.gz" >&2; exit 1; }
 (cd "$tmp" && $sum -c this.sum)
 mkdir "$tmp/x"
 tar -xzf "$tmp/$name.tar.gz" -C "$tmp/x"
@@ -76,11 +85,16 @@ if [ "$check" = 1 ]; then
   exit "$status"
 fi
 
-mkdir -p lib docs/fractal_clouds
-rm -f lib/fc_*.ps
-cp "$rel"/lib/fc_*.ps lib/
+# stage the new libraries, move the old ones aside, swap; the trap undoes it
+rm -rf lib/.fc_new lib/.fc_old
+mkdir -p lib/.fc_new lib/.fc_old docs/fractal_clouds
+cp "$rel"/lib/fc_*.ps lib/.fc_new/
+installing=1
+mv lib/fc_*.ps lib/.fc_old/ 2>/dev/null || true
+mv lib/.fc_new/fc_*.ps lib/
 cp "$rel/VERSION" "$rel/PSCAT_VERSION" "$rel/docs/settings.md" "$rel/docs/techniques.html" docs/fractal_clouds/
 echo "$ver" > .fc-version
+installing=0
 echo "fetch_fc: installed fractal_clouds $ver in lib/ and docs/fractal_clouds/ (pinned in .fc-version)"
 
 # the release was tested with one pscat; renders only reproduce on the same one

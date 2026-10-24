@@ -40,7 +40,10 @@ means, is a breaking change):
 
 - every **setting** in the tables: its name, its meaning and its default
   (Seed, Yaw, TerrH, CloudLayers, WaterY, ...), including the options the
-  render script defines for a piece (`Res`, `AA`, `Crop`);
+  render script defines for a piece (`Res`, `AA`, `Crop`: their defaults live
+  in `lib/fc_render.ps`, so a project sets them before its `run` lines, as any
+  setting, or has its render script define them first, as this repo's
+  `scripts/render.sh -D` does);
 - the **entry points**: `fc-landscape`, `fc-landscape-setup`, `fc-presets`,
   `fc-preset`, `fc-settings` and the `FcPresets` dictionary (a project adds its
   own presets to it), the built-in **presets** and their names (Time of day,
@@ -55,8 +58,9 @@ means, is a breaking change):
   the material variables `Alb KlMul KskyMul KbMul`;
 - the **loading contract**: a project loads `lib/fc_presets.ps` (optional) and
   `lib/fc_landscape.ps` with `(lib/fc_x.ps) run` from the directory it renders
-  from, after its settings, as above. `fc_landscape.ps` loads the rest in the
-  order they need. Libraries load each other by those paths, so the files must
+  from, after its settings, as above, and `lib/fc_storm.ps` (also optional)
+  after `fc_landscape.ps`, as `gallery/storm.ps` does. `fc_landscape.ps` loads
+  the rest in the order they need. Libraries load each other by those paths, so the files must
   sit in `lib/` there.
 
 **Internal** (may change or vanish in any release, even a patch one, except
@@ -68,7 +72,7 @@ the last item, which follows the version policy below):
   that this file does not list (`fc-noise3`, `fc-terrain-hit`, `fc-height`, ...
   are building blocks, not API; `ProfileProcs` merely names them);
 - the **file layout**: which procedure lives in which `lib/fc_*.ps`, the load
-  order, and loading any file but the two above by itself;
+  order, and loading any file but the three above by itself;
 - the **pictures**, beyond the version policy below: the same settings may
   render different pixels in a different release (a new default, a better
   noise), though never in a patch release. Renders
@@ -80,15 +84,20 @@ else. A piece sets the documented settings and redefines the documented hooks
 (that is the interface), but its own libraries and helper procedures must not
 define any other name that the tables list, any name that starts with `Fc` or
 `fc-`, or a file called `lib/fc_*.ps`. Give your own libraries a prefix of your own (`lib/<project>_*.ps`).
-`scripts/check_names.sh` finds two libraries that `def` the same name; it
-works on a project's `lib/` too, with the `fc_` files next to its own.
+A project can copy `scripts/check_names.sh` to find two libraries that
+`def` the same name (a scratch variable: it does not look at hyphenated
+procedure names, which the libraries chain on purpose). Run in a project's
+`lib/` it also flags a project library that sets a documented setting such as
+`/Yaw` with `def`; that is a false alarm for a settings file, and a real clash
+in a library that uses the name for its own scratch.
 
 **Versions.** `MAJOR.MINOR.PATCH`. A patch release keeps every picture
 pixel-identical and changes nothing public. Before 1.0, a minor release may
 add or change settings, hooks and defaults and may change pictures (its
 release notes say which); from 1.0, only a major release removes or renames a
-public name or changes its meaning. A new setting defaults to "off",
-so a piece that doesn't know it renders as before.
+public name or changes its meaning. A new setting is meant to default to
+"off", so a piece that doesn't know it renders as before; but a release that
+changes a default says so in its notes, and is a minor release.
 
 ## Presets and scene files (`lib/fc_presets.ps`)
 

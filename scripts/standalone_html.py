@@ -12,7 +12,7 @@ or, with LINK_BASE, a relative reference is left over.
 """
 import base64, mimetypes, os, re, sys
 
-root, out = os.path.abspath(sys.argv[1]), sys.argv[2]
+root, out = os.path.realpath(sys.argv[1]), sys.argv[2]
 link_base = sys.argv[3] if len(sys.argv) > 3 else None
 docs = os.path.join(root, "docs")
 html = open(os.path.join(docs, "techniques.html"), encoding="utf-8").read()
@@ -22,12 +22,14 @@ def inline(m):
     ref = m.group(2)
     if re.match(r"(data:|https?:|#)", ref):
         return m.group(0)
-    path = os.path.normpath(os.path.join(docs, ref))
+    path = os.path.realpath(os.path.join(docs, ref))
     if not path.startswith(root + os.sep):
         sys.exit("standalone_html: %s points outside the tree" % ref)
     if not os.path.isfile(path):
         sys.exit("standalone_html: missing image %s" % ref)
     mime = {".svg": "image/svg+xml"}.get(os.path.splitext(path)[1]) or mimetypes.guess_type(path)[0]
+    if not mime:
+        sys.exit("standalone_html: unknown image type for %s" % ref)
     with open(path, "rb") as f:
         data = base64.b64encode(f.read()).decode()
     return '%ssrc="data:%s;base64,%s"' % (m.group(1), mime, data)
@@ -39,6 +41,7 @@ if link_base:
 left = re.findall(r'(?:src|href)="(?!data:|https?:|#)([^"]*)"', html)
 if left and link_base:
     sys.exit("standalone_html: relative references left: %s" % ", ".join(sorted(set(left))))
+os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
 with open(out, "w", encoding="utf-8") as f:
     f.write(html)
 print("standalone_html: %s (%.1f MB)" % (out, len(html) / 1e6))

@@ -12,14 +12,17 @@ name: release
 on:
   push:
     tags: ["v*"]
-permissions:
-  contents: write
+permissions: {}
 jobs:
   release:
+    permissions:
+      contents: write
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"

@@ -28,8 +28,10 @@ promises and which are internal.
 
 ## Pinning a release in your project
 
-1. Copy `scripts/fetch_fc.sh` from this repo into your project's `scripts/`.
-   It needs only `gh`, `tar`, `sha256sum` or `shasum`.
+1. Copy `scripts/fetch_fc.sh` (and `scripts/check_names.sh`, if you want the
+   name check below) from this repo into your project's `scripts/`.
+   `fetch_fc.sh` needs `tar`, `sha256sum` or `shasum`, and `gh` (logged in
+   locally with `gh auth login`) or, since the repo is public, `curl`.
 2. Pin a version, which installs it:
 
    ```sh
@@ -51,8 +53,14 @@ promises and which are internal.
 
    ```yaml
    - run: scripts/fetch_fc.sh --check      # lib/fc_*.ps are exactly .fc-version
-   - run: scripts/check_names.sh           # if you keep it: your libraries vs. fc_*
+     env:
+       GH_TOKEN: ${{ github.token }}
+   - run: scripts/check_names.sh           # your libraries against the fc_ ones
    ```
+
+   (`--check` downloads the release again to compare. `check_names.sh` lists
+   a scratch variable that two files `def`, see "Names a project must not
+   use" in `docs/settings.md`.)
 
 5. Write pieces as in `README.md` ("Making a landscape"): settings, then
    `(lib/fc_presets.ps) run` and `fc-presets` if you use presets, then
