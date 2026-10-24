@@ -121,7 +121,8 @@
     /ClLo ClD /Lo get def /ClHi ClD /Hi get def /ClDy ClHi ClLo sub def
     /ClRain ClD /Rain get def /ClRainD ClD /RainDens get def
     /ClMLo ClLo ClRain sub def                   % the march starts here
-    ClD /Profile get aload pop /ClPb exch def /ClPa exch def
+    ClD /Profile get aload pop                   % (a layer key, not the
+    /ClPb exch def /ClPa exch def                %  fc_landscape setting)
     /ClPamp ClD /ProfAmp get def
     /ClBillow ClD /Noise get /Billow eq def
     /ClScale ClD /Scale get def
