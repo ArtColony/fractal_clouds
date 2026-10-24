@@ -64,7 +64,7 @@ wrapped and then redefined (`fc_water`'s `fc-landscape-hit`, which calls the
 original as `fc-water-dry-hit`) gets a new row, and the old one stays as
 `fc-landscape-hit#1`, so a hook and what it calls aren't mixed. Only
 procedures defined in `userdict` are wrapped. How to read the
-table is in `docs/techniques.html`, section 15.
+table is in `docs/techniques.html`, section 16.
 
 | Setting | Default | What it does | Used |
 |---|---|---|---|
