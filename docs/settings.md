@@ -29,6 +29,118 @@ means only the default has been rendered.
 
 See `docs/techniques.html` for how each part works.
 
+## Presets and scene files (`lib/fc_presets.ps`)
+
+A **preset** is a named dictionary of settings; a **scene file** is the same
+kind of dictionary in a `.ps` of its own. Applying either sets each setting
+only if nothing has defined it yet, so the order of precedence is: `-D` on
+the command line, then the piece's own settings, then presets (earlier in
+the list first), then the library's defaults. So a piece's settings must come
+**before** the `fc-presets` line to win: written after it, they are skipped
+like any setting made after loading. Apply the presets **before**
+`(lib/fc_landscape.ps) run`, for the same reason every setting is:
+
+```postscript
+/Yaw where { pop } { /Yaw -27 def } ifelse      % the piece's own settings
+(lib/fc_presets.ps) run
+[ /Evening /Clear /Alpine ] fc-presets          % time of day, weather, terrain
+(lib/fc_landscape.ps) run
+320 200 fc-landscape
+showpage
+```
+
+| Procedure | Stack | What it does |
+|---|---|---|
+| `fc-preset` | `/Name → –` | Apply one preset. An unknown name prints `fc_presets: no preset called Name` and stops with `undefined`. |
+| `fc-presets` | `[/Name …] → –` | Apply several in order. Where two set the same setting, the earlier wins, so list the most specific first (a season before the terrain). |
+| `fc-settings` | `dict → –` | Apply a dictionary of settings. Its `/Presets` key (an array of preset names) is applied after its other keys, so a dictionary's own values beat its presets; presets may list presets the same way. |
+
+A new preset is one entry (`FcPresets` is an ordinary dictionary in
+`userdict`, so a piece can add its own before using it):
+
+```postscript
+FcPresets /Dusk << /SunElev 2 /SunAzim 70 /Exposure 2.4 >> put
+```
+
+A few settings override each other when both exist: a number in `SunElev`
+beats `SunDir`, and `CloudLayers` beats `CloudLo` and `CloudHi`. So a preset
+skips `SunDir`, `SunElev` and `SunAzim` when the piece set `SunDir` (a null
+`SunElev` does not count), and the other way round; the same for the moon's
+three; and `CloudLayers` when the piece set `CloudLo` or `CloudHi`, and the
+other way round. The piece wins, as with every other setting. `Threshold` and
+`CoverAmp` are not rivals (a layer list reads its own values), so they are
+set either way. `/CloudLayers null` in the piece keeps its single layer. Don't put rivals in one dictionary
+(`SunDir` and `SunElev` in a scene): the order a dictionary is read in is
+not defined, so only one of them survives.
+
+`/Dawn`, `/Noon` and `/Night` set only the sun (and moon) and rely on the sky
+model for the colours, so they need `SkyModel` on: don't combine them with
+`/Evening` or a piece's `Zenith` or `Horizon` (the sun would move but the
+blend sky stays). A preset that sets `Zenith` or `Horizon` (`/Evening`)
+turns `SkyModel` off, like any piece that sets them. Settings are made with
+`def` in the current dictionary, so apply presets outside any `begin`/`end`.
+
+### Scene files
+
+A scene file holds one dictionary and `fc-settings`:
+
+```postscript
+<<
+    /Presets [ /Evening /Clear /Alpine ]
+    /Seed 5  /Pitch 2  /Yaw -27  /HFov 55
+    /WaterRise 1.4
+>> fc-settings
+```
+
+`scenes/scene.ps` is a driver that loads `lib/fc_presets.ps`, the scene
+named by `Scene`, and the landscape, so one scene renders at any size or crop
+with no piece to edit:
+
+```
+scripts/render.sh -D "Scene=(scenes/evening_lake.ps)" scenes/scene.ps
+DPI=144 scripts/render.sh -D "Scene=(scenes/evening_lake.ps)" -D "Crop=[0.3 0.5 0.6 0.8]" scenes/scene.ps
+```
+
+`scenes/evening_lake.ps` renders pixel for pixel the same as
+`gallery/evening_lake.ps` (which is `[ /Evening /Clear /Alpine ]` plus the
+camera and the lake).
+
+### The presets
+
+Presets set only the values in the tables; everything else keeps the
+library's defaults. A preset is a group on one axis, so combine one from each:
+time of day, weather, terrain, and (optionally) season.
+
+| Time of day | Sets | Look |
+|---|---|---|
+| `/Dawn` | `SunElev` 6, `SunAzim` −55, `Exposure` 1.9 | Sky model; low sun ahead and to the left |
+| `/Noon` | `SunElev` 58, `SunAzim` 25 | Sky model; high sun |
+| `/Evening` | `SunDir` [0.50 0.13 −0.55], `SunCol`, `Zenith`, `Horizon`, `SkyAmb`, `Exposure` 1.9 | The hand-picked blend sky of `gallery/evening_lake.ps` (so `SkyModel` is off); a low sun behind the camera on the right |
+| `/Night` | `SunElev` −20, `MoonElev` 32, `MoonAzim` 30, `Exposure` 4 | Sky model; a moon and stars |
+
+| Weather | Sets | Look |
+|---|---|---|
+| `/Clear` | `CloudLo` 62, `CloudHi` 84, `Threshold` 0.60, `CoverAmp` 0.5, `HazeDist` 520 | The single cloud layer above the peaks, in a few groups |
+| `/Overcast` | `CloudLayers` `[ Stratus, Lo 64, Hi 78 ]`, `HazeDist` 450 | A flat grey sheet over the peaks |
+| `/Storm` | `CloudLayers` `[ Nimbostratus, Lo 64, Hi 108 ]`, `HazeDist` 300 | Dark thick cloud with rain below it; thick air |
+
+| Terrain | Sets | Look |
+|---|---|---|
+| `/Alpine` | `TreesOn` true, `SnowLine` 25 | The library's range (`TerrH` 52) with a forest and snow above 33 on average |
+| `/Foothills` | `TreesOn` true, `TerrH` 28, `TerrScale` 0.014, `SnowLine` 80, `FsLine` 40 | Lower, busier hills, forested to the top, no snow |
+| `/Mesa` | `TerrH` 34, `TerrScale` 0.016, `DetailAmp` 0.10, `SnowLine` 100, `Rock`, `Rock2`, `Scree` (reds), `TreeLine` −1000 | Smoother ground in red strata, no snow, and no forest unless a piece sets `TreesOn` (the preset only turns the painted forest off). It does not flatten the summits: the terrain function has no plateau term yet |
+
+| Season | Sets | Look |
+|---|---|---|
+| `/Spring` | `SnowLine` 25, `FsAutumn` 0 | |
+| `/Summer` | `SnowLine` 27, `FsAutumn` 0 | `gallery/alpine_forest.ps`'s early summer |
+| `/Autumn` | `SnowLine` 24, `FsAutumn` 1 | Turns the larches gold and the broadleaves, but only if the stand has them: the default `FsMix [1]` is all spruce, which ignores it, so also set `FsMix` (experimental) |
+| `/Winter` | `SnowLine` −8, `FsAutumn` 0 | Snow on every slope that is not too steep |
+
+`/Alpine` sets a snow line, so a season listed *before* it wins. The cloud
+heights in `/Clear`, `/Overcast` and `/Storm` assume the standard terrain
+(`TerrTop` 59); with a taller `TerrH`, raise them.
+
 ## Scene (`lib/fc_landscape.ps`)
 
 | Setting | Default | What it does | Used |

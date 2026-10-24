@@ -3,33 +3,28 @@
 %%Title: Evening lake
 % Status: draft
 % fractal_clouds#11: the valley of gallery/alpine_forest.ps flooded into a
-% lake, under a low evening sun. Settings only: the lake is the library's
-% (lib/fc_water.ps, #28).
+% lake, under a low evening sun. Settings only: the evening, the clear sky
+% and the alpine range are presets (lib/fc_presets.ps, #31), the lake the
+% library's (lib/fc_water.ps, #28). scenes/evening_lake.ps is the same piece
+% as a scene file.
 % Preview: DPI=36 scripts/render.sh gallery/evening_lake.ps.
 
 /Seed where { pop } { /Seed 5 def } ifelse
 /AA where { pop } { /AA true def } ifelse
-/TreesOn where { pop } { /TreesOn true def } ifelse
 /Pitch where { pop } { /Pitch 2 def } ifelse
 /Yaw where { pop } { /Yaw -27 def } ifelse
 /HFov where { pop } { /HFov 55 def } ifelse
 /TerrOX where { pop } { /TerrOX 180 def /TerrOZ 400 def } ifelse
 /CamAbove where { pop } { /CamAbove 5 def } ifelse
-/SnowLine where { pop } { /SnowLine 25 def } ifelse
-% evening: a low sun behind the camera, on the right, lighting the peaks
-/SunDir where { pop } { /SunDir [ 0.50 0.13 -0.55 ] def } ifelse
-/SunCol where { pop } { /SunCol [ 1.00 0.72 0.48 ] def } ifelse
-/Zenith where { pop } { /Zenith [ 0.24 0.34 0.58 ] def } ifelse
-/Horizon where { pop } { /Horizon [ 0.94 0.74 0.58 ] def } ifelse
-/SkyAmb where { pop } { /SkyAmb [ 0.52 0.56 0.70 ] def } ifelse
-/Exposure where { pop } { /Exposure 1.9 def } ifelse
-/CloudLo where { pop } { /CloudLo 62 def /CloudHi 84 def } ifelse
-/Threshold where { pop } { /Threshold 0.60 def } ifelse
-/CoverAmp where { pop } { /CoverAmp 0.5 def } ifelse
-/HazeDist where { pop } { /HazeDist 520 def } ifelse
+
 % the lake: its surface this far above the ground under the camera
 /WaterRise where { pop } { /WaterRise 1.4 def } ifelse
 /WaterCol where { pop } { /WaterCol [ 0.10 0.15 0.16 ] def } ifelse    % sRGB, seen straight down
+
+% the light, the clouds and the range: time of day, weather, terrain
+% (after the piece's own settings, which presets never override)
+(lib/fc_presets.ps) run
+[ /Evening /Clear /Alpine ] fc-presets
 
 (lib/fc_landscape.ps) run
 320 200 fc-landscape
