@@ -103,11 +103,10 @@ fc-camera-update
 /SkyGain 12.7 fc-default             % scattered sky light, relative to the sun (14 / SunPower)
 /SkySat 1.2 fc-default               % colour saturation of the sky light
 /Turbidity 1 fc-default              % aerosol amount; 1 is a clear mountain day
-/AmbGain 2.3 fc-default              % sky light on the ground: ambient / mean sky radiance
+/AmbGain 2.1 fc-default              % sky light on the ground: ambient / mean sky radiance
 /MultiScatter 1 fc-default           % light scattered more than once; 0 for single scattering only
 /SkMS [ 0 0 0 ] def                  % the sky's mean radiance, set by fc-sun-update
 /SkMSon 1 def                        % 1 while the sun's pass runs, 0 for the moon's
-/SkNoStars false def                 % true while the haze colour is sampled
 
 % constants, in world units (one unit is 10 m)
 /SkR 637100 def                      % earth radius
@@ -260,12 +259,12 @@ fc-camera-update
 /SkCell 1.2 def /SkN 300 def                     % 360 / SkCell cells round
 /fc-sky-stars {                                  % dx dy dz vis -> r g b
     /SkSv exch def /SkSz exch def /SkSy exch def /SkSx exch def
-    /SkSr 0 def /SkSg 0 def /SkSb 0 def
+    /SkStr 0 def /SkStg 0 def /SkStb 0 def
     SkSv 0.002 gt Stars 0 gt and {
         /SkSa SkSx SkSz 2 copy abs exch abs add 0.0000001 lt { pop pop 0 } { atan } ifelse def   % azimuth, degrees
         /SkSe SkSy SkSx SkSx mul SkSz SkSz mul add sqrt 0.000001 add atan def   % elevation
         /SkSc SkSe cos def
-        /SkSs PixAng 57.2958 mul 0.65 mul def                      % sigma, degrees
+        /SkSsg PixAng 57.2958 mul 0.65 mul def                     % sigma, degrees
         /SkSi0 SkSa SkCell div floor cvi def /SkSj0 SkSe SkCell div floor cvi def
         -1 1 1 { SkSj0 add /SkSj exch def
             -1 1 1 { SkSi0 add /SkSi exch def
@@ -273,18 +272,20 @@ fc-camera-update
                 SkSh SkSj 0 fc-sky-hash 0.2 lt {
                     SkSi SkSh SkSj 1 fc-sky-hash add SkCell mul SkSa sub SkSc mul
                     SkSj SkSh SkSj 2 fc-sky-hash add SkCell mul SkSe sub
-                    dup mul exch dup mul add SkSs SkSs mul 2 mul div neg 2.71828 exch exp
+                    dup mul exch dup mul add SkSsg SkSsg mul 2 mul div neg 2.71828 exch exp
                     SkSh SkSj 3 fc-sky-hash dup mul dup mul dup mul 0.9 mul 0.1 add mul
                     Stars mul SkSv mul /SkSw exch def
                     SkSh SkSj 4 fc-sky-hash /SkSt exch def
-                    SkSw 0.75 SkSt 0.25 mul add mul SkSr add /SkSr exch def
-                    SkSw 0.85 SkSt 0.05 mul add mul SkSg add /SkSg exch def
-                    SkSw 1.0 SkSt 0.35 mul sub mul SkSb add /SkSb exch def
+                    SkSw 0.75 SkSt 0.25 mul add mul SkStr add /SkStr exch def
+                    SkSw 0.85 SkSt 0.05 mul add mul SkStg add /SkStg exch def
+                    SkSw 1.0 SkSt 0.35 mul sub mul SkStb add /SkStb exch def
                 } if
             } for
         } for
     } if
-    SkSr SkSg SkSb
+    % seen through the whole column of air: SkTa is the view transmittance
+    % left by the last fc-sky-scatter along this ray
+    SkStr SkTa 0 get mul SkStg SkTa 1 get mul SkStb SkTa 2 get mul
 } bind def
 
 % dx dy dz fc-sky-light r g b -- the sky's own light along the ray: sun and
@@ -306,19 +307,28 @@ fc-camera-update
         SkMu 0 lt { 0 } { SkMu 4096 exp SunDisc mul } ifelse /SkDm exch def
     } { /SkDm 0 def } ifelse
     /SkL SkOr 0.3 mul SkOg 0.59 mul add SkOb 0.11 mul add def
-    SkOr SkL sub SkySat mul SkL add dup 0 lt { pop 0 } if SkyGain mul
-    SkOg SkL sub SkySat mul SkL add dup 0 lt { pop 0 } if SkyGain mul
-    SkOb SkL sub SkySat mul SkL add dup 0 lt { pop 0 } if SkyGain mul
+    % saturate about the luminance, but never past the point where the
+    % weakest channel would clip to zero (a low sun's blue)
+    /SkSk SkySat def
+    SkOr SkOg 2 copy gt { exch } if pop SkOb 2 copy gt { exch } if pop   % the least channel
+    SkL exch sub dup 0.000000001 gt {
+        SkL exch div dup SkSk lt { /SkSk exch def } { pop } ifelse
+    } { pop } ifelse
+    SkOr SkL sub SkSk mul SkL add dup 0 lt { pop 0 } if SkyGain mul
+    SkOg SkL sub SkSk mul SkL add dup 0 lt { pop 0 } if SkyGain mul
+    SkOb SkL sub SkSk mul SkL add dup 0 lt { pop 0 } if SkyGain mul
 } bind def
 
 /fc-sky-model {                                  % dx dy dz -> r g b
     fc-sky-light
     % the discs, the sun and moon seen through the air, and the stars,
     % which fade under a bright sky
-    SkVx SkVy SkVz SkNoStars { 0 } { 2.71828 SkL SkyGain mul 30 mul neg exp } ifelse fc-sky-stars pop pop pop
-    SkDiscCol 2 get SkD mul add SkMoonCol 2 get SkDm mul add SkSb add 3 1 roll
-    SkDiscCol 1 get SkD mul add SkMoonCol 1 get SkDm mul add SkSg add 3 1 roll
-    SkDiscCol 0 get SkD mul add SkMoonCol 0 get SkDm mul add SkSr add 3 1 roll
+    % (gone by civil twilight: e^-80L is 0.2 at the twilight zenith's 0.02)
+    SkVx SkVy SkVz 2.71828 SkL SkyGain mul 80 mul neg exp fc-sky-stars
+    /SkStb exch def /SkStg exch def /SkStr exch def
+    SkDiscCol 2 get SkD mul add SkMoonCol 2 get SkDm mul add SkStb add 3 1 roll
+    SkDiscCol 1 get SkD mul add SkMoonCol 1 get SkDm mul add SkStg add 3 1 roll
+    SkDiscCol 0 get SkD mul add SkMoonCol 0 get SkDm mul add SkStr add 3 1 roll
 } bind def
 
 % the older sky: a zenith-to-horizon blend plus three sun lobes
@@ -428,7 +438,7 @@ fc-camera-update
             } forall
             /SkAcc [ SkAcc { SkW div AmbGain mul } forall ] def
             /SkL SkAcc 0 get 0.3 mul SkAcc 1 get 0.59 mul add SkAcc 2 get 0.11 mul add def
-            /SkAcc [ SkAcc { SkL sub 0.6 mul SkL add } forall ] def
+            /SkAcc [ SkAcc { SkL sub 0.35 mul SkL add } forall ] def
             SkAutoAmb { /SkyAmb [ SkAcc { SkEncode { 1 2.2 div exp } if } forall ] def } if
             SkAutoTop { /AmbTop [ SkAcc { 1.2 mul SkEncode { 1 2.2 div exp } if } forall ] def } if
             SkAutoBot { /AmbBot [ SkAcc { 0.31 mul SkEncode { 1 2.2 div exp } if } forall ] def } if
@@ -444,20 +454,22 @@ fc-sun-update
 /fc-haze-colour {                                % dx dz -> -
     /Hz exch def /Hx exch def
     /Hn Hx Hx mul Hz Hz mul add sqrt 0.000001 add def
-    /SkNoStars true def                          % a star in the sample would streak the haze
-    Hx Hn div 0.999 mul 0.045 Hz Hn div 0.999 mul fc-sky
-    /SkNoStars false def
+    % the sky's own light only: a disc or a star in the sample would run a
+    % bright column down everything hazed below it
+    Hx Hn div 0.999 mul 0.045 Hz Hn div 0.999 mul SkyModel { fc-sky-light } { fc-sky } ifelse
     3 array astore /HazeCol exch def
 } bind def
 
 /HazeDist 520 fc-default             % e-folding distance at height 0
 /HazeH 45 fc-default                 % haze scale height
 % HazeChroma: how much the haze keeps the air's colour selectivity. 0 fades
-% every channel alike over HazeDist; 1 fades them as the model's ground-level
-% air does (blue sooner, red later: distant ground goes blue), with HazeDist
-% the green channel's distance.
+% every channel alike over HazeDist. 1 takes the haze to be the model's
+% Rayleigh air plus enough neutral aerosol to reach HazeDist in green, so
+% blue fades a little sooner and red a little later (about 15% and 4% at
+% HazeDist 650; a haze this thick is mostly aerosol). 2 or 3 exaggerates.
 /HazeChroma SkyModel { 1 } { 0 } ifelse fc-default
-/HazeW [ 0 1 2 { SkBE exch get SkBMe add SkBE 1 get SkBMe add div 1 sub HazeChroma mul 1 add } for ] def
+/SkHzA 1 HazeDist div SkBE 1 get sub dup 0 lt { pop 0 } if def   % the aerosol part
+/HazeW [ 0 1 2 { SkBE exch get SkHzA add HazeDist mul 1 sub HazeChroma mul 1 add } for ] def
 
 /fc-haze {                                       % r g b t -> r g b
     % optical depth of exponential-height haze along the current ray, from

@@ -104,7 +104,7 @@ blend sky (`SkyModel` false), exactly as before.
 | `SkySat` | 1.2 | Saturation of the sky's colour about its luminance; 1 is the model as computed. | 1.2 |
 | `Turbidity` | 1 | Aerosol amount: 1 is a clear mountain day. More whitens the horizon and widens the glow round the sun. | 1 |
 | `MultiScatter` | 1 | Light scattered more than once (the sky's mean radiance scattered again): brightens and blues the horizon. 0 for single scattering. | 1 |
-| `AmbGain` | 2.3 | Derived `SkyAmb` is this times the sky's cosine-weighted mean, pulled 40% toward grey; `AmbTop` and `AmbBot` are 1.2 and 0.31 of that. Pieces that set any of the three keep theirs. | 2.3 |
+| `AmbGain` | 2.1 | Derived `SkyAmb` is this times the sky's cosine-weighted mean, pulled 65% toward grey (sky light reaches the ground after far more scattering than the model follows, and a bluer ambient turned the alpine forest teal); `AmbTop` and `AmbBot` are 1.2 and 0.31 of that. Pieces that set any of the three keep theirs. | 2.1 |
 | `MoonDir`, `MoonElev`, `MoonAzim` | null, null, 0 | A moon, by vector or by angles. Null means none. It lights the sky, and once it outshines the sun at the camera it takes over `SunDir` and `SunCol` for the ground and clouds. | 20/60, 25/−40, 45/10 |
 | `MoonLight` | 0.12 | Moonlight as a fraction of `SunPower` (a day-for-night convention; raise `Exposure` too). | 0.12 |
 | `MoonCol` | [0.60 0.76 1.00] | Moonlight colour above the air, sRGB: blue-grey, as night reads to the eye. | |
@@ -112,7 +112,7 @@ blend sky (`SkyModel` false), exactly as before.
 | `Exposure` | 1.6 | Brightness before the tone curve `1 − exp(−Exposure·L)`. | 1.6, 1.9, 3, 4 (night) |
 | `HazeDist` | 520 | Distance at which haze reaches 63% at height 0. Smaller means thicker air. | 400, 520, 650 |
 | `HazeH` | 45 | Height over which the haze thins by a factor of e. | 45 |
-| `HazeChroma` | 1 with `SkyModel`, else 0 | How far the haze fades each channel at its own rate: 1 as the model's ground-level air does (blue over about half of `HazeDist`, red over about one and a half times it, so distant ground goes blue); 0 fades every channel over `HazeDist`. `HazeDist` is the green channel's distance. | 0, 1 |
+| `HazeChroma` | 1 with `SkyModel`, else 0 | How far the haze fades each channel at its own rate. 1 takes the haze to be the model's Rayleigh air plus enough neutral aerosol to reach `HazeDist` in green, so blue fades a little sooner and red a little later (about 15% and 4% at `HazeDist` 650: a haze that thick is mostly aerosol); 0 fades every channel over `HazeDist`; 2 or 3 exaggerates the blue distance. `HazeDist` is the green channel's distance. | 0, 1 |
 
 `fc-sun-update` recomputes everything derived after a piece changes
 `SunDir`, `SunElev` or the moon after loading.
