@@ -254,10 +254,12 @@
         /Wt Wt Wd 0.5 mul Wt 0.03 mul 0.4 add 2 copy lt { exch } if pop add def
     } repeat
     Wres 0 gt CloudShadowsOn and {
+        CloudLayers null eq {
         CloudLo CloudHi add 2 div Wy sub SunDir 1 get div /Wc exch def
         Wx SunDir 0 get Wc mul add  CloudLo CloudHi add 2 div  Wz SunDir 2 get Wc mul add
         3 fc-density
         Sigma mul CloudHi CloudLo sub mul 0.5 mul neg 2.71828 exch exp
+        } { Wx Wy Wz fc-cloud-shadow } ifelse    % a layer list: every layer (#14)
         Wres mul /Wres exch def
     } if
     Wres dup mul 3 Wres 2 mul sub mul
