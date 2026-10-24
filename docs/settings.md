@@ -39,10 +39,32 @@ See `docs/techniques.html` for how each part works.
 | `CamLift` | 0 | If above 0, the camera sits at this fraction of `TerrTop`, but at least `CamAbove` over the ground below it (a high viewpoint). | 0, 0.72 |
 | `CamAbove` | 6 | Otherwise, the camera sits this far above the ground below it. | 5, 6, 8 |
 | `CamHeight` | null | A number puts the camera at exactly that height and overrides both of the above. | |
+| `Profile` | false | true loads `lib/fc_bench.ps`, wraps the main procedures with call counters and timers, and prints a table when `fc-render` finishes (see Profiling below). false wraps nothing and the picture is unchanged. | false, true |
 
 The camera always stands at x = z = 0, looking along +z before `Yaw`.
 To stand somewhere else in the terrain, move the terrain under it with
 `TerrOX`/`TerrOZ`.
+
+## Profiling (`lib/fc_bench.ps`, with `Profile`)
+
+`scripts/render.sh -D Profile=true gallery/mountains.ps` (usually with a small
+`-D Res=0.25`) prints a table of calls, calls per pixel (render only, not the bakes),
+**inclusive** milliseconds, share of the run and microseconds per call for
+each wrapped procedure that ran, sorted by time. Rows overlap, because a procedure's time contains
+its callees'. A footer measures the cost of the profiling itself (about
+0.8 µs per wrapped call on an Apple-silicon Mac, a few percent of a run).
+Wrapping happens when `fc-landscape-setup` starts and again before
+`fc-render`, so it sees the piece's own hooks; a piece that redefines a
+procedure after that must call `fc-bench-wrap` again. A procedure that was
+wrapped and then redefined (the lake's `fc-landscape-hit`, which calls the
+original as `fc-dry-hit`) gets a new row, and the old one stays as
+`fc-landscape-hit#1`, so a hook and what it calls aren't mixed. Only
+procedures defined in `userdict` are wrapped. How to read the
+table is in `docs/techniques.html`, section 15.
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `ProfileProcs` | `fc-render`, the four `fc-landscape-*` hooks, `fc-terrain-hit`, `fc-forest-hit`, `fc-crowns`, `fc-canopy`, `fc-height`, `fc-terrain-shade`, `fc-terrain-shadow`, `fc-tree-shade`, `fc-tree-sunvis`, `fc-sky`, `fc-haze-colour`, `fc-haze`, `fc-tone`, `fc-clouds`, `fc-density`, `fc-cloud-light`, `fc-erode-bake`, `fc-forest-bake` | Array of procedure names to wrap. Names that aren't defined (the tree procedures without `TreesOn`) are skipped. Set it before loading to choose your own, e.g. `-D "ProfileProcs=[/fc-height /fc-noise3]"`. Very hot leaves such as `fc-noise3` are mostly overhead when wrapped. | default |
 
 ## Camera and render (`fc_sky.ps`, `fc_render.ps`)
 

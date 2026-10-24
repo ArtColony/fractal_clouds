@@ -295,6 +295,10 @@ PostScript. **Suggested feature:** `pscat --profile`, reporting per
 procedure (by name, for procedures bound to names) the call count,
 inclusive time and exclusive time.
 
+**Workaround in this repo:** `Profile` (`lib/fc_bench.ps`) wraps chosen
+procedures with counters and `usertime` deltas: inclusive time only, whole
+milliseconds, about 0.8 µs of overhead per wrapped call.
+
 ## 12. Research: a GPU path for pure numeric procedures
 
 - **Kind:** research idea
