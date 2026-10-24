@@ -72,8 +72,12 @@ scripts/render.sh gallery/foo.ps     # one piece
 DPI=144 scripts/render.sh            # higher resolution
 DPI=288 scripts/render.sh -D "Crop=[0.1 0.8 0.3 0.95]" gallery/foo.ps
                                      # just that part of the large frame, at its detail
+DPI=288 scripts/render_bands.sh gallery/foo.ps --auto 6
+                                     # the large frame as six bands at once, cut
+                                     # where a small probe render says the work splits
+                                     # evenly (no N: one band per core)
 DPI=288 scripts/render_bands.sh gallery/foo.ps 0.55 0.66 0.81
-                                     # the large frame, four bands at once
+                                     # or with hand-picked cuts
 ```
 
 Each piece sets its canvas with `%%BoundingBox: 0 0 W H`. Timings are
