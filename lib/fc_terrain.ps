@@ -182,7 +182,7 @@
         0.9 TerracePatch sub  1.1 TerracePatch sub
         Hmx 0.012 mul 17.3 add Hmz 0.012 mul 41.9 add fc-noise2 fc-smooth
     } { 1 } ifelse /Tqw exch def
-    Tqw 0 gt {
+    Tqw 0 gt Hm 0.05 gt and {                    % (no slope to speak of off the massif)
         % coarse slope: two ridged octaves at the warped point, by forward
         % differences, scaled to world units (massif mask, TerrH, TerrScale;
         % 1.25 fitted against the 3-octave terrain's slope, r = 0.7)
@@ -192,7 +192,7 @@
         dup mul exch dup mul add sqrt 20 mul Hm mul 1.25 mul TerrH mul TerrScale mul
         TerraceSlope 0 get TerraceSlope 1 get 0.001 add 3 -1 roll fc-smooth
         Tqw mul TerraceAmp 1 fc-min mul /Tqw exch def
-    } if
+    } { /Tqw 0 def } ifelse
     Tqw 0 gt {
         % beds from the ground without its fine detail, which goes back on top:
         % the ledges keep their gullies and ragged lips, and the bed phase

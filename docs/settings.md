@@ -493,6 +493,15 @@ the layer dict, `fc-storm-bounds` its `Bounds`.
 | `MassifLo`, `MassifHi` | 0.30, 0.56 | That mask's ramp. Raising both gives fewer, separate massifs. | |
 | `WarpAmp` | 0.45 | Domain warp, in ridge wavelengths: how much the ridges wander. | 0.45 |
 | `DetailAmp` | 0.16 | Strength of the gully texture (erosion fBm). | 0.16 |
+| `TerraceAmp` | 0 | Terraces in the geometry (#21), 0–1: steep ground in outcrop patches is cut into dipping beds, each a ledge and a cliff, in `fc-height-proc` itself, so silhouettes, the march, normals and the forest bake see them (cast shadows only roughly: the shadow march uses 4 octaves and is lifted by `ShadBias`, about 2.6 units). Only with `TerrFn` 3 (noise or map massif); skipped while erosion bakes, so the erosion map is measured on unterraced ground. With a map, `fc_map`'s planning sees them too. Costs a few gradient-noise samples per height call inside the patches. 0 is off and adds one test per height call. Lost blind pairwise in 3 rounds (`docs/prs/21-terraces/`). | 0 |
+| `TerraceStep` | 3 | Mean bed thickness, world units. | |
+| `TerraceTread` | 0.65 | Mean fraction of a bed that is ledge (±0.15 per bed, kept within 0.05–0.9); the rest is the cliff. Larger makes steeper cliffs. | |
+| `TerraceDip` | [0.60 0.25] | The beds fall this much per unit x and z (0.65 is about 33°), so they don't follow height contours. | |
+| `TerraceBeds` | 0.45 | Share of the beds hard enough to stand out as cliffs, chosen anew in each fault block (1: every bed). | |
+| `TerraceIrreg` | 0.45 | 0–0.6 (clamped): how much bed thickness varies, through a slow noise of the bed coordinate and the strike. | |
+| `TerraceSlope` | [0.45 0.9] | Coarse slope (rise per unit run, from two ridged octaves) where terraces start, and where they are full. | |
+| `TerracePatch` | 0.6 | About what share of the ground lies in outcrop patches (1: everywhere). | |
+| `TerraceFault`, `TerraceThrow` | 70, 0.7 | Spacing of a family of wandering faults (world units; 0: none), and how far each fault block shifts the beds, in beds. The faults are real steps in the height. | |
 | `TerrFn` | 3 | 3 is the massif hierarchy. 0 (ridged only) and 1 (erosion fBm only) are kept from early drafts. | 0, 1, 3 |
 | `MarchT0` | 0.5 | Where marches start along a ray. A reflection sets it to the water distance while it marches, then puts it back. | 0.5 |
 | `MapOn` | false | Loads `lib/fc_map.ps`, which defines `fc-terrain-base` from a map (next section). Off, the terrain is exactly the noise it always was. | false, true |
