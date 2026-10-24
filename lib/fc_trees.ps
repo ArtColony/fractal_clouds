@@ -110,6 +110,9 @@ FsSpecies {
 /FsNsp FsMix length FsSpecies length fc-min def
 /FsMixed FsNsp 1 gt def
 /FsMixWt FsNsp array def
+/FsSpLo [ 0 1 FsNsp 1 sub { FsSpecies exch get /lo get } for ] def
+/FsSpHi [ 0 1 FsNsp 1 sub { FsSpecies exch get /hi get } for ] def
+/FsSpBand false def FsSpHi { 999 lt { /FsSpBand true def } if } forall
 
 % --- hash: a permutation of 0..255, and random tables indexed by it -------
 % Tables 0..5 are the ones the first forest used (keep their order, or
@@ -307,11 +310,13 @@ FsSpecies {
 % -> the species dict of the tree FcK, drawn by FsMix's weights, each
 % faded out above its altitude band
 /fc-tree-species {
-    FcX FcZ fc-forest-alt /Fcal exch def
+    % the ground's altitude at the cell's centre, so a tree is one species
+    % across its whole crown (only needed when some species has a band)
+    FsSpBand { Fci 0.5 add FsCell mul Fcj 0.5 add FsCell mul fc-forest-alt /Fcal exch def } if
     /Fcsw 0 def
     0 1 FsNsp 1 sub { /Fcsi exch def
-        FsSpecies Fcsi get /Fcsd exch def
-        FsMix Fcsi get Fcsd /lo get Fcsd /hi get Fcal fc-smooth 1 exch sub mul
+        FsMix Fcsi get
+        FsSpHi Fcsi get 999 lt { FsSpLo Fcsi get FsSpHi Fcsi get Fcal fc-smooth 1 exch sub mul } if
         dup Fcsw add /Fcsw exch def
         FsMixWt Fcsi 3 -1 roll put
     } for
