@@ -362,6 +362,10 @@ using the platform's.
 
 ## 14. No masked images (`ImageType 3`) and no `nulldevice`
 
+- **Kind:** bug (missing operators)
+- **Status:** open
+- **Found:** 2026-10-24
+
 Found while adding render passes (#33), pscat 0.6.2. An `image` with an
 `ImageType 3` dictionary (a picture with a stencil mask, PostScript Level 3)
 fails with `typecheck`, and `nulldevice` (Level 1) is `undefined`.
