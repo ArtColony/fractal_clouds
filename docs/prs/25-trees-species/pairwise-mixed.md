@@ -4,7 +4,6 @@
 
 order 1 (old shown first): realism: old   aesthetics: old
 order 2 (new shown first): realism: old   aesthetics: old
-reasons in /private/tmp/claude-501/-Users-jeromebanks-dev-fractal-clouds/11018b6b-a855-4e99-a8aa-1e74f159cd5a/scratchpad/pw6_mixed/order1.txt and /private/tmp/claude-501/-Users-jeromebanks-dev-fractal-clouds/11018b6b-a855-4e99-a8aa-1e74f159cd5a/scratchpad/pw6_mixed/order2.txt
 
 ## order 1 (before shown first)
 REALISM: A
@@ -28,6 +27,8 @@ AESTHETICS: B
 
 **Split** (each order preferred the image shown first: position bias, a tie).
 
+order 1 (old shown first): realism: old   aesthetics: old
+order 2 (new shown first): realism: new   aesthetics: new
 
 ## order 1
 REALISM: A
