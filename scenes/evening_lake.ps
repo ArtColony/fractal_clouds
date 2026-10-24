@@ -1,0 +1,12 @@
+%!PS-Adobe-3.0
+% A scene file: gallery/evening_lake.ps as a dictionary of settings. The
+% driver (scenes/scene.ps) loads this before the library; a `-D` option
+% still wins over any of it.
+<<
+    /Presets [ /Evening /Clear /Alpine ]    % time of day, weather, terrain
+    /Seed 5  /AA true
+    /Pitch 2  /Yaw -27  /HFov 55
+    /TerrOX 180  /TerrOZ 400  /CamAbove 5
+    /WaterRise 1.4                          % the lake
+    /WaterCol [ 0.10 0.15 0.16 ]
+>> fc-settings

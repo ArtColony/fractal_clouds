@@ -1,0 +1,116 @@
+%!PS-Adobe-3.0
+% fc_presets.ps -- named presets and scene files (fractal_clouds#31).
+%
+% A preset is a dictionary of settings in FcPresets; a scene file is the
+% same dictionary in a .ps of its own. Both set a value only if nothing has
+% defined it yet, so a `-D` option and the piece's own settings win. Load
+% this file and apply presets BEFORE (lib/fc_landscape.ps) run, because the
+% libraries read their settings as they load:
+%
+%   (lib/fc_presets.ps) run
+%   ...the piece's own settings, in the usual form (docs/settings.md)
+%   [ /Evening /Clear /Alpine ] fc-presets          % time, weather, terrain
+%   (lib/fc_landscape.ps) run
+%   320 200 fc-landscape
+%
+%   [ /Name ... ] fc-presets   apply these presets in order; where two set
+%                              the same setting the earlier one wins
+%   /Name fc-preset            apply one
+%   dict fc-settings           apply a dictionary of settings (what a scene
+%                              file contains). Its /Presets key, an array
+%                              of preset names, is applied after the other
+%                              keys, so a scene's own settings beat its presets
+%
+% A new preset is one entry:  FcPresets /Name << /Setting value ... >> put
+% (docs/settings.md lists the built-in ones and what they set.)
+%
+% A preset cannot beat what is already defined, so a piece's own settings
+% must come BEFORE the fc-presets line to win (written after it, they are
+% silently ignored by the libraries, as always).
+%
+% A few settings override one another when both are set (a non-null SunElev
+% beats SunDir; CloudLayers beats CloudLo and CloudHi), so a preset skips a
+% setting whose rival is already set to something other than null: see
+% FcPrRival. Do not put rivals in one dictionary (SunDir with SunElev): the
+% order the keys are read in is not defined, so only one of them is kept.
+% Settings are made with def in the current dictionary, so call fc-presets
+% outside any begin/end. Loading the file twice keeps the presets already
+% added. Dawn, Noon and Night set only the sun (and moon): they want the sky
+% model, so don't combine them with Evening or any Zenith or Horizon.
+
+/FcPresets where { pop } {
+
+/FcPresets <<
+
+% --- time of day -----------------------------------------------------------
+% Dawn, Noon and Night use the sky model: the sun's angle is all they set.
+    /Dawn << /SunElev 6 /SunAzim -55 /Exposure 1.9 >>
+    /Noon << /SunElev 58 /SunAzim 25 >>
+% a hand-picked blend sky (it sets Zenith and Horizon, so SkyModel is off);
+% the light of gallery/evening_lake.ps
+    /Evening <<
+        /SunDir [ 0.50 0.13 -0.55 ]
+        /SunCol [ 1.00 0.72 0.48 ]
+        /Zenith [ 0.24 0.34 0.58 ]
+        /Horizon [ 0.94 0.74 0.58 ]
+        /SkyAmb [ 0.52 0.56 0.70 ]
+        /Exposure 1.9
+    >>
+    /Night << /SunElev -20 /MoonElev 32 /MoonAzim 30 /Exposure 4 >>
+
+% --- weather: the cloud layers and the air ---------------------------------
+% Clouds sit above the tallest peaks (TerrTop 59 with the standard terrain).
+    /Clear << /CloudLo 62 /CloudHi 84 /Threshold 0.60 /CoverAmp 0.5 /HazeDist 520 >>
+    /Overcast << /CloudLayers [ << /Type /Stratus /Lo 64 /Hi 78 >> ] /HazeDist 450 >>
+    /Storm << /CloudLayers [ << /Type /Nimbostratus /Lo 64 /Hi 108 >> ] /HazeDist 300 >>
+
+% --- terrain: the range, its snow, trees and rock ----------------------------
+    /Alpine << /TreesOn true /SnowLine 25 >>
+    /Foothills << /TreesOn true /TerrH 28 /TerrScale 0.014 /SnowLine 80 /FsLine 40 >>
+    /Mesa <<
+        /TerrH 34 /TerrScale 0.016 /DetailAmp 0.10 /SnowLine 100
+        /Rock [ 0.58 0.34 0.24 ]
+        /Rock2 [ 0.72 0.46 0.30 ]
+        /Scree [ 0.66 0.45 0.33 ]
+        /TreeLine -1000
+    >>
+
+% --- season (list it before the terrain: the first to set a name wins) ------
+    /Spring << /SnowLine 25 /FsAutumn 0 >>
+    /Summer << /SnowLine 27 /FsAutumn 0 >>
+    /Autumn << /SnowLine 24 /FsAutumn 1 >>
+    /Winter << /SnowLine -8 /FsAutumn 0 >>
+>> def
+
+} ifelse
+
+% setting -> names that override it (and that it must not override)
+/FcPrRival <<
+    /SunDir [ /SunElev ]  /SunElev [ /SunDir ]  /SunAzim [ /SunDir ]
+    /MoonDir [ /MoonElev ]  /MoonElev [ /MoonDir ]  /MoonAzim [ /MoonDir ]
+    /CloudLayers [ /CloudLo /CloudHi ]  /CloudLo [ /CloudLayers ]  /CloudHi [ /CloudLayers ]
+>> def
+
+/FcPrFree {                          % /Name -> bool: it and its rivals are unset (a null rival counts as unset)
+    /FcPrN exch def
+    FcPrN where { pop false } {
+        true
+        FcPrRival FcPrN known {
+            FcPrRival FcPrN get { /FcPrR exch def FcPrR where { FcPrR get null ne { pop false } if } if } forall
+        } if
+    } ifelse
+} bind def
+
+/fc-settings {                       % dict -> -
+    dup { 1 index /Presets eq { pop pop } { 1 index FcPrFree { def } { pop pop } ifelse } ifelse } forall
+    dup /Presets known { /Presets get fc-presets } { pop } ifelse
+} def
+
+/fc-preset {                         % /Name -> -
+    dup FcPresets exch known not {
+        (fc_presets: no preset called ) print dup 64 string cvs print (\n) print
+    } if
+    FcPresets exch get fc-settings
+} def
+
+/fc-presets { { fc-preset } forall } def     % [ /Name ... ] -> -
