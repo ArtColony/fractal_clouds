@@ -14,7 +14,9 @@
 # every band, so it doesn't move the cuts, but it is in the predicted band
 # times and it is why more bands than cores never pays. The probe needs
 # the same defines as the real render (bake sizes above all) for its
-# profile to be representative. Cuts land on whole rows of the final image.
+# profile to be representative. Cuts land on whole rows of the final image
+# (of fc-render's image, which with -D Res=0.5 has half the rows; keep Res
+# at 1 or 1/k for bands, or the band edges fall between device rows).
 #
 # Hand cuts are fractions of the frame from the top: put more of them where
 # rows are expensive. Defines after `--` go to every band (and the probe).
@@ -61,15 +63,18 @@ wrap=()
 t_start=$(date +%s)
 
 if [ -n "$auto" ]; then
-  probe_dpi="${PROBE_DPI:-$(( dpi / 8 > 18 ? dpi / 8 : 18 ))}"
+  probe_dpi="${PROBE_DPI:-$(python3 -c "import sys; print(max(18, float(sys.argv[1]) / 8))" "$dpi")}"
+  res=1                                    # the last -D Res=... among the defines
+  for a in "$@"; do case "$a" in Res=*) res="${a#Res=}" ;; esac; done
   echo "render_bands: probe at ${probe_dpi} dpi for $auto bands"
   cp "$piece" "$tmp/${name}.ps"
   DPI="$probe_dpi" OUT="$tmp/probe" ${wrap[@]+"${wrap[@]}"} scripts/render.sh "$@" \
     -D RowTimes=true -D PixSeed=true "$tmp/${name}.ps"
   # cut points, one per line, then the plan on stderr
-  cutlist="$(python3 - "$tmp/probe/${name}.log" "$auto" "$page_h" "$dpi" "$probe_dpi" <<'P'
+  cutlist="$(python3 - "$tmp/probe/${name}.log" "$auto" "$page_h" "$dpi" "$probe_dpi" "$res" <<'P'
 import sys, re
 log, n, page_h, dpi, pdpi = sys.argv[1], int(sys.argv[2]), float(sys.argv[3]), float(sys.argv[4]), float(sys.argv[5])
+res = float(sys.argv[6])
 t0, rows = None, []
 for line in open(log):
     m = re.match(r"fc-row-t0 (\S+)", line)
@@ -79,12 +84,13 @@ for line in open(log):
 if t0 is None or not rows:
     sys.exit("render_bands: no row times in the probe log " + log)
 cost = [b - a for a, b in zip([t0] + rows, rows)]
+if sum(cost) <= 0: cost = [1.0] * len(cost)   # too fast to time: split rows evenly
 ph = len(cost)                               # probe rows (the whole frame)
-H = round(page_h * dpi / 72)                 # final image rows
+H = max(1, int(page_h * dpi / 72 * res + 0.5))   # final image rows (fc-render's IH; PostScript rounds halves up)
 n = max(1, min(n, H))
 cum = [0.0]
 for c in cost: cum.append(cum[-1] + c)
-total = cum[-1] or 1.0
+total = cum[-1]
 def at(y):                                   # work above fraction y of the frame
     x = y * ph; j = min(int(x), ph - 1)
     return cum[j] + (x - j) * cost[j]
