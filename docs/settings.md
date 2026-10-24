@@ -29,6 +29,62 @@ means only the default has been rendered.
 
 See `docs/techniques.html` for how each part works.
 
+## The public interface
+
+A project that uses the libraries from a release (`docs/using-the-libraries.md`)
+can rely on the names in this file and on nothing else. A release's version
+number (`VERSION`, a tag `vX.Y.Z`) promises exactly this surface.
+
+**Public** (documented here; renaming or removing one, or changing what it
+means, is a breaking change):
+
+- every **setting** in the tables: its name, its meaning and its default
+  (Seed, Yaw, TerrH, CloudLayers, WaterY, ...), including the options the
+  render script defines for a piece (`Res`, `AA`, `Crop`);
+- the **entry points**: `fc-landscape`, `fc-landscape-setup`, `fc-presets`,
+  `fc-preset`, `fc-settings` and the `FcPresets` dictionary (a project adds its
+  own presets to it), the built-in **presets** and their names (Time of day,
+  Weather, Terrain, Season, and the colour-grade presets in releases that have
+  them), and **scene files**;
+- the **hooks** (`fc-landscape-hit`, `-surface`, `-sky`, `-grade`,
+  `fc-forest-dens`, `fc-terrain-material`, `fc-terrain-base`, `fc-pixel`) and
+  the procedures in the "Procedure" tables, with their stack effects;
+- the **state a hook may read**: `Mx My Mz`, `PixAng`, `LnT LnR LnG LnB`, and
+  the material variables `Alb KlMul KskyMul KbMul`;
+- the **loading contract**: a project loads `lib/fc_presets.ps` (optional) and
+  `lib/fc_landscape.ps` with `(lib/fc_x.ps) run` from the directory it renders
+  from, after its settings, as above. `fc_landscape.ps` loads the rest in the
+  order they need. Libraries load each other by those paths, so the files must
+  sit in `lib/` there.
+
+**Internal** (may change or vanish in any release, even a patch one):
+
+- every other name the libraries `def`: a library's scratch names, which sit
+  under its own prefix because PostScript has no locals (`Er...` in
+  `fc_erode.ps`, `Aq...` in `fc_water.ps`, ...), and every `fc-...` procedure
+  that this file does not list (`fc-noise3`, `fc-terrain-hit`, `fc-height`, ...
+  are building blocks, not API; `ProfileProcs` merely names them);
+- the **file layout**: which procedure lives in which `lib/fc_*.ps`, the load
+  order, and loading any file but the two above by itself;
+- the **pictures**: the same settings may render different pixels in a
+  different release (a bug fix, a new default, a better noise). Renders
+  reproduce only for one release, one pscat version and one platform. Pin all
+  three.
+
+**Names a project must not use.** Settings share `userdict` with everything
+else, so a project's own libraries and pieces must not define a name that the
+tables list, a name that starts with `Fc` or `fc-`, or a file called
+`lib/fc_*.ps`. Give your own libraries a prefix of your own (`lib/<project>_*.ps`).
+`scripts/check_names.sh` finds two libraries that `def` the same name; it
+works on a project's `lib/` too, with the `fc_` files next to its own.
+
+**Versions.** `MAJOR.MINOR.PATCH`. A patch release keeps every picture
+pixel-identical and changes nothing public. Before 1.0, a minor release may
+add or change settings, hooks and defaults and may change pictures (its
+release notes say which); from 1.0, only a major release removes or renames a
+public name or changes its meaning. A new setting defaults to "off",
+so a piece that doesn't know it renders as before.
+
 ## Presets and scene files (`lib/fc_presets.ps`)
 
 A **preset** is a named dictionary of settings; a **scene file** is the same
