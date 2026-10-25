@@ -57,7 +57,7 @@
 /FsTrunks true fc-default            % trunks under lifted crowns (where a crown is over ~4 px)
 /FsSnag 0.03 fc-default              % fraction of the trees that are dead snags
 /FsFallen 0.02 fc-default            % fraction lying on the ground
-/FsSnagDens 0.55 fc-default       % snags only where the stand is denser than about this (0: anywhere)
+/FsSnagDens 0.55 fc-default       % snags fade out over this +- 0.15 of the stand's density (0: anywhere)
 /FsMix [ 1 ] fc-default              % weights of the species in FsSpecies, in order
 /FsAutumn 0 fc-default               % 0 summer; 1 larches gold and broadleaves turned
 /FsBark [ 0.21 0.16 0.12 ] fc-colour         % spruce bark
@@ -94,7 +94,8 @@
 %                     far out they sit (0..1), their height over their
 %                     radius, the core's size (of the crown's), and the
 %                     envelope (0 an ellipsoid, 1 a cone; fc-blob-prof)
-% rag must be under 5, and droop, base and baseDense not negative (checked).
+% rag must be under 5, droop, base and baseDense not negative, mcore at
+% most 1 and menv 0..1 (checked).
 /FsSpecies [
     << /name (spruce) /env FsEnv /droop FsDroop /tiers FsTiers /rad 0.28 /hmul 1
        /base 0 /baseDense 0.38 /trunk 0.011 /alb null /alb2 null /shade null
@@ -154,9 +155,10 @@ FsSpecies {
     } forall
     % (#53) a rag of 5 or more divides by zero in fc-tree-prof, and a
     % negative droop or base turns a crown inside out
-    Fsd /rag get 5 ge Fsd /droop get 0 lt or Fsd /base get 0 lt or Fsd /baseDense get 0 lt or {
+    Fsd /rag get 5 ge Fsd /droop get 0 lt or Fsd /base get 0 lt or Fsd /baseDense get 0 lt or
+    Fsd /mcore get 1 gt or Fsd /menv get 0 lt or Fsd /menv get 1 gt or {
         (fc_trees: species ) print Fsd /name get print
-        (: rag must be under 5, and droop, base and baseDense not negative) =
+        (: rag must be under 5, droop, base and baseDense not negative, mcore at most 1, menv 0..1) =
         /FsSpecies errordict /rangecheck get exec
     } if
 } forall
@@ -738,9 +740,9 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
             FcL 0 le { /FcKind 0 def } if
         } if
         % (#53) snags only in a closed stand, where a tree dies of shade and
-        % crowding: in the open a lone snag reads as a fence post. Fewer of
-        % them below FsSnagDens (at the cell's centre, so the tree is the
-        % same from every point), none 0.15 below it.
+        % crowding: in the open a lone snag reads as a fence post. Their
+        % share fades out over FsSnagDens +- 0.15 of the density (at the
+        % cell's centre, so the tree is the same from every point).
         FcKind 1 eq FsSnagDens 0 gt and {
             FsR 8 get FcK get
             FsSnagDens 0.15 sub FsSnagDens 0.15 add
