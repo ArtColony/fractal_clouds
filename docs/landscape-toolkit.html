@@ -1,0 +1,1047 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Landscape Toolkit</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="What epic #36 of fractal_clouds produced: a PostScript landscape toolkit for pscat, with a gallery, measured costs and the open limits.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root {
+  --paper: #eef1f2;
+  --paper-2: #e3e8ea;
+  --ink: #1a2329;
+  --ink-2: #4c5a63;
+  --ink-3: #6f7d86;
+  --rule: #c5cfd4;
+  --accent: #2b5a74;
+  --accent-ink: #ffffff;
+  --glow: #a3505c;
+  --code-bg: #e2e7e9;
+  --code-ink: #1d2a31;
+  --mark-done: #2f6a4f;
+  --mark-part: #8a5a14;
+  --mark-open: #a3505c;
+  --shadow: rgba(20, 30, 36, 0.10);
+  --serif: "Newsreader", Georgia, "Times New Roman", Times, serif;
+  --display: "Instrument Serif", "Newsreader", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, "Courier New", monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #12191e;
+    --paper-2: #1a2329;
+    --ink: #dde4e8;
+    --ink-2: #a9b6be;
+    --ink-3: #87959e;
+    --rule: #2d3a42;
+    --accent: #8db9d2;
+    --accent-ink: #0e1519;
+    --glow: #e0939c;
+    --code-bg: #1c262d;
+    --code-ink: #d6e0e6;
+    --mark-done: #8fcfaf;
+    --mark-part: #e2b56a;
+    --mark-open: #e0939c;
+    --shadow: rgba(0, 0, 0, 0.35);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #12191e;
+  --paper-2: #1a2329;
+  --ink: #dde4e8;
+  --ink-2: #a9b6be;
+  --ink-3: #87959e;
+  --rule: #2d3a42;
+  --accent: #8db9d2;
+  --accent-ink: #0e1519;
+  --glow: #e0939c;
+  --code-bg: #1c262d;
+  --code-ink: #d6e0e6;
+  --mark-done: #8fcfaf;
+  --mark-part: #e2b56a;
+  --mark-open: #e0939c;
+  --shadow: rgba(0, 0, 0, 0.35);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 18px;
+  line-height: 1.55;
+  font-optical-sizing: auto;
+}
+.page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-bottom: 72px;
+}
+img { max-width: 100%; height: auto; display: block; }
+a { color: var(--accent); text-underline-offset: 2px; text-decoration-thickness: 1px; }
+a:hover { text-decoration-thickness: 2px; }
+p, li { overflow-wrap: anywhere; }
+code, kbd {
+  font-family: var(--mono);
+  font-size: 0.84em;
+  background: var(--code-bg);
+  color: var(--code-ink);
+  padding: 0.05em 0.3em;
+  border-radius: 2px;
+  overflow-wrap: anywhere;
+}
+pre {
+  font-family: var(--mono);
+  font-size: 13.5px;
+  line-height: 1.5;
+  background: var(--code-bg);
+  color: var(--code-ink);
+  padding: 14px 16px;
+  margin: 0;
+  overflow-x: auto;
+  border-left: 3px solid var(--accent);
+}
+pre code { background: none; padding: 0; font-size: inherit; overflow-wrap: normal; }
+.prose { max-width: 65ch; }
+.prose > * + * { margin-top: 0.9em; }
+.prose p, .prose ul { margin-bottom: 0; }
+.prose ul { padding-left: 1.2em; }
+
+/* masthead */
+.mast {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 24px;
+  padding: 20px 0 12px;
+  border-bottom: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.mast a { color: inherit; }
+h1 {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(44px, 9vw, 96px);
+  line-height: 0.95;
+  letter-spacing: -0.01em;
+  margin: 28px 0 10px;
+}
+.dek {
+  font-size: 21px;
+  line-height: 1.45;
+  color: var(--ink-2);
+  max-width: 60ch;
+  margin: 0 0 28px;
+}
+
+/* hero */
+.hero { margin: 0 0 12px; }
+.hero img {
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  background: var(--paper-2);
+  box-shadow: 0 1px 0 var(--rule), 0 18px 40px -24px var(--shadow);
+}
+.hero figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-size: 16px;
+  color: var(--ink-2);
+}
+.hero figcaption .file { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+
+/* sections */
+section { margin-top: 64px; }
+.kicker {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--glow);
+  margin: 0 0 6px;
+}
+h2 {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(32px, 5vw, 46px);
+  line-height: 1.05;
+  margin: 0 0 18px;
+  padding-top: 14px;
+  border-top: 2px solid var(--ink);
+}
+h3 {
+  font-family: var(--serif);
+  font-weight: 600;
+  font-size: 22px;
+  line-height: 1.25;
+  margin: 0 0 6px;
+}
+h4 {
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 28px 0 10px;
+}
+
+/* table of contents */
+.toc {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 6px 24px;
+  padding: 0;
+  margin: 28px 0 0;
+  list-style: none;
+  font-family: var(--mono);
+  font-size: 13px;
+}
+.toc li { border-top: 1px solid var(--rule); padding-top: 6px; }
+.toc a { text-decoration: none; color: var(--ink); }
+.toc span { color: var(--ink-3); margin-right: 8px; }
+
+/* the toolkit areas */
+.area { margin-top: 44px; }
+.area > h3 {
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: 30px;
+  margin-bottom: 4px;
+}
+.item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  padding: 18px 0;
+  border-top: 1px solid var(--rule);
+}
+.item > * { min-width: 0; }
+@media (min-width: 860px) {
+  .item.has-fig { grid-template-columns: minmax(0, 32rem) minmax(0, 1fr); gap: 32px; align-items: start; }
+}
+.item h3 { font-size: 20px; }
+.item p { margin: 0 0 0.6em; max-width: 65ch; }
+.item p:last-child { margin-bottom: 0; }
+.ref {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  color: var(--ink-3);
+  margin: 0 0 4px;
+}
+.ref a { color: var(--accent); }
+.mark {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+  padding: 0 5px;
+  margin-left: 6px;
+  vertical-align: 1px;
+}
+.mark.done { color: var(--mark-done); }
+.mark.part { color: var(--mark-part); }
+.mark.open { color: var(--mark-open); }
+.mark.optin { color: var(--ink-3); }
+
+figure { margin: 0; }
+figure figcaption {
+  font-size: 15px;
+  line-height: 1.4;
+  color: var(--ink-2);
+  margin-top: 6px;
+}
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.pair figure figcaption { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-3); }
+.item figure img { width: 100%; }
+.pix img { image-rendering: pixelated; }
+.wide { margin-top: 18px; }
+
+/* tables */
+.tbl { overflow-x: auto; max-width: 100%; }
+table {
+  border-collapse: collapse;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.45;
+  min-width: 100%;
+}
+caption {
+  caption-side: bottom;
+  text-align: left;
+  font-family: var(--serif);
+  font-size: 15px;
+  color: var(--ink-2);
+  padding-top: 8px;
+}
+th, td { text-align: left; padding: 5px 14px 5px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-weight: 500; color: var(--ink-3); font-size: 11.5px; letter-spacing: 0.05em; text-transform: uppercase; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+tr.hot td { color: var(--ink); font-weight: 500; }
+
+/* getting started */
+.steps { display: grid; gap: 28px; }
+.steps > * { min-width: 0; }
+@media (min-width: 860px) {
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+}
+.split > * { min-width: 0; }
+.note {
+  border-left: 3px solid var(--glow);
+  padding: 4px 0 4px 14px;
+  color: var(--ink-2);
+  max-width: 65ch;
+}
+
+/* gallery */
+.gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: 28px 20px;
+}
+.gallery figure img { width: 100%; background: var(--paper-2); }
+.gallery figcaption { display: grid; gap: 2px; }
+.gallery .name { font-family: var(--serif); font-weight: 600; font-size: 17px; color: var(--ink); }
+.gallery .meta { font-family: var(--mono); font-size: 11.5px; color: var(--ink-3); letter-spacing: 0.03em; }
+.gallery .big { grid-column: 1 / -1; }
+@media (min-width: 860px) {
+  .gallery .big { grid-column: span 2; }
+}
+
+/* limits */
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 12px 40px; }
+.cols > * { min-width: 0; }
+.list { list-style: none; padding: 0; margin: 0; }
+.list li { padding: 8px 0; border-top: 1px solid var(--rule); }
+.list li strong { font-weight: 600; }
+.status-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0; }
+.status-list li { padding: 10px 0; border-top: 1px solid var(--rule); display: grid; grid-template-columns: 5.5rem minmax(0, 1fr); gap: 12px; }
+.status-list .who { font-family: var(--mono); font-size: 13px; }
+
+footer {
+  margin-top: 72px;
+  padding-top: 14px;
+  border-top: 1px solid var(--rule);
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  justify-content: space-between;
+}
+footer a { color: inherit; }
+
+@media (max-width: 520px) {
+  body { font-size: 17px; }
+  .dek { font-size: 19px; }
+  .status-list li { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header>
+  <div class="mast">
+    <span>fractal_clouds &middot; epic <a href="https://github.com/ArtColony/fractal_clouds/issues/36">#36</a></span>
+    <span>PostScript &middot; pscat 0.6.2 &middot; October 2026</span>
+  </div>
+  <h1>Landscape Toolkit</h1>
+  <p class="dek">A library of PostScript procedures that ray-marches mountains, clouds, forests, rivers and the sea, one ray per pixel, in the pscat interpreter. Epic #36 turned a two-picture experiment into a toolkit an artist or an agent can start from.</p>
+</header>
+
+<figure class="hero">
+  <img src="../gallery/previews/golden_coast-1280x800.png" width="1280" height="800" alt="Golden coast: the showcase landscape, rendered at 1280 by 800 pixels.">
+  <figcaption>
+    <span><em>Golden coast</em>, the showcase piece. Every pixel is computed by a PostScript program, ray-marched in pscat.</span>
+    <span class="file">gallery/previews/golden_coast-1280x800.png</span>
+  </figcaption>
+</figure>
+
+<nav aria-label="Contents">
+  <ol class="toc">
+    <li><a href="#start"><span>01</span>Getting started</a></li>
+    <li><a href="#toolkit"><span>02</span>What's in the toolkit</a></li>
+    <li><a href="#gallery"><span>03</span>Gallery</a></li>
+    <li><a href="#limits"><span>04</span>Limits and next steps</a></li>
+  </ol>
+</nav>
+
+<!-- ============================================================ -->
+<section id="start">
+  <p class="kicker">01</p>
+  <h2>Getting started</h2>
+
+  <div class="steps">
+    <div class="prose">
+      <p>The toolkit is a set of PostScript files, <code>lib/fc_*.ps</code>, and a few shell scripts around pscat. <code>lib/fc_landscape.ps</code> is the entry point. It loads the sky, clouds, terrain, erosion, forest and water libraries it needs, bakes the erosion and forest maps, and then computes each pixel by marching a ray from the camera through the scene. Nothing in it is a bitmap or a 3D model: the mountains are ridged fractal noise, the clouds are noise densities, and the image is drawn with one PostScript <code>colorimage</code>.</p>
+      <p>Every setting and hook is listed in <code>docs/settings.md</code>. How the methods work, with diagrams and references, is in <code>docs/techniques.html</code>.</p>
+    </div>
+
+    <div>
+      <h4>How a piece is built</h4>
+      <div class="prose">
+        <p>A piece is one <code>.ps</code> file with three parts, always in this order.</p>
+        <ul>
+          <li><strong>Settings first.</strong> Each one is written as <code>/Name where { pop } { /Name value def } ifelse</code>, so a <code>-D Name=value</code> on the command line wins. The libraries keep any value that is already defined, so a setting made after loading is silently ignored.</li>
+          <li><strong>Then presets and the libraries.</strong> <code>[ /Evening /Clear /Alpine ] fc-presets</code> fills in whatever the piece left unset, from named groups of settings: time of day, weather, terrain, season, coast and colour grade. Then <code>(lib/fc_landscape.ps) run</code> and <code>W H fc-landscape</code> render the frame.</li>
+          <li><strong>Hooks for the rest.</strong> Anything settings don't cover, a piece redefines after loading: <code>fc-landscape-surface</code> for the ground's colour, <code>fc-terrain-base</code> for the shape of the land, <code>fc-pixel</code> to replace the scene entirely.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="split">
+      <div>
+        <h4>A real piece: gallery/evening_lake.ps</h4>
+        <pre><code>%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+%%Title: Evening lake
+% Status: draft
+
+/Seed where { pop } { /Seed 5 def } ifelse
+/AA where { pop } { /AA true def } ifelse
+/Pitch where { pop } { /Pitch 2 def } ifelse
+/Yaw where { pop } { /Yaw -27 def } ifelse
+/HFov where { pop } { /HFov 55 def } ifelse
+/TerrOX where { pop } { /TerrOX 180 def /TerrOZ 400 def } ifelse
+/CamAbove where { pop } { /CamAbove 5 def } ifelse
+
+% the lake: its surface this far above the ground under the camera
+/WaterRise where { pop } { /WaterRise 1.4 def } ifelse
+/WaterCol where { pop } { /WaterCol [ 0.10 0.15 0.16 ] def } ifelse
+
+% the light, the clouds and the range: time of day, weather, terrain
+(lib/fc_presets.ps) run
+[ /Evening /Clear /Alpine ] fc-presets
+
+(lib/fc_landscape.ps) run
+320 200 fc-landscape
+showpage</code></pre>
+      </div>
+      <div>
+        <h4>The same scene as a scene file</h4>
+        <pre><code>% scenes/evening_lake.ps
+&lt;&lt;
+    /Presets [ /Evening /Clear /Alpine ]
+    /Seed 5  /AA true
+    /Pitch 2  /Yaw -27  /HFov 55
+    /TerrOX 180  /TerrOZ 400  /CamAbove 5
+    /WaterRise 1.4
+    /WaterCol [ 0.10 0.15 0.16 ]
+&gt;&gt; fc-settings</code></pre>
+        <div class="prose" style="margin-top:14px">
+          <p>A scene file is one dictionary of settings. <code>scenes/scene.ps</code> renders it at any size or crop, and its output is byte-identical to the piece.</p>
+          <pre><code>scripts/render.sh -D "Scene=(scenes/evening_lake.ps)" scenes/scene.ps</code></pre>
+          <p>Render through <code>scripts/render.sh</code>, which lints and times every run. <code>DPI=36</code> gives a 160&times;100 framing pass in a few minutes; <code>-D "Crop=[x0 y0 x1 y1]"</code> renders part of a large frame at full detail; <code>scripts/render_bands.sh</code> splits a large frame across cores.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="split">
+      <div class="prose">
+        <h4>Using it from another project</h4>
+        <p>Another repo pins a release of the libraries the way this one pins pscat (<a href="https://github.com/ArtColony/fractal_clouds/pull/61">PR #61</a>). The project keeps the version in <code>.fc-version</code> and a copy of <code>scripts/fetch_fc.sh</code>, which downloads that release with <code>gh</code>, checks <code>SHA256SUMS</code> and installs <code>lib/fc_*.ps</code> plus the docs. In CI, <code>fetch_fc.sh --check</code> fails if anyone edited an installed library by hand.</p>
+        <pre><code>scripts/fetch_fc.sh 0.1.0      # install, then write .fc-version
+scripts/fetch_fc.sh --check    # in CI</code></pre>
+        <p>A release is cut by pushing a <code>vX.Y.Z</code> tag. <code>.github/workflows/release.yml</code> then builds a tarball of the libraries, <code>docs/settings.md</code>, a self-contained techniques page and the tested <code>PSCAT_VERSION</code>, and attaches it to a GitHub release. <code>docs/settings.md</code> says which names are public API. The full steps are in <code>docs/using-the-libraries.md</code>, and <code>docs/template-repo-notes.md</code> records the pattern for future ArtColony repos.</p>
+        <p class="note">No release has been cut yet. The owner tags the first one.</p>
+      </div>
+      <div class="prose">
+        <h4>Asking an agent</h4>
+        <p>The repo ships its own Claude Code skill, <code>.claude/skills/fractal-landscape/</code> (<a href="https://github.com/ArtColony/fractal_clouds/pull/58">PR #58</a>). It turns a one-line request such as "a misty valley at dusk with a forest" into a piece: pick presets, run a framing pass, check full-detail crops, render in bands, and have Codex critique the result. It also carries the rules that cost hours when forgotten, such as settings before libraries and seeding every piece.</p>
+        <p>Setup for pscat itself (the pinned release, fonts, the MCP server) is in <code>README.md</code>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="toolkit">
+  <p class="kicker">02</p>
+  <h2>What's in the toolkit</h2>
+  <div class="prose">
+    <p>Each entry below is one merged pull request. New features are opt-in unless the entry says otherwise, so a change that isn't meant to alter the gallery leaves every piece pixel-identical; <code>scripts/regress.sh</code> checks that on every PR. Times were measured on an Apple-silicon Mac with pscat 0.6.2, usually with other renders sharing the machine, so treat them as rough.</p>
+  </div>
+
+  <!-- terrain and erosion -->
+  <div class="area" id="terrain">
+    <h3>Terrain and erosion</h3>
+
+    <div class="item has-fig">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/62">PR #62</a> &middot; issue #30 <span class="mark part">part</span> <span class="mark optin">opt-in</span></p>
+        <h3>Thermal erosion and a far erosion map</h3>
+        <p><code>ErThermal</code> adds talus. Each pass weathers rock that is steeper than 33&deg; into scree, then moves only the scree downhill, so cliffs stay steep and debris piles up at their feet. <code>ErFar</code> bakes a second, coarser map over 2600 units so distant ranges get eroded valleys too.</p>
+        <p>Thermal costs about 0.35 s per pass at 512&sup2;. The far map adds about 15 s of bake. Both stay off: thermal rounds the gallery's horn peaks without a clear gain, and the far map lies beyond what the pieces can see.</p>
+      </div>
+      <figure>
+        <img src="../docs/prs/30-erosion-thermal/talus_crop_before_after.png" width="576" height="612" loading="lazy" alt="Two crops of the mountains piece, top without thermal erosion, bottom with five thermal passes.">
+        <figcaption>A full-detail crop of <em>Mountains</em>: top, droplet erosion only; bottom, with <code>ErThermal 5</code>.</figcaption>
+      </figure>
+    </div>
+
+    <div class="item has-fig">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/63">PR #63</a>, <a href="https://github.com/ArtColony/fractal_clouds/pull/67">PR #67</a> &middot; issue #21 <span class="mark part">part</span> <span class="mark optin">opt-in</span></p>
+        <h3>Rock strata, crevices and terraces</h3>
+        <p>Two attempts at rock that reads as fractured. The first shades strata, joints and crevices on steep rock without changing the shape (<code>StrataAmp</code>, <code>CrevAmp</code>). The second cuts dipping, faulted beds into the height itself (<code>TerraceAmp</code>), so silhouettes and shadows see them.</p>
+        <p>Both lost blind pairwise judging against the plain eroded massif, in both orders, across six rounds. The judge kept preferring soft eroded slopes ("horizontal shelves look mechanically cut"). The terraces cost 44% more render time on a view that is nearly all outcrop.</p>
+      </div>
+      <div class="pair">
+        <figure>
+          <img src="../docs/prs/21-terraces/round_3/off.png" width="576" height="300" loading="lazy" alt="The massif with sunlit faces, terraces off.">
+          <figcaption>Terraces off</figcaption>
+        </figure>
+        <figure>
+          <img src="../docs/prs/21-terraces/round_3/on.png" width="576" height="300" loading="lazy" alt="The same view with geometric terraces cut into steep outcrops.">
+          <figcaption>Terraces on (round 3)</figcaption>
+        </figure>
+      </div>
+    </div>
+  </div>
+
+  <!-- maps and coasts -->
+  <div class="area" id="maps">
+    <h3>Maps and coasts</h3>
+
+    <div class="item has-fig">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/50">PR #50</a> &middot; issue #13 <span class="mark done">closed</span> <span class="mark optin">opt-in</span></p>
+        <h3>Terrain from a map</h3>
+        <p>A piece can lay out its geography and let the fractals fill in the detail. <code>MapOn</code> loads <code>lib/fc_map.ps</code>, which takes a painted character grid and a list of features (<code>/peak</code>, <code>/ridge</code>, <code>/valley</code>, <code>/lake</code>) and bakes them into a table the terrain reads through the <code>fc-terrain-base</code> hook. One map gives several views and a plan from above.</p>
+        <p>Placed summits landed 10 to 32 units from their marks, within about one ridge wavelength. A height sample costs 57&nbsp;&micro;s with a map against 43&nbsp;&micro;s without.</p>
+      </div>
+      <div class="pair">
+        <figure>
+          <img src="../docs/techniques/charted_plan.png" width="320" height="200" loading="lazy" alt="Top-down plan of a mapped range with a lake, a river valley and two marked camera positions.">
+          <figcaption>The map, from above</figcaption>
+        </figure>
+        <figure>
+          <img src="../docs/techniques/charted_view1.png" width="320" height="200" loading="lazy" alt="The mapped range seen from the lake's south shore, two peaks behind the water.">
+          <figcaption>View 1, from the lake</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="item has-fig">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/55">PR #55</a> &middot; issue #39 <span class="mark done">closed</span> <span class="mark optin">opt-in</span></p>
+        <h3>Coastal terrain</h3>
+        <p><code>MapSea</code> sets a sea level on a map. <code>lib/fc_coast.ps</code> then shapes a wandering coastline, cuts cliffs into high ground, lays beaches with a berm on low land, and deepens the sea floor offshore to a wave-cut bench and an optional reef. New map features add <code>/volcano</code>, <code>/atoll</code>, <code>/cliff</code> and <code>/stack</code>, and <code>MapLiftGrid</code> paints elevation directly.</p>
+        <p>A height sample costs 82&nbsp;&micro;s in the coast test scene, against about 57&nbsp;&micro;s for a map alone.</p>
+      </div>
+      <div class="pair">
+        <figure>
+          <img src="../docs/prs/39-coast/island_view1.png" width="160" height="100" loading="lazy" alt="A small preview of an island coast with beaches.">
+          <figcaption>Island, 160&times;100</figcaption>
+        </figure>
+        <figure>
+          <img src="../docs/prs/39-coast/cliffs_view2.png" width="160" height="100" loading="lazy" alt="A small preview of sea cliffs.">
+          <figcaption>Cliffs, 160&times;100</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="item has-fig">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/68">PR #68</a> &middot; issue #40 <span class="mark done">closed</span></p>
+        <h3>Coastal presets: tropical island and Pacific Northwest</h3>
+        <p>Two presets that each set a whole look: light, air, sea, beach and trees. <code>/Tropical</code> brings a high sun, turquoise shallows, a reef the surf breaks on, and palms with curved, leaning trunks. <code>/PNWCoast</code> brings low overcast, sea fog that fills the coves, a grey-green sea, cobble beaches, driftwood, and Sitka spruce and cedar on the cliff tops. Each has a draft gallery piece.</p>
+        <p>A 640&times;400 preview took three bands of 1334 to 2050 s (tropical) and 1075 to 1233 s (PNW).</p>
+      </div>
+      <figure>
+        <img src="../docs/prs/40-coastal/pnw-fog-before-after.png" width="352" height="276" loading="lazy" alt="Two crops of the PNW headland: a milky fog dome before, and lobed fog with trees showing through after.">
+        <figcaption>Sea fog over the western headland, before and after the review fix that broke it into lobes.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <!-- ocean and water -->
+  <div class="area" id="water">
+    <h3>Ocean and water</h3>
+
+    <div class="item has-fig">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/52">PR #52</a> &middot; issue #28 <span class="mark done">closed</span> <span class="mark optin">opt-in</span></p>
+        <h3>Lakes, rivers, shores and reflections</h3>
+        <p><code>lib/fc_water.ps</code> adds a lake plane (<code>WaterY</code>, <code>WaterRise</code>), the lakes drawn on a map (<code>MapWater</code>), and rivers (<code>Rivers</code>). Rivers come from a priority-flood catchment over the eroded map and are carved into it, so the terrain, shadows and forest all see the channels. Shores get wet ground, sand and stones; the water gets ripples that fade with distance and exact reflections with the haze counted from the water.</p>
+        <p>On <em>Evening lake</em> the library's water costs 4.6% more than the hand-written hooks it replaced.</p>
+      </div>
+      <figure>
+        <img src="../docs/prs/28-water/river_valley.png" width="320" height="200" loading="lazy" alt="A river winding down a forested valley between eroded mountains.">
+        <figcaption>A river valley, its channels taken from the erosion's drainage. 320&times;200.</figcaption>
+      </figure>
+    </div>
+
+    <div class="item has-fig">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/54">PR #54</a> &middot; issue #38 <span class="mark done">closed</span> <span class="mark optin">opt-in</span></p>
+        <h3>The sea</h3>
+        <p><code>Ocean true</code> loads <code>lib/fc_ocean.ps</code>: four waves of swell plus wind chop, colour by depth from turquoise shallows to blue-green deep water, foam on crests, breaker lines that follow the depth contours, a swash line, wet sand with its own reflection, and sun glitter. The waves change only the shading normal; the hit stays on the flat plane, which the PR shows is enough at the tested camera heights.</p>
+        <p>Stopping the march for the bed just past the surface cut the hit test from 175 s to 128 s on the first preview.</p>
+      </div>
+      <div>
+        <figure>
+          <img src="../docs/prs/38-ocean/surf_line.png" width="320" height="120" loading="lazy" alt="Breaking surf lines running along a sandy beach.">
+          <figcaption>Surf along the beach, full-detail crop.</figcaption>
+        </figure>
+        <figure class="wide">
+          <img src="../docs/prs/38-ocean/glitter.png" width="256" height="128" loading="lazy" alt="Sun glitter on open water, broken near the camera and smooth far out.">
+          <figcaption>Sun glitter toward the sun.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </div>
+
+  <!-- sky and light -->
+  <div class="area" id="sky">
+    <h3>Sky and light</h3>
+
+    <div class="item">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/48">PR #48</a> &middot; issue #22 <span class="mark done">closed</span> <span class="mark optin">on by default</span></p>
+        <h3>An analytic sky</h3>
+        <p>The sky is now computed: single scattering of sunlight in Rayleigh air, a thin aerosol layer and ozone over a curved earth, with a cheap pass for multiple scattering. The sun's direction alone sets the time of day, so <code>SunElev</code> and <code>SunAzim</code> give golden hour, alpenglow and a moonlit night with stars. A piece that picks its own <code>Zenith</code> and <code>Horizon</code> keeps the old hand-blended sky.</p>
+        <p>This was a deliberate look change for <em>Mountains</em>, <em>Alpine forest</em> and <em>Charted range</em>. It costs 12 to 17% on a <em>Mountains</em> render. Twilight is a known weak spot: dim and purple-grey where real civil twilight is deep blue.</p>
+      </div>
+      <figure>
+        <img src="../docs/prs/22-sky-model/sweep.png" width="1600" height="648" loading="lazy" alt="Fifteen tiles of the mountains piece from dawn through noon, sunset, dusk and moonlit night.">
+        <figcaption>A day on <em>Mountains</em>. Only the sun, the moon after dark and the exposure change between tiles.</figcaption>
+      </figure>
+      <div class="pair">
+        <figure>
+          <img src="../docs/prs/22-sky-model/mountains-before.png" width="320" height="200" loading="lazy" alt="Mountains under the old hand-picked sky.">
+          <figcaption>Before: hand-picked sky</figcaption>
+        </figure>
+        <figure>
+          <img src="../docs/prs/22-sky-model/mountains-after.png" width="320" height="200" loading="lazy" alt="Mountains under the computed sky.">
+          <figcaption>After: computed sky</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="item has-fig">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/70">PR #70</a> &middot; issue #49 <span class="mark done">closed</span> <span class="mark optin">opt-in</span></p>
+        <h3>Sun shafts</h3>
+        <p><code>Shafts true</code> darkens the haze wherever clouds shadow it. Each ray marches its first stretch of air once, probing the cloud shadow at 48 steps, and the haze and sky subtract the shadowed share. Lit haze keeps its old value, so a scene with no cloud shadow renders byte-identical either way.</p>
+        <p>The result is mostly a dimming of the haze under the clouds, with faint lit bands slanting from the gap round the sun. It adds about 19% of render time.</p>
+      </div>
+      <figure>
+        <img src="../docs/prs/49-sun-shafts/compare.png" width="448" height="606" loading="lazy" alt="A crop toward a low sun through broken cloud: top without shafts, bottom with shafts.">
+        <figcaption>Top: the closed-form haze. Bottom: shafts on, <code>ShaftDark 0.9</code>.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <!-- clouds and storms -->
+  <div class="area" id="clouds">
+    <h3>Clouds and storms</h3>
+
+    <div class="item">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/47">PR #47</a> &middot; issue #14 <span class="mark done">closed</span> <span class="mark optin">opt-in</span></p>
+        <h3>Cloud types and layered skies</h3>
+        <p><code>CloudLayers</code> takes a list of layers, each a preset name (<code>/Stratus</code>, <code>/Altocumulus</code>, <code>/Cirrus</code>, <code>/Cumulus</code>, <code>/Nimbostratus</code>) or a dictionary that overrides one. Each layer has its own height band, noise, wind, coverage and optional rain, and casts its own shadow on the ground. A ray marches the bands nearest first and stops once it is opaque.</p>
+        <p>On a sky crop, an extra thin layer cost about 5 to 10 s per 100k sky pixels; nimbostratus, whose rain lengthens the march, added 40 s over the empty sky.</p>
+      </div>
+      <figure>
+        <img src="../docs/techniques/cloud_types.png" width="992" height="460" loading="lazy" alt="Six panels of mountains under stratus, altocumulus, cirrus, cumulus, nimbostratus and three layers together.">
+        <figcaption>The five cloud types, and cumulus, altocumulus and cirrus together, over <em>Mountains</em>.</figcaption>
+      </figure>
+    </div>
+
+    <div class="item has-fig">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/57">PR #57</a> &middot; issue #15 <span class="mark done">closed</span></p>
+        <h3>A placed thunderstorm</h3>
+        <p><code>lib/fc_storm.ps</code> places a cumulonimbus in the scene like a mountain: a leaning tower, a flat anvil drifting downwind, an overshooting dome, a dark base with rain shafts, and virga. It self-shadows from its noise-free outline. The new per-layer keys it needed (<code>Bounds</code>, <code>Probes</code>, <code>LightDepth</code>, <code>RainShafts</code>, <code>RainMask</code>) work for any cloud layer.</p>
+        <p>The storm's clouds cost 0.21 ms per pixel on the preview. On a crop of the same size the gallery's cumulus cost 0.62 ms per pixel, against 0.29 ms for the storm: most samples in the band are empty air, and the outline test skips them before any noise is computed.</p>
+      </div>
+      <figure>
+        <img src="../gallery/previews/storm-320x200.png" width="320" height="200" loading="lazy" alt="A dark storm with an anvil top over a mountain range, rain under its base.">
+        <figcaption><em>Oncoming storm</em>, 320&times;200 preview.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <!-- forests -->
+  <div class="area" id="forests">
+    <h3>Forests</h3>
+
+    <div class="item has-fig">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/51">PR #51</a> &middot; issue #25 <span class="mark done">closed</span> <span class="mark optin">on by default</span></p>
+        <h3>Trunks, forest edges, snags and logs</h3>
+        <p>Trees in a closed stand self-prune and stand on bare trunks, hit exactly by a ray and cylinder test. Trees at the edge keep their branches to the ground. Near crowns get a fine needle texture, and the forest gets standing dead snags and fallen logs. A species table, <code>FsSpecies</code>, makes adding a species one dictionary.</p>
+        <p>The new forest edge won blind pairwise against the old one in both orders. It costs about 10% on a forest crop. <code>FsTrunks false</code> gives the old forest back pixel for pixel.</p>
+      </div>
+      <div class="pair">
+        <figure>
+          <img src="../docs/prs/25-trees-species/edge-before.png" width="384" height="240" loading="lazy" alt="A forest edge with crowns only, before the change.">
+          <figcaption>Before</figcaption>
+        </figure>
+        <figure>
+          <img src="../docs/prs/25-trees-species/edge-after.png" width="384" height="240" loading="lazy" alt="The same forest edge with trunks, lifted crowns and needle texture.">
+          <figcaption>After</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="item has-fig">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/73">PR #73</a> &middot; issue #53 <span class="mark done">closed</span></p>
+        <h3>Pine and broadleaf crowns</h3>
+        <p>A new crown form, <code>/blob</code>, builds a crown from a core and about ten rounded foliage masses climbing it at the golden angle. Pine becomes a broad cone of pad tiers; broadleaf becomes a lobed dome. Snags now stand only in dense stands, so lone dead trunks no longer stand in meadows like fence posts.</p>
+        <p>With them, a mixed stand beat the spruce-only stand in blind pairwise: realism 6 of 6, aesthetics 4 of 6. PR #68 added palms, Sitka spruce and western red cedar to the same table.</p>
+      </div>
+      <div class="pair">
+        <figure>
+          <img src="../docs/prs/53-pine-broadleaf/spruce-main.png" width="384" height="240" loading="lazy" alt="A spruce-only forest crop.">
+          <figcaption>Spruce only</figcaption>
+        </figure>
+        <figure>
+          <img src="../docs/prs/53-pine-broadleaf/mixed-after.png" width="384" height="240" loading="lazy" alt="The same crop with a mixed stand of spruce, fir, pine, larch and broadleaf.">
+          <figcaption>Mixed stand</figcaption>
+        </figure>
+      </div>
+    </div>
+  </div>
+
+  <!-- colour grading -->
+  <div class="area" id="grade">
+    <h3>Colour grading</h3>
+
+    <div class="item">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/59">PR #59</a> &middot; issue #24 <span class="mark done">closed</span> <span class="mark optin">opt-in</span></p>
+        <h3>Filmic tone curve and grade presets</h3>
+        <p><code>ToneCurve /ACES</code> swaps the exponential curve for Stephen Hill's fit of the ACES filmic curve, with deeper shadows and a long roll-off for snow and cloud tops. <code>lib/fc_grade.ps</code> adds white balance, split toning, saturation, a vignette and lifted blacks, all in linear light, with presets such as <code>/Warm</code>, <code>/CoolMuted</code>, <code>/Matte</code> and <code>/SplitTone</code>.</p>
+        <p>ACES won aesthetics on most blind pairs but realism split by position, which missed the bar set before judging. So it stays opt-in (<code>/Filmic</code>) and the gallery is unchanged.</p>
+      </div>
+      <figure>
+        <img src="../docs/prs/24-filmic-tone/grades.png" width="960" height="400" loading="lazy" alt="Six versions of the mountains piece under different grade presets.">
+        <figcaption>Grade presets on <em>Mountains</em>. Top: none, <code>/Warm</code>, <code>/CoolMuted</code>. Bottom: <code>/Matte</code>, <code>/SplitTone</code> with <code>/Vignette</code>.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <!-- composition tools -->
+  <div class="area" id="composition">
+    <h3>Composition tools</h3>
+
+    <div class="item">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/56">PR #56</a> &middot; issue #31 <span class="mark done">closed</span></p>
+        <h3>Presets and scene files</h3>
+        <p><code>lib/fc_presets.ps</code> holds 14 presets in four groups: time of day (<code>/Dawn /Noon /Evening /Night</code>), weather (<code>/Clear /Overcast /Storm</code>), terrain (<code>/Alpine /Foothills /Mesa</code>) and season (<code>/Spring /Summer /Autumn /Winter</code>). The precedence is fixed: <code>-D</code>, then the piece, then presets in list order, then library defaults. A new preset is one dictionary entry. Later PRs added the grade and coastal presets.</p>
+      </div>
+    </div>
+
+    <div class="item">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/66">PR #66</a> &middot; issue #23 <span class="mark done">closed</span></p>
+        <h3>Aim at a map point, frame, sweep</h3>
+        <p><code>StandAt [x z]</code> and <code>LookAt [x z]</code> place the camera in map coordinates and aim the frame's centre at the ground there; both are marked on the map's plan. <code>scripts/frame.sh</code> renders a quick framing pass with a thirds grid, the eye-level horizon and the aim point drawn on top. <code>render.sh --sweep NAME=SPEC --grid CxR</code> renders a labelled contact sheet of one setting's values. A 2&times;2 sheet of four seeds took 38 s.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- render passes -->
+  <div class="area" id="passes">
+    <h3>Render passes and placement</h3>
+
+    <div class="item has-fig">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/71">PR #71</a> &middot; issue #33 <span class="mark done">closed</span></p>
+        <h3>Passes for compositing into larger works</h3>
+        <p><code>Pass</code> renders a mask, a depth map, flat material IDs (sky, cloud, rock, snow, forest, water, sand, grass) or a matte for one material. <code>PassKeep</code> keeps passes from the same march, so one page can draw the picture and then place type or art behind the mountains with <code>fc-sky-clip</code>. <code>fc-render</code> also honours <code>translate</code> and <code>scale</code>, so a landscape can be placed in any rectangle of a larger PostScript page.</p>
+        <p>The demo print took 33 minutes at 144 dpi for its 720&times;450-pixel landscape. pscat has no masked images, so clipping in PostScript is hard-edged; a soft alpha comes from the mask PNG.</p>
+      </div>
+      <figure>
+        <img src="../docs/examples/framed_print.png" width="864" height="648" loading="lazy" alt="A framed print titled Evening Lake: the lake scene with its title set behind the peaks, and mask, depth and material insets below.">
+        <figcaption><code>docs/examples/framed_print.ps</code>: one render composed into a print, with the Times title behind the peaks and three passes as insets.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <!-- performance -->
+  <div class="area" id="performance">
+    <h3>Performance</h3>
+
+    <div class="item">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/46">PR #46</a> &middot; issue #20 <span class="mark done">closed</span></p>
+        <h3>A profiler</h3>
+        <p><code>-D Profile=true</code> wraps the main procedures with a call counter and a stopwatch and prints a table after the render. Its first finding set the agenda for the rest of the performance work: the terrain height function, <code>fc-height</code>, is 70 to 79% of every run.</p>
+      </div>
+      <div class="tbl">
+        <table>
+          <caption>Each piece at 160&times;100 px with a 256&sup2; erosion map, three renders sharing a busy machine. Calls per pixel count the render only. Times are inclusive, so rows overlap.</caption>
+          <thead>
+            <tr><th>piece</th><th class="n">render ms</th><th class="n">fc-height share</th><th class="n">&micro;s / call</th><th class="n">calls / px</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>mountains</td><td class="n">39&#8239;470</td><td class="n">70.2%</td><td class="n">41.5</td><td class="n">50.3</td></tr>
+            <tr><td>alpine_forest</td><td class="n">81&#8239;338</td><td class="n">74.6%</td><td class="n">46.1</td><td class="n">89.8</td></tr>
+            <tr><td>evening_lake</td><td class="n">97&#8239;268</td><td class="n">79.2%</td><td class="n">45.0</td><td class="n">116.1</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="prose" style="margin-top:12px">
+        <p>Everything else is small beside it. The terrain march is 61 to 69% of a render, ground shading 11 to 16% (half of that the shadow march), clouds 1.7 to 8.8%, and sky, haze and tone under 1% together. The profiler's own overhead is about 0.8&nbsp;&micro;s per wrapped call, 2.2 to 2.6% of these runs.</p>
+      </div>
+    </div>
+
+    <div class="item">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/60">PR #60</a> &middot; issue #17 <span class="mark done">closed</span></p>
+        <h3>A faster forest march</h3>
+        <p>The crown search now skips a cell early when nothing in it could change the hit, shadow probes skip the search above the tallest possible tree, and species values sit in globals. Every bound is conservative, so the pixels are identical.</p>
+      </div>
+      <div class="tbl">
+        <table>
+          <thead><tr><th>alpine_forest crop, DPI 144</th><th class="n">before</th><th class="n">after</th><th class="n">change</th></tr></thead>
+          <tbody>
+            <tr><td>near crowns, 224&times;80</td><td class="n">144.4 s</td><td class="n">121.6 s</td><td class="n">&minus;16%</td></tr>
+            <tr><td>mid-distance slope, 256&times;52</td><td class="n">129.8 s</td><td class="n">109.7 s</td><td class="n">&minus;15%</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="item">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/64">PR #64</a> &middot; issue #19 <span class="mark done">closed</span></p>
+        <h3>Bands balanced automatically</h3>
+        <p>pscat runs on one core, so a large frame is rendered as horizontal bands in parallel. <code>render_bands.sh piece --auto N</code> first renders a small probe that records the time of each row, then cuts the frame where the work splits evenly. A per-pixel seed makes the stitched frame identical whatever the cuts.</p>
+      </div>
+      <div class="tbl">
+        <table>
+          <caption><em>Alpine forest</em> at 320&times;200 in three bands. The probe itself took 0.6 min.</caption>
+          <thead><tr><th>cuts</th><th class="n">band 0</th><th class="n">band 1</th><th class="n">band 2</th><th class="n">slowest</th></tr></thead>
+          <tbody>
+            <tr><td>even thirds</td><td class="n">0.9 min</td><td class="n">2.2 min</td><td class="n">4.3 min</td><td class="n">4.3 min</td></tr>
+            <tr class="hot"><td>--auto 3</td><td class="n">2.1 min</td><td class="n">2.2 min</td><td class="n">2.5 min</td><td class="n">2.5 min</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="item">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/72">PR #72</a> &middot; issue #18 <span class="mark done">closed</span></p>
+        <h3>A cache for the bakes</h3>
+        <p>The erosion and forest bakes are cached in <code>renders/cache/</code>, keyed on every setting, the random stream, the library source and the pscat version. pscat cannot write files, so the bake is printed to stdout as PostScript text and <code>render.sh</code> files it; reading it back with <code>run</code> is exact. Pixels are byte-identical with and without the cache.</p>
+      </div>
+      <div class="tbl">
+        <table>
+          <caption><em>Alpine forest</em> at 160&times;100 with a 1024&sup2; erosion map and 240&#8239;000 droplets.</caption>
+          <thead><tr><th>run</th><th class="n">without cache</th><th class="n">with cache</th></tr></thead>
+          <tbody>
+            <tr><td>a second render</td><td class="n">209.9 s</td><td class="n">78.3 s</td></tr>
+            <tr><td>each of 3 bands</td><td class="n">132 to 137 s</td><td class="n">32 to 40 s</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="item has-fig">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/65">PR #65</a> &middot; issue #27 <span class="mark done">closed</span></p>
+        <h3>Blue-noise cloud jitter</h3>
+        <p>The cloud march's random start offset now comes from a 64&times;64 blue-noise tile at the pixel, which pushes the error into high frequencies the eye blurs away. On the storm crop, the blurred grain fell from 0.735 to 0.428 levels at &sigma;&nbsp;1 (&minus;42%) and from 0.416 to 0.170 at &sigma;&nbsp;2 (&minus;59%). An exact early exit in the cloud noise paid for it: renders came out 1 to 6% faster. Nothing per pixel draws on the random stream any more, so bands now match a plain whole-frame render.</p>
+      </div>
+      <div class="pair pix">
+        <figure>
+          <img src="../docs/prs/27-cloud-jitter/storm-before.png" width="576" height="300" loading="lazy" alt="Storm cloud crop with white-noise jitter, enlarged three times.">
+          <figcaption>White-noise jitter</figcaption>
+        </figure>
+        <figure>
+          <img src="../docs/prs/27-cloud-jitter/storm-after.png" width="576" height="300" loading="lazy" alt="The same crop with blue-noise jitter, enlarged three times.">
+          <figcaption>Blue-noise jitter</figcaption>
+        </figure>
+      </div>
+    </div>
+  </div>
+
+  <!-- agent workflow -->
+  <div class="area" id="workflow">
+    <h3>Agent workflow</h3>
+
+    <div class="item has-fig">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/58">PR #58</a> &middot; issue #32 <span class="mark done">closed</span></p>
+        <h3>The fractal-landscape skill</h3>
+        <p>A Claude Code skill that takes a one-line request to a finished piece, with a table that maps request words to settings. A fresh agent tested it on "a misty valley at dusk with a forest", given cheap settings and nothing else, and produced <code>docs/examples/misty_valley.ps</code> in four framing passes and one crop. The result is a weak first pass, kept as it came; its stumbles became fixes to the skill.</p>
+      </div>
+      <figure>
+        <img src="../docs/examples/misty_valley-preview.png" width="160" height="100" loading="lazy" alt="A small hazy valley at dusk with a forested slope at the lower right." style="width:100%;max-width:480px;image-rendering:auto">
+        <figcaption>The skill's first unaided piece, 160&times;100, shown as made.</figcaption>
+      </figure>
+    </div>
+
+    <div class="item">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/42">PR #42</a> &middot; issue #35 <span class="mark done">closed</span></p>
+        <h3>Pixel regression in CI, and blind judging</h3>
+        <p><code>scripts/regress.sh</code> renders every gallery piece at cheap settings plus small full-detail crops and compares them pixel for pixel with stored references; CI runs it on every PR. The references are Linux renders, because seeded renders differ between macOS and Linux. Look changes went through <code>scripts/codex_pairwise.sh</code>: a blind comparison by Codex in both orders, against a bar written down before the first verdict. That protocol is why terraces, strata and filmic tone ship opt-in.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="gallery">
+  <p class="kicker">03</p>
+  <h2>Gallery</h2>
+  <div class="prose">
+    <p>Every piece in <code>gallery/</code> is marked <code>% Status: draft</code>. The previews were rendered when each piece was made, and several predate later look changes, as noted.</p>
+  </div>
+
+  <div class="gallery" style="margin-top:24px">
+    <figure class="big">
+      <img src="../gallery/previews/mountains-1280x800.png" width="1280" height="800" loading="lazy" alt="Ridged fractal mountains with snow under a layer of cumulus.">
+      <figcaption>
+        <span class="name">Fractal mountains <span class="mark part">draft</span></span>
+        <span class="meta">gallery/mountains.ps &middot; 1280&times;800 &middot; rendered 21 Oct, before the analytic sky (#22)</span>
+      </figcaption>
+    </figure>
+    <figure class="big">
+      <img src="../gallery/previews/alpine_forest-1280x800.png" width="1280" height="800" loading="lazy" alt="A spruce forest on a valley floor under the massif.">
+      <figcaption>
+        <span class="name">Alpine forest <span class="mark part">draft</span></span>
+        <span class="meta">gallery/alpine_forest.ps &middot; 1280&times;800 &middot; rendered 21 Oct, before the sky (#22) and the tree work (#25, #53)</span>
+      </figcaption>
+    </figure>
+    <figure>
+      <img src="../gallery/previews/tropical_island-640x400.png" width="640" height="400" loading="lazy" alt="A white beach with palms on a slope, turquoise sea and trade-wind cumulus.">
+      <figcaption>
+        <span class="name">Tropical island <span class="mark part">draft</span></span>
+        <span class="meta">gallery/tropical_island.ps &middot; 640&times;400 &middot; before PR #68's review fixes and the cloud jitter (#27)</span>
+      </figcaption>
+    </figure>
+    <figure>
+      <img src="../gallery/previews/pnw_coast-640x400.png" width="640" height="400" loading="lazy" alt="A cove between forested cliff headlands with sea stacks and fog under low overcast.">
+      <figcaption>
+        <span class="name">Pacific Northwest coast <span class="mark part">draft</span></span>
+        <span class="meta">gallery/pnw_coast.ps &middot; 640&times;400 &middot; before PR #68's review fixes and the cloud jitter (#27)</span>
+      </figcaption>
+    </figure>
+    <figure>
+      <img src="../gallery/previews/storm-320x200.png" width="320" height="200" loading="lazy" alt="A cumulonimbus with an anvil over a mountain range, backlit.">
+      <figcaption>
+        <span class="name">Oncoming storm <span class="mark part">draft</span></span>
+        <span class="meta">gallery/storm.ps &middot; 320&times;200 &middot; PR #57</span>
+      </figcaption>
+    </figure>
+    <figure>
+      <img src="../gallery/previews/evening_lake-320x200.png" width="320" height="200" loading="lazy" alt="A lake under a low evening sun with the range reflected in it.">
+      <figcaption>
+        <span class="name">Evening lake <span class="mark part">draft</span></span>
+        <span class="meta">gallery/evening_lake.ps &middot; 320&times;200 &middot; rendered 22 Oct, before library water (#28)</span>
+      </figcaption>
+    </figure>
+    <figure>
+      <img src="../docs/techniques/charted_view2.png" width="320" height="200" loading="lazy" alt="The charted range seen across its valley from the eastern hills.">
+      <figcaption>
+        <span class="name">Charted range <span class="mark part">draft</span></span>
+        <span class="meta">gallery/charted_range.ps &middot; 320&times;200 &middot; no gallery preview; view 2 from docs/techniques/</span>
+      </figcaption>
+    </figure>
+  </div>
+
+  <h4>Earlier drafts of Fractal mountains</h4>
+  <div class="gallery">
+    <figure>
+      <img src="../gallery/previews/mountains-draft-01.png" width="640" height="400" loading="lazy" alt="First draft of the fractal mountains under a cloud deck.">
+      <figcaption><span class="meta">mountains-draft-01 &middot; ridged fBm under a cloud deck</span></figcaption>
+    </figure>
+    <figure>
+      <img src="../gallery/previews/mountains-draft-02.png" width="640" height="400" loading="lazy" alt="Second draft with shadows and haze.">
+      <figcaption><span class="meta">mountains-draft-02 &middot; shadows, linear light, real haze</span></figcaption>
+    </figure>
+    <figure>
+      <img src="../gallery/previews/mountains-draft-03.png" width="640" height="400" loading="lazy" alt="Third draft of the fractal mountains.">
+      <figcaption><span class="meta">mountains-draft-03</span></figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ============================================================ -->
+<section id="limits">
+  <p class="kicker">04</p>
+  <h2>Limits and next steps</h2>
+
+  <h4>Where the epic stands</h4>
+  <ul class="status-list">
+    <li><span class="who"><span class="mark done">closed</span></span><span>21 issues finished by merged PRs: #13, #14, #15, #17, #18, #19, #20, #22, #23, #24, #25, #27, #28, #31, #32, #33, #38, #39, #40, #49, #53. Pixel regression (#35) came first, before the features.</span></li>
+    <li><span class="who"><a href="https://github.com/ArtColony/fractal_clouds/issues/34">#34</a></span><span><span class="mark part">open</span> Releases and pinning are merged (PR #61). It closes once the techniques page is published.</span></li>
+    <li><span class="who"><a href="https://github.com/ArtColony/fractal_clouds/issues/21">#21</a></span><span><span class="mark part">open</span> Fractured rock. Strata (PR #63) and terraces (PR #67) are merged opt-in, but both lost blind pairwise. Whether pairwise is the right bar for this issue is an owner call.</span></li>
+    <li><span class="who"><a href="https://github.com/ArtColony/fractal_clouds/issues/30">#30</a></span><span><span class="mark part">open</span> Erosion. Thermal erosion and the far map are merged opt-in (PR #62), but talus reads clearly only from above, and the far map fills basins without cutting channels.</span></li>
+    <li><span class="who"><a href="https://github.com/ArtColony/fractal_clouds/issues/29">#29</a></span><span><span class="mark open">in progress</span> Foreground ground cover: boulders, rough near ground, stones, shrubs and grass (PR #69).</span></li>
+    <li><span class="who"><a href="https://github.com/ArtColony/fractal_clouds/issues/26">#26</a></span><span><span class="mark open">in progress</span> A forest that knows about snow, and snow as geometry.</span></li>
+    <li><span class="who"><a href="https://github.com/ArtColony/fractal_clouds/issues/16">#16</a>, <a href="https://github.com/ArtColony/fractal_clouds/issues/3">#3</a></span><span><span class="mark open">open</span> Native pscat operators and GPU research. Not started; both wait on pscat (below).</span></li>
+  </ul>
+
+  <div class="cols" style="margin-top:36px">
+    <div>
+      <h4>Known look issues</h4>
+      <ul class="list">
+        <li><strong>Twilight</strong> comes out dim purple-grey; real civil twilight is a deep blue that the cheap multiple-scattering pass doesn't give (PR #48).</li>
+        <li><strong>The sea toward a low sun</strong> reads cream, because it reflects the horizon. Surf crests can look painted on from a low camera (PR #54).</li>
+        <li><strong>Tropical frame:</strong> no lagoon or reef line reads from the camera, the palm trunk's curve doesn't show at preview size, frond edges have specks, far palms show as green boxes, and the foreground sand is empty (PR #68).</li>
+        <li><strong>PNW frame:</strong> the forest edge against the meadow is abrupt, the fog still has a hard edge in places, and the cobble and driftwood appear only in the second view (PR #68).</li>
+        <li><strong>Pine tiers</strong> can read as topiary in crowns over about 40 px wide (PR #73).</li>
+        <li><strong>The storm</strong> has no lightning or shelf cloud and can't share heights with another cloud layer (PR #57).</li>
+        <li><strong>Coasts</strong> have no arches or undercuts, since the terrain is a heightfield; <code>/Mesa</code> has no flat summits (PRs #55, #56).</li>
+        <li><strong>Speed:</strong> <code>fc-height</code> is still about 60 to 67% of a forest render after PR #60. Cutting it means moving hit points, which the exact-only rule ruled out.</li>
+      </ul>
+    </div>
+    <div>
+      <h4>What pscat could add</h4>
+      <div class="prose" style="margin-bottom:10px">
+        <p>Logged in <code>docs/pscat-issues.md</code> by entry number, not yet filed upstream.</p>
+      </div>
+      <ul class="list">
+        <li><strong>Native noise (entry 8).</strong> 3D fBm at six octaves costs 12.4&nbsp;&micro;s in PostScript against 0.25&nbsp;&micro;s for an empty loop, and noise is the inner loop of <code>fc-height</code>.</li>
+        <li><strong><code>pscat --bands N</code> (entry 10).</strong> Run N copies, one per band, and composite the pages, so every program gets what <code>render_bands.sh</code> does here.</li>
+        <li><strong>Array and file output (entries 9 and 15).</strong> pscat can't open a file for writing. A <code>writereals</code>/<code>readreals</code> pair, or writing inside an allowed directory, would retire the cache's stdout workaround.</li>
+        <li><strong>Masked images (entry 14).</strong> <code>ImageType 3</code> and <code>nulldevice</code> would let a landscape carry soft alpha within PostScript.</li>
+        <li><strong>One libm on every platform (entry 13).</strong> <code>atan</code> differs in the last bit in 88 of 400 samples between macOS and Linux, and erosion grows that into visible changes. A bundled libm would make seeded renders match everywhere.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <span>fractal_clouds &middot; ArtColony &middot; CC0 1.0</span>
+  <span><a href="https://github.com/ArtColony/fractal_clouds">github.com/ArtColony/fractal_clouds</a></span>
+</footer>
+
+</div>
+</body>
+</html>
