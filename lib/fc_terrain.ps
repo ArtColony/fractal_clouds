@@ -35,6 +35,12 @@ GroundOn { /GroundOct 3 fc-default /TerrNormMin 0.03 fc-default } if
 /DetailAmp 0.16 fc-default
 /TerrOX 0 fc-default /TerrOZ 0 fc-default % where the camera stands in the procedural terrain
 /SnowLine 23 fc-default
+% Snow as geometry (#26): deep snow fills the gullies, in the geometry, so
+% the march, the normals, the shadows and the forest bake all see it (the
+% erosion bake doesn't). 0 turns it off.
+/SnowFill 0 fc-default               % 0..1: how fully deep snow fills gullies
+/SnowFillSoft 0.6 fc-default         % a filled gully keeps about this much of its depth, world units
+/SnowFillR 4 fc-default              % how wide a channel in the erosion map snow fills, world units
 /TreeLine 7 fc-default
 /Rock [ 0.42 0.41 0.39 ] fc-colour
 /Rock2 [ 0.52 0.50 0.46 ] fc-colour
@@ -117,6 +123,47 @@ GroundOn { /GroundOct 3 fc-default /TerrNormMin 0.03 fc-default } if
             Hfw mul  Hfx Hfz Hfo fc-height-proc 1 Hfw sub mul add
         } if
     } { fc-height-proc } ifelse } ifelse
+} bind def
+
+% Snow fills the gullies (#26, SnowFill): fc-height is wrapped when the
+% piece asks for it (with the erosion map baked, in its default delta
+% mode). A gully is a channel erosion cut: its depth d is how far erosion's
+% correction took the point below its mean SnowFillR around (erosion also
+% lowers whole slopes, which snow doesn't undo; and the procedural detail's
+% lows are broad, not gullies, so they stay). Deep snow, in the upper half
+% of fc-terrain-shade's snow band, raises the ground by
+% SnowFill w d^2 / (d + SnowFillSoft): nothing where d is 0 or less (smooth
+% there), nearly d - SnowFillSoft in a deep channel, never more than d, so
+% no new crests. The slope isn't known here, so couloirs on steep faces
+% fill too; fc-terrain-shade paints any fill as snow, so they read as
+% snow-filled couloirs. Hsf keeps the fill, for the shading (its snow, and
+% its hollow test, which measures the ground under the snow) and the
+% forest bake. Without erosion nothing is filled.
+/Hsf 0 def
+SnowFill 0 gt {
+    /fc-height-nosnow /fc-height load def
+    /fc-height {                                 % x z oct -> h
+        /Hso exch def /Hsz exch def /Hsx exch def
+        Hsx Hsz Hso fc-height-nosnow
+        ErBaked ErBaking not and { ErDelta } { false } ifelse { fc-snow-fill } { /Hsf 0 def } ifelse
+    } bind def
+} if
+/fc-snow-fill {                                  % h -> h' (reads Hsx Hsz)
+    /Hsf 0 def
+    dup SnowLine 4 sub gt {                      % (the band can't start lower)
+        /Hsh exch def
+        Hsx SnowFillR add Hsz fc-erode-lookup mul
+        Hsx SnowFillR sub Hsz fc-erode-lookup mul add
+        Hsx Hsz SnowFillR add fc-erode-lookup mul add
+        Hsx Hsz SnowFillR sub fc-erode-lookup mul add 4 div
+        Hsx Hsz fc-erode-lookup mul sub TerrH mul /Hsd exch def
+        Hsd 0 gt {
+            Hsx 0.021 mul Hsz 0.021 mul fc-noise2 16 mul SnowLine add
+            dup 4 sub exch 12 add Hsh fc-smooth
+            SnowFill mul Hsd dup mul mul Hsd SnowFillSoft add div /Hsf exch def
+        } if
+        Hsh Hsf add
+    } if
 } bind def
 
 /fc-height-proc {                                % x z oct -> h
@@ -302,6 +349,7 @@ GroundOn { /GroundOct 3 fc-default /TerrNormMin 0.03 fc-default } if
     /Ko Kt fc-terrain-oct def
     /Ke Kt PixAng mul 2 mul TerrNormMin fc-max def
     /Kh Kx Kz Ko fc-height def
+    /Ksf Hsf def                                % the snow's fill there (#26)
     Kx Ke add Kz Ko fc-height Kh sub neg
     Ke
     Kx Kz Ke add Ko fc-height Kh sub neg
@@ -321,7 +369,7 @@ GroundOn { /GroundOct 3 fc-default /TerrNormMin 0.03 fc-default } if
     [ 7 0 -7 0 0 7 0 -7 ] /Kring exch def
     0 2 6 { /Kj exch def
         Kx Kring Kj get add Kz Kring Kj 1 add get add 4 fc-height Kh sub
-        dup 4 div Kcav add /Kcav exch def
+        dup Hsf sub Ksf add 4 div Kcav add /Kcav exch def   % (hollows under the snow, #26)
         7 div dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if Kocc add /Kocc exch def
     } for
     /Kao 1 Kocc 0.25 mul 0.75 mul sub def
@@ -358,7 +406,10 @@ GroundOn { /GroundOct 3 fc-default /TerrNormMin 0.03 fc-default } if
     % faces turned away from the sun keep more snow
     Nx SunDir 0 get mul Nz SunDir 2 get mul add neg 0.35 mul 1 add mul
     0.24 0.58 3 -1 roll fc-smooth
-    /Ksnow exch def Snow Ksnow mix3v
+    /Ksnow exch def
+    % where snow fills a channel (SnowFill, #26), the fill is snow
+    Ksf 0 gt { /Ksnow 0.05 0.3 Ksf fc-smooth Ksnow fc-max def } if
+    Snow Ksnow mix3v
     /Alb exch def
     % a material hook (fc_trees.ps uses it for forest floor and far canopy):
     % it may change Alb and scale the sun, sky and bump terms
