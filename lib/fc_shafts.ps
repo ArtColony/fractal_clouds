@@ -26,7 +26,7 @@
 % it. Any other ray (a water reflection, fc_water's swapped fc-haze) gets the
 % closed form, unshadowed. The steps' offset comes from the same blue-noise
 % tile as the cloud march's (ClBlue, #27), read at the pixel (FrI FrJ)
-% shifted by half a tile, so every render of a pixel, crop or band, has the
+% shifted by half a tile and scaled by ShaftJitter, so every render of a pixel, crop or band, has the
 % same shafts, and the random stream is untouched.
 %
 % Settings (before loading):
@@ -37,12 +37,17 @@
 %                      the shafts are broad, and fine octaves only add grain
 %   ShaftDist   HazeDist  how far out the probes go; the haze beyond is
 %                      shadowed by the average of the near part
+%   ShaftJitter 0.2    how much of the blue-noise offset the steps get: 1
+%                      is a full step (fine grain); 0 fixes them at the
+%                      steps' middles (no grain, but faint ripples where a
+%                      step is long beside a cloud's shadow)
 %   ShaftDark   0.8    the share of the haze's light that is direct sun,
 %                      lost in shadow (0: no shafts; 1: shadowed haze black)
 
 /ShaftSteps 48 fc-default
 /ShaftDark 0.8 fc-default
 /ShaftOct 1 fc-default
+/ShaftJitter 0.2 fc-default
 /ShaftDist HazeDist fc-default
 
 /SfTab ShaftSteps 1 add array def
@@ -90,7 +95,7 @@
     } if
     /SfE SfEnd ShaftDist fc-sf-min def
     /SfDt SfE ShaftSteps div def
-    /SfJ fc-shaft-jitter def
+    /SfJ fc-shaft-jitter 0.5 sub ShaftJitter mul 0.5 add def
     /SfAcc 0 def /SfT0 1 def
     SfTab 0 0 put SfTT 0 1 put
     0 1 ShaftSteps 1 sub {
