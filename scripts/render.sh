@@ -117,6 +117,10 @@ fi
 if [ -n "$pre" ]; then
   defs="$pre (lib/fc_frame.ps) run$defs"
 fi
+case "$pass" in
+  ""|mask|depth|material|matte) ;;
+  *) echo "render: unknown pass '$pass' (mask, depth, material or matte)" >&2; exit 2 ;;
+esac
 if [ -n "$pass" ]; then
   defs="$defs /Pass /$pass def"
   suffix="$suffix-$pass"

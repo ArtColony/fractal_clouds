@@ -138,9 +138,9 @@ to `gallery/previews/` (or the example's `docs/` directory) by hand:
 
 **Passes**, when the landscape is a part of a larger work (or asked for):
 the same render with `--pass mask` (sky alpha), `--pass depth`,
-`--pass material` (flat IDs: sky, cloud, rock, snow, forest, water, sand) or
-`--pass matte -D PassMat=/snow` gives `renders/<name>-<pass>.png`; bands
-take `-- -D Pass=/mask`. To put a landscape inside a page of other art,
+`--pass material` (flat IDs: sky, cloud, rock, snow, forest, water, sand,
+grass) or `--pass matte -D PassMat=/snow` gives `renders/<name>-<pass>.png`;
+`render_bands.sh ... -- --pass mask` bands it into `renders/<name>-mask.png`. To put a landscape inside a page of other art,
 translate and scale before `fc-landscape` (detail follows the placed size),
 and with `PassKeep` render once and use `fc-pass-draw`, `fc-sky-clip` (art
 behind the mountains) and `fc-land-clip`: `docs/examples/framed_print.ps`,
