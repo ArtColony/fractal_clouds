@@ -364,6 +364,14 @@ blend sky (`SkyModel` false), exactly as before.
 | `HazeDist` | 520 | Distance at which haze reaches 63% at height 0. Smaller means thicker air. | 400, 520, 650 |
 | `HazeH` | 45 | Height over which the haze thins by a factor of e. | 45 |
 | `HazeChroma` | 1 with `SkyModel`, else 0 | How far the haze fades each channel at its own rate. 1 takes the haze to be the model's Rayleigh air plus enough neutral aerosol to reach `HazeDist` in green, so blue fades a little sooner and red a little later (about 15% and 4% at `HazeDist` 650: a haze that thick is mostly aerosol); 0 fades every channel over `HazeDist`; 2 or 3 exaggerates the blue distance. `HazeDist` is the green channel's distance. | 0, 1 |
+| `Shafts` | false | Sun shafts (#49): crepuscular rays where clouds shadow the haze. Loads `lib/fc_shafts.ps`, which marches each ray's haze once through the clouds' shadows and darkens the shadowed part; lit haze keeps its value. Off, the closed-form haze runs as before. Needs a sun above the horizon and clouds that cast shadows; strongest looking toward a low sun, with haze that reaches up toward the cloud base (a larger `HazeH`). Costs up to `ShaftSteps` shadow probes per ray, each one density evaluation per layer (times the layer's `Probes`: 3 for the storm) at `min(ShaftOct, ShadOct)` octaves. | false, true |
+| `ShaftSteps` | 48 | Shadow probes per ray, evenly spaced over its first `ShaftDist` and offset by the pixel's blue-noise value (as the cloud march's, #27, so bands and crops match). Fewer is faster and grainier or more rippled. | 32, 48, 96 |
+| `ShaftJitter` | 0.2 | How much of that blue-noise offset the steps get. 1 is a whole step: no ripples, but a fine grain in the haze (about three times the shafts-off grain at 32 steps). 0 puts every probe at its step's middle: no grain, but where a step is long beside a cloud's shadow, faint ripples. | 0, 0.2, 1 |
+| `ShaftDist` | `HazeDist` | How far out the probes go. The haze beyond is taken to be shadowed by the average of the marched part. | 300 … 600 |
+| `ShaftOct` | 1 | Noise octaves in each shadow probe (at most the layer's `ShadOct`). More gives finer, grainier shafts and costs more. | 1, 2 |
+| `ShaftDark` | 0.8 | The share of the haze's light that is direct sun, lost where the air is in shadow. 0 shows no shafts; 1 makes shadowed haze dark. | 0.6 … 0.9 |
+
+With `Shafts`, `fc_shafts.ps` also wraps `fc-landscape-sky` at the first ray (the hook is defined after it loads), so a ray that misses everything below the horizon loses its shadowed haze as far terrain beside it does. A piece's own `fc-landscape-sky` is wrapped the same way; if it calls `fc-sky` for rays below the horizon, those are darkened twice. Not shadowed: the haze in water reflections (closed form), and mountains' shadows in the haze (only clouds cast shafts).
 
 `fc-sun-update` recomputes everything derived after a piece changes
 `SunDir`, `SunElev` or the moon after loading.

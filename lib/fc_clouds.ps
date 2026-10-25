@@ -22,6 +22,8 @@
 %                                    every layer above it, 0..1: one density
 %                                    probe per layer, for ground shadows and
 %                                    sun shafts (cheap: no march)
+%   x y z oct fc-cloud-shadow-oct T  the same with at most oct octaves per
+%                                    probe (sun shafts, fc_shafts.ps)
 %   tlimit fc-clouds -               march the current ray (Mx My Mz from
 %                                    CamY) up to tlimit; leaves the light it
 %                                    picked up in Cr Cg Cb and the
@@ -397,6 +399,25 @@
     FcClCompiled not { fc-clouds-compile } if
     1
     CloudLayers null eq { fc-cloud-shadow1 } { FcClUp { fc-cloud-bind fc-cloud-shadow1 } forall } ifelse
+} bind def
+
+% as fc-cloud-shadow, with at most oct noise octaves in each probe: cheaper,
+% and smoother, for sun shafts (fc_shafts.ps, #49). A layer list leaves the
+% last layer bound with its octaves cut; fc-clouds and fc-cloud-shadow bind
+% each layer afresh, so nothing reads them
+/fc-cloud-shadow-oct {                           % x y z oct -> T
+    /DqO exch def
+    /DqZ exch def /DqY exch def /DqX exch def
+    FcClCompiled not { fc-clouds-compile } if
+    1
+    CloudLayers null eq {
+        ClSOct /DqS exch def
+        DqS DqO gt { /ClSOct DqO def } if
+        fc-cloud-shadow1
+        /ClSOct DqS def
+    } {
+        FcClUp { fc-cloud-bind ClSOct DqO gt { /ClSOct DqO def } if fc-cloud-shadow1 } forall
+    } ifelse
 } bind def
 
 % how much of the sky a point sees through the clouds overhead, 0..1:
