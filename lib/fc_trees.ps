@@ -272,6 +272,43 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     1 sub dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if
 } bind def
 
+% Snow the forest knows about (#26): with FsSnow above 0 the bake works
+% out, per texel, fc-terrain-shade's snow cover (Ksnow) from what it
+% already has, and thins the stand under deep snow fields: the density is
+% scaled by 1 - FsSnow s(Ksnow) (s a smoothstep over FsSnowBand), so trees
+% go from the fields and the stands' edges thin where the snow does. The
+% estimate is the shader's formula with its inputs taken from the map: the
+% height and the slope from the texels (as fc-forest-dens has them), the
+% hollow and shelter terms from the texels 7 units out (the shader's ring),
+% the same noises. Keep it in step with fc-terrain-shade's snow.
+% Reads Fbi Fbj Fbk Fbgx Fbgz and the bake's FsHt; -> the density factor.
+/FsSnow 0 fc-default                 % 0 off .. 1: no trees under deep snow
+/FsSnowBand [ 0.3 0.65 ] fc-default  % estimated snow cover where thinning starts, and where it is full
+/fc-forest-snow {                                % -> factor 0..1
+    /Fsnr 7 FsTex div 0.5 add cvi 1 fc-max def   % the ring, in texels
+    /Fsnh FsHt Fbk get def
+    /Fsnc 0 def /Fsno 0 def
+    /Fsnq [ Fbi Fsnr add FsN 1 sub fc-min Fbj   Fbi Fsnr sub 0 fc-max Fbj
+            Fbi Fbj Fsnr add FsN 1 sub fc-min   Fbi Fbj Fsnr sub 0 fc-max ] def
+    0 2 6 { /Fsnk exch def
+        FsHt Fsnq Fsnk 1 add get FsN mul Fsnq Fsnk get add get Fsnh sub
+        dup 4 div Fsnc add /Fsnc exch def
+        7 div 0 fc-max 1 fc-min Fsno add /Fsno exch def
+    } for
+    /Fsnx FsX0 Fbi FsTex mul add def /Fsnz FsZ0 Fbj FsTex mul add def
+    /Fsnv Fsnx 0.021 mul Fsnz 0.021 mul fc-noise2 def
+    /Fsny 1 Fbgx dup mul Fbgz dup mul add 1 add sqrt div def
+    SnowLine 8 sub Fsnv 16 mul add  SnowLine 8 add Fsnv 16 mul add  Fsnh fc-smooth
+    0.48 0.74 Fsny fc-smooth mul
+    0.45 Fsnc 0.16 mul add 0 fc-max 1 fc-min mul
+    Fsno 0.125 mul 0.8 add mul
+    Fsnx 0.19 mul 3.3 add Fsnz 0.19 mul 9.1 add fc-noise2 0.25 mul 0.875 add mul
+    % the normal is (-gx, 1, -gz) Fsny: faces turned from the sun keep more
+    Fbgx SunDir 0 get mul Fbgz SunDir 2 get mul add Fsny mul 0.35 mul 1 add mul
+    0.24 0.58 3 -1 roll fc-smooth
+    FsSnowBand 0 get FsSnowBand 1 get 3 -1 roll fc-smooth FsSnow mul 1 exch sub
+} bind def
+
 /fc-forest-bake {
     /FsT0 usertime def
     /FsX0 Yaw sin FsDist mul FsSize 2 div sub def
@@ -307,6 +344,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
                 -1 fc-max 1 fc-min
             } { 0 } ifelse
             fc-forest-dens
+            FsSnow 0 gt { exch fc-forest-snow mul exch } if   % (#26)
             FsHs Fbk 3 -1 roll put FsDm Fbk 3 -1 roll put
             FsAl Fbk Fdh Fdl sub put                 % height relative to the treeline (species)
         } for
