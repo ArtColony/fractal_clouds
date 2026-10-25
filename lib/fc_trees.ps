@@ -69,8 +69,9 @@
 % are sRGB here and converted below (null means the spruce setting). A
 % piece can define its own table before loading. The table is read once,
 % here at load: its colours are converted in place, missing keys filled in,
-% and the bounds, species globals and FsMix's length worked out from it, so
-% changing FsSpecies (or FsMix) after the run line has no effect. Keys:
+% and the bounds, species globals and FsMix's length worked out from it.
+% Changing FsSpecies or FsMix after the run line isn't supported: what was
+% worked out from them stays as it was. Keys:
 %   env droop tiers   the crown profile (see fc-tree-prof)
 %   rag lobes         (optional, 1) how ragged the outline is, and how many
 %                     lobes it has around the trunk
@@ -184,6 +185,10 @@ FsSpecies {
 % where they stand (only then, so other stands keep their bounds and steps)
 /FsPalmOn false def
 0 1 FsNsp 1 sub { dup FsSpecies exch get /form get /palm eq exch FsMix exch get 0 gt and { /FsPalmOn true def } if } for
+% (#53) crowns of masses in the stand: the hit is on the mass nearest it,
+% so the shading asks which tree's solid it is on even without trunks
+/FsBlobOn false def
+0 1 FsNsp 1 sub { dup FsSpecies exch get /form get /blob eq exch FsMix exch get 0 gt and { /FsBlobOn true def } if } for
 /FcSp FsSpecies 0 get def fc-tree-sp
 % bounds for fc-tree-cell's early out (#17), over every species (FcHs is
 % at most 1, the 1.001 covers its rounding): the widest trunk (a snag's),
@@ -1046,13 +1051,14 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     /Fwx Mx Fwt mul def /Fwy My Fwt mul CamY add def /Fwz Mz Fwt mul def
     /FsO Fwt fc-terrain-oct def /FcPx Fwt PixAng mul def
     Fwx Fwz fc-forest-mapt /Fwhs exch def /Fwd exch def
-    FsTrunks { /FcY Fwy Fwx Fwz FsO fc-height sub def } if     % (for FcIn)
+    FsTrunks FsBlobOn or { /FcY Fwy Fwx Fwz FsO fc-height sub def } if     % (for FcIn)
     Fwx Fwz Fwd Fwhs fc-crowns /Fw0 exch def
     Fw0 0 lt { false } {
     % the crown that was hit, and the hit relative to its trunk
-    % (with trunks, the tree whose solid the hit is on: under a lifted
-    % crown that need not be the highest one)
-    FsTrunks FcIn 100 lt and FcIKind 0 eq and {
+    % (with trunks, or crowns of masses, the tree whose solid the hit is
+    % on: under a lifted crown, or in a gap between masses, that need not
+    % be the highest one)
+    FsTrunks FsBlobOn or FcIn 100 lt and FcIKind 0 eq and {
         /FcH FcIH def /FcR FcIR def /FcK FcIK def /FcSp FcISp def /Fw0 FcIt def
         /FcBx FcIx def /FcBz FcIz def /FwB FcIB def
     } {
