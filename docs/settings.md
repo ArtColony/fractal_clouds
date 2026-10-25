@@ -248,6 +248,7 @@ heights in `/Clear`, `/Overcast` and `/Storm` assume the standard terrain
 | `CamAbove` | 6 | Otherwise, the camera sits this far above the ground below it. | 5, 6, 8 |
 | `CamHeight` | null | A number puts the camera at exactly that height and overrides both of the above. | |
 | `Profile` | false | true loads `lib/fc_bench.ps`, wraps the main procedures with call counters and timers, and prints a table when `fc-render` finishes (see Profiling below). false wraps nothing and the picture is unchanged. | false, true |
+| `BakeCache` | false | Keep the erosion and forest bakes in `renders/cache/` and read them back when nothing they depend on has changed (`lib/fc_cache.ps`; see Bake cache below). The picture is the same byte for byte either way. `render_bands.sh` turns it on. | false, true |
 | `WaterY` | null | A number puts a lake (or sea) surface at that height everywhere the ground is lower (`lib/fc_water.ps`). | null, −0.5 |
 | `WaterRise` | null | A number sets `WaterY` this far above the ground under the camera (worked out during setup, from the terrain before erosion). | 1.4 |
 | `Rivers` | false | Carve rivers along the erosion map's drainage and fill them (needs `Erode`). Adds the flow pass to the bake and the river bake after it. | false, true |
@@ -377,6 +378,67 @@ The clips are hard-edged, one landscape pixel per step. pscat has no
 alpha channel of the picture within PostScript: for soft compositing, render
 `--pass mask` as its own PNG. A piece that redefines `fc-pixel` itself
 bypasses the passes; one that redefines the hooks keeps them.
+
+## Bake cache (`lib/fc_cache.ps`, with `BakeCache`)
+
+The erosion bake (about 1.5 min at `ErN` 1024, more with `ErFar` or
+`ErThermal`) and the forest bake (about 9 s) run before every render, and
+before every band of a banded one. With `BakeCache` on, `fc-landscape-setup`
+runs each through `fc-cache-run`: a bake whose inputs match a file in
+`renders/cache/` is read back from it instead (a fraction of a second), and
+one that doesn't is baked and then filed there for next time. The rivers
+(`Rivers`) are part of the erosion's entry, since they carve its map.
+
+```sh
+BAKE_CACHE=1 scripts/render.sh -D ErN=1024 gallery/alpine_forest.ps   # bakes, files the bakes
+BAKE_CACHE=1 scripts/render.sh -D ErN=1024 gallery/alpine_forest.ps   # reads them back
+DPI=288 scripts/render_bands.sh gallery/alpine_forest.ps -- -D ErN=1024   # on by default: the probe bakes, the bands read
+```
+
+- **It needs `scripts/render.sh`.** pscat can't write files
+  (`docs/pscat-issues.md` #15), so a bake that missed prints itself to the
+  log, and `render.sh` moves it into `renders/cache/<bake>-<key>.ps` by a
+  temporary file and a rename (bands running in parallel never read half a
+  file). `render.sh` also defines `FcCacheSrc`, a hash of `lib/*.ps`, the
+  piece, `.pscat-version` and the installed pscat's version; without it
+  (bare `pscat`) nothing is cached. `regress.sh` turns the cache off, so its
+  renders always bake. A piece that runs the setup inside a dictionary of
+  its own (`currentdict` isn't `userdict`) isn't cached.
+- **The key** is everything a bake can read when it starts: every entry of
+  `userdict` (and of the current dictionary, if a piece has begun its own),
+  procedures included (operators by name), the random stream's state, the
+  bake's name and `FcCacheSrc`. Reals are hashed exactly, except inside
+  arrays of over 64 entries, where they count to 1e-9 (a character loop per
+  number would take seconds over a large map). An array or dict that an
+  earlier cached bake of the same run made (the erosion map, at the forest's
+  turn) counts as that bake's key instead of its contents. Render-only
+  names are left out (`Crop`, `Res`, `PixSeed`, `RowTimes`, `AA`, `Pass`,
+  `PassKeep`, `FrameGrid`, `FrameLabel`, `Profile`, and `LnSetUp`, `BakeCache`,
+  `BakeCacheSkip`, `BakeCacheDebug`, `FcCacheSrc`), so a probe, its bands, a
+  crop and a preview at another `Res` all share a bake; so are the libraries'
+  `usertime` stamps (`EbT0`, `FsT0` ...). A setting the key should leave out
+  only causes a miss; add render-only ones of a piece's own to
+  `BakeCacheSkip`.
+- **A hit leaves exactly the state a bake would**: every name the bake
+  defined or changed, temporaries included, and the random stream (`srand`
+  to the state the bake left), so later draws and the next bake's key are
+  the same either way. A bake that changes an existing array or dict in
+  place, takes a name away, or leaves one array in two places inside what
+  it made can't be written that way, so it isn't cached (the log says
+  `can't keep <name>`); the erosion, river and forest bakes do none of these.
+  `render.sh --sweep-seed` turns the cache off, since pscat's seed sweep
+  overrides the `srand` that puts the stream back.
+- **Disk:** about 20 MB per million reals (the erosion map at `ErN` 1024 is
+  one, plus `ErFlow` with `Rivers`); the forest map at `FsN` 384 is about
+  8 MB. After filing a bake, `render.sh` deletes the oldest files once
+  `renders/cache/` is over `BAKE_CACHE_MAX_MB` (default 2048);
+  `rm -rf renders/cache` empties it.
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `BakeCache` | false | Read and write `renders/cache/`. `BAKE_CACHE=1 scripts/render.sh` (or `-D BakeCache=true`) turns it on; `render_bands.sh` sets `BAKE_CACHE=1` unless it is `0`. | false, true |
+| `BakeCacheSkip` | [] | More names to leave out of the key: settings only the render reads, if a piece adds its own. | |
+| `BakeCacheDebug` | false | Print each key entry's hash (`%%FcKey name h1 h2`) to the log; sort and diff two logs to find what makes a second run miss. | |
 
 ## Profiling (`lib/fc_bench.ps`, with `Profile`)
 

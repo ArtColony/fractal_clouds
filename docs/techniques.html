@@ -804,6 +804,24 @@ showpage</code></pre>
 </ul>
 <p>It wraps by redefining the name, so it sees procedures a piece redefines as hooks, provided they're defined when <code>fc-landscape-setup</code> starts or before <code>fc-render</code> runs. A piece that redefines one afterwards calls <code>fc-bench-wrap</code> again. A procedure that was already wrapped and is then redefined gets a fresh wrapper and a fresh row; the old row stays as <code>name#1</code>. (The water's <code>fc-landscape-hit</code> calls the original as <code>fc-water-dry-hit</code>, so the two rows are the hook and the procedure under it; one shared row would count every call twice.) Only procedures defined in <code>userdict</code> are wrapped, and rows that never ran are listed as "never called" instead of shown.</p>
 
+<h3 id="bake-cache">Keeping the bakes</h3>
+<p>Every render bakes the erosion map (about 1.5 min at <code>ErN</code> 1024) and the forest map (about 9 s) before its first pixel, and a banded render bakes them once per band. With <code>BakeCache</code> on (<code>lib/fc_cache.ps</code>; <code>render_bands.sh</code> turns it on), <code>fc-landscape-setup</code> runs each bake through <code>fc-cache-run</code>, which keeps the result in <code>renders/cache/</code> and reads it back when nothing the bake depends on has changed. The picture is the same byte for byte either way.</p>
+<ul>
+  <li><strong>What a bake depends on.</strong> Rather than list each bake's settings (which change as the libraries grow), the key is everything a bake could read when it starts: every entry of <code>userdict</code>, procedures included (an operator by its name), the random stream's state (<code>rrand</code>), and a hash of the source (<code>lib/*.ps</code>, the piece, the pinned pscat version and the installed one) that <code>render.sh</code> passes in. Numbers in long arrays are hashed as integers (reals to 1e-9) rather than as text, and an array an earlier cached bake made (the erosion map, when the forest's key is taken) counts as that bake's key, so a key takes a fraction of a second. The entries are hashed separately and summed, since <code>forall</code> doesn't visit a dictionary in a fixed order. Render-only names (<code>Crop</code>, <code>Res</code>, <code>PixSeed</code>, <code>RowTimes</code> ...) and <code>usertime</code> stamps are left out, so a probe and its bands share one bake.</li>
+  <li><strong>What a bake leaves.</strong> Again no list: the cache copies <code>userdict</code> before the bake and records every name whose value isn't the same object (or number) afterwards, temporaries included, plus the stream's state after the bake. A hit puts all of it back and <code>srand</code>s the stream to that state, so the next bake's key, and every later draw, are what they would have been. A bake that changes an existing array in place, or takes a name away, can't be recorded this way, and isn't cached. A procedure a bake installs (the coast's material hook) is written as where it came from: a name's value before the bake, or a path into the procedure that holds it as a literal (<code>ZcPre /fc-coast-material-install get 15 get 2 get 6 get</code>).</li>
+  <li><strong>Writing it.</strong> pscat can't write files, so a bake that missed prints itself as PostScript (<code>/ErMap [ ... ] def</code>) between two marker lines, and <code>render.sh</code> cuts that out of the log into a temporary file and renames it into place, which keeps parallel bands from reading half a file. Reals are written with all their digits (pscat's <code>cvs</code> gives the shortest string that reads back to the same double), so the round trip is exact. Fixed-point hex (<code>readhexstring</code>) would be smaller but loses bits, and the picture would no longer match.</li>
+</ul>
+<div class="tablewrap"><table>
+<tr><th>Bake cache, Apple-silicon Mac, pscat 0.6.2</th><th>Time</th></tr>
+<tr><td>print a million reals (64 KB buffers)</td><td>0.6 s</td></tr>
+<tr><td>read them back with <code>run</code></td><td>0.17 s</td></tr>
+<tr><td><em>Alpine forest</em> 160×100, <code>ErN</code> 1024, <code>ErDrops</code> 240000: first render (bakes 120 s)</td><td>210 s</td></tr>
+<tr><td>the same, second render (reads the erosion in 0.20 s, the forest in 0.09 s)</td><td>78 s</td></tr>
+<tr><td>three bands without the cache, each</td><td>132–137 s (setup 1.7–1.8 min)</td></tr>
+<tr><td>three bands with it (the probe bakes once), each</td><td>32–40 s (setup 0.3 s)</td></tr>
+<tr><td>cache files: erosion at <code>ErN</code> 1024, forest at <code>FsN</code> 384</td><td>22.6 MB, 8.4 MB</td></tr>
+</table></div>
+
 <!-- ===================================================================== -->
 <h2 id="limits">17. Known limits</h2>
 <ul>
