@@ -21,19 +21,20 @@ The owner's goal for this stage was "a usable library MVP with an attractive gal
 2. **Optional: GitHub Pages** for `docs/`, if you want public URLs besides the Artifacts.
 3. **Set the bar for #21:** Codex pairwise, or your own eye.
 4. **Mark pieces final.** Every gallery piece is still `% Status: draft`.
-5. **File the pscat issues upstream** from `docs/pscat-issues.md`. The priority order is below.
-6. **Close #36.**
+5. **Triage the pscat issues** filed on 2026-10-25 as PSCatLabs/pscat#727–#742 (see `docs/pscat-issues.md` for the mapping).
 
 ## Phase A: help the pscat release
 
 This repo is pscat's showcase. Useful work here, in order:
 
-1. **Prepare the pscat issues for filing.** `docs/pscat-issues.md` has 15 entries. For a public release, the ones that matter most are:
-   - **First-run experience (entries 1–3):** the skills promise fonts and font substitution that a bare install doesn't have, and psart's starter sketch fails on a bare install.
-   - **Reproducibility (entry 13):** seeded renders differ between macOS and Linux because pscat uses the platform's libm. A bundled libm would fix it.
-   - **Speed (entries 8, 10, 9):** native noise operators, `--bands N`, and fast real-array I/O.
-   - **Compositing and files (entries 14, 15):** masked images and `nulldevice` are missing, and pscat can't write files at all; this repo's bake cache works around that through stdout.
-   - **Not yet logged:** the pscat MCP render tool's 60 s limit makes agent-driven landscapes impossible, so consider async jobs. An opt-in `--allow-write DIR` would solve entry 15 safely.
+1. **Follow the upstream pscat issues.** All 16 entries of `docs/pscat-issues.md` are filed (PSCatLabs/pscat#727–#742). For a public release, the ones that matter most are:
+   - first-run fonts and skills: #727, #728, #729;
+   - cross-platform reproducibility: #738;
+   - speed: native noise #734, `--bands` #736, array I/O #735;
+   - masked images #739, file writing / `--allow-write` #740;
+   - MCP async renders: #741.
+
+   When one ships, adopt it here. #16 tracks the native operators, and #87 tracks soft-alpha passes.
 2. **Showcase material for the pscat README or site:** `gallery/previews/golden_coast-1280x800.png`, and the refreshed 640x400 previews of mountains, alpine_forest, pnw_coast and tropical_island. Fix #79 (the tropical_island reframe) first if that piece will be shown.
 3. **Time budget for any new showcase render:** about 60 core-minutes at 1280x800. Use `render_bands.sh --auto 3`, which turns on the bake cache, wrapped in a slot lock.
 
@@ -46,6 +47,10 @@ Look follow-ups, filed:
 - **#79:** reframe tropical_island; storm's rain curtain; the edge of the PNW fog; far palms.
 - **#80:** an olive horizon band at low sun with the sky model; soft billow cumulus.
 - **#81:** a plan-only mode for `render_bands.sh`, and a generic subject for `codex_pairwise.sh`.
+- **#84–#86:** ground cover up close, topiary pines, faint sun shafts.
+- **#87:** soft-alpha render passes, once pscat has masked images.
+- **#88:** 1280x800 previews for every piece; mark pieces final.
+- **#89:** cut the v0.1.0 library release (owner).
 - **#21 and #30,** as above.
 
 Known limitations, written up in their PR bodies:
