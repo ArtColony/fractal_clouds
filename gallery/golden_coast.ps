@@ -1,0 +1,104 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+%%Title: Golden coast
+% Status: draft
+% fractal_clouds#36: the epic's features in one picture. A cliffed coast at
+% golden hour, from low over the water under a headland: the sun low over
+% the sea with glitter on the swell, sea stacks in its light, the cliffs
+% (with Sitka spruce and cedar on top) receding to the far headland, and
+% three cloud layers (cumulus, altocumulus, cirrus) in the evening sky.
+% Everything is presets and settings; nothing is drawn by hand.
+%   -D Plan=true  the map from above, the camera and its target marked
+% Framing: scripts/frame.sh -D Res=0.25 -D ErN=256 -D ErDrops=20000 gallery/golden_coast.ps
+% Preview: DPI=72 scripts/render.sh gallery/golden_coast.ps   (320x200, about 5 min)
+% Full size (1280x800): DPI=288 scripts/render_bands.sh gallery/golden_coast.ps --auto 3 -- -D ErN=1024 -D ErDrops=240000
+%   about 65-75 min of one core (probe: 63 min of rows plus 1.3 min of bakes)
+
+/Plan where { pop } { /Plan false def } ifelse
+/Seed where { pop } { /Seed 7 def } ifelse
+/AA where { pop } { /AA true def } ifelse
+
+% --- the map (x east, z north): land to the east, the open sea to the west, --
+% two cliffed headlands with a sandy bay between them (behind this view)
+/MapOn where { pop } { /MapOn true def } ifelse
+/MapSea where { pop } { /MapSea 0 def } ifelse
+/MapRect where { pop } { /MapRect [ -600 -600 600 600 ] def } ifelse
+/MapBackground where { pop } { /MapBackground [ -20 0 ] def } ifelse
+/MapLiftRange where { pop } { /MapLiftRange [ -20 30 ] def } ifelse
+/MapLiftGrid where { pop } { /MapLiftGrid [         % ground height, far (north) row first
+    (        #%%%%%%%%%%%%%%%)
+    (        #%%%%%%%%%%%%%%%)
+    (        #%%%%%%%%%%%%%%%)
+    (       #%%%%%%%%%%%%%%%%)
+    (       #%%%%%%%%%%%%%%%%)
+    (      #%%%%%%%%%%%%%%%%%)
+    (       #%%%%%+%%%%%%%%%%)
+    (         ####==+%%%%%%%%)
+    (               =+%%%%%%%)
+    (               =+%%%%%%%)
+    (                =%%%%%%%)
+    (                =%%%%%%%)
+    (               =+%%%%%%%)
+    (        ##    ==%%%%%%%%)
+    (        #%###=+%%%%%%%%%)
+    (       #%%%%%%%%%%%%%%%%)
+    (        #%%%%%%%%%%%%%%%)
+    (        #%%%%%%%%%%%%%%%)
+    (         #%%%%%%%%%%%%%%)
+    (         #%%%%%%%%%%%%%%)
+    (         #%%%%%%%%%%%%%%)
+    (         #%%%%%%%%%%%%%%)
+    (         #%%%%%%%%%%%%%%)
+    (         #%%%%%%%%%%%%%%)
+] def } ifelse
+/MapFeatures where { pop } { /MapFeatures [
+    [ /cliff 20 60   -170 600  -290 330  -200 240  -50 230  80 240 ]       % the far headland
+    [ /cliff 20 60    60 -90  -50 -80  -200 -110  -230 -200  -170 -330  -160 -600 ]  % the near one
+    [ /stack 22 18   -330 320 ]
+    [ /stack 16 14   -300 250 ]
+    [ /stack 12 10   -370 390 ]
+    [ /stack 14 12   -240 60 ]
+    [ /stack 18 15   -290 -200 ]
+] def } ifelse
+/MapPlanN where { pop } { /MapPlanN 240 def } ifelse
+
+% --- the camera: low over the water under the near headland's cliffs ------
+/StandAt where { pop } { /StandAt [ -190 -330 ] def } ifelse
+/LookAt where { pop } { /LookAt [ -420 50 ] def } ifelse     % out to sea, past the stacks
+/CamHeight where { pop } { /CamHeight 12 def } ifelse      % over the sea, CamAbove counts from the sea floor
+/HFov where { pop } { /HFov 72 def } ifelse
+/TMax where { pop } { /TMax 1400 def } ifelse
+
+% --- light: the sun low over the sea, left of the stacks -----------------------
+/SunElev where { pop } { /SunElev 4 def } ifelse
+/SunAzim where { pop } { /SunAzim -45 def } ifelse
+/Exposure where { pop } { /Exposure 2.1 def } ifelse
+/HazeDist where { pop } { /HazeDist 1000 def } ifelse
+/CloudLayers where { pop } { /CloudLayers [
+    << /Type /Cumulus /Lo 60 /Hi 84 /Threshold 0.62 /CoverAmp 0.8 /Scale 0.03 >>
+    << /Type /Altocumulus /Threshold 0.74 >>
+    /Cirrus
+] def } ifelse
+/Shafts where { pop } { /Shafts false def } ifelse    % no visible gain here at this sun
+
+% --- the sea, the beach and the trees ----------------------------------------
+/Ocean where { pop } { /Ocean true def } ifelse
+/SnowLine where { pop } { /SnowLine 500 def } ifelse
+/TreesOn where { pop } { /TreesOn true def } ifelse
+/FsLine where { pop } { /FsLine 90 def } ifelse
+/FsMix where { pop } { /FsMix [ 0 0 0 0 0 0.6 0.4 ] def } ifelse    % Sitka spruce, red cedar
+/CoastStacks where { pop } { /CoastStacks 0.6 def } ifelse
+/WindDir where { pop } { /WindDir -20 def } ifelse
+/RippleAmp where { pop } { /RippleAmp 0.06 def } ifelse
+
+Plan { /Erode where { pop } { /Erode false def } ifelse } if
+
+(lib/fc_presets.ps) run
+[ /Filmic /Vignette ] fc-presets
+(lib/fc_landscape.ps) run
+
+Plan {
+    320 200 fc-map-plan
+    (C) TerrOX TerrOZ Yaw fc-map-plan-camera
+} { 320 200 fc-landscape } ifelse
+showpage
