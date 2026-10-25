@@ -39,7 +39,7 @@ cases() {
   done
   echo "alpine_forest_crop|gallery/alpine_forest.ps|Crop=[0.35 0.72 0.5 0.86]"
   echo "tropical_island_crop|gallery/tropical_island.ps|Crop=[0.82 0.1 0.94 0.3]"
-  echo "pnw_coast_crop|gallery/pnw_coast.ps|View=2;Crop=[0.15 0.62 0.4 0.82]"
+  echo "pnw_coast_crop|gallery/pnw_coast.ps|View=2;Crop=[0.15 0.52 0.5 0.66]"
 }
 
 mode=stored ref="" docker=0 only=()
