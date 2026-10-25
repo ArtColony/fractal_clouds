@@ -204,7 +204,7 @@ time of day, weather, terrain, and (optionally) season.
 |---|---|---|
 | `/Spring` | `SnowLine` 25, `FsAutumn` 0 | |
 | `/Summer` | `SnowLine` 27, `FsAutumn` 0 | `gallery/alpine_forest.ps`'s early summer |
-| `/Autumn` | `SnowLine` 24, `FsAutumn` 1 | Turns the larches gold and the broadleaves, but only if the stand has them: the default `FsMix [1]` is all spruce, which ignores it, so also set `FsMix` (experimental) |
+| `/Autumn` | `SnowLine` 24, `FsAutumn` 1 | Turns the larches gold and the broadleaves, but only if the stand has them: the default `FsMix [1]` is all spruce, which ignores it, so also set `FsMix` |
 | `/Winter` | `SnowLine` −8, `FsAutumn` 0 | Snow on every slope that is not too steep |
 
 | Tone and grade | Sets | Look |
@@ -218,6 +218,16 @@ time of day, weather, terrain, and (optionally) season.
 | `/SplitTone` | `GradeSplit` 0.5 | Teal shadows, warm highlights |
 | `/CoolMuted` | `GradeTemp` −0.3, `GradeSat` 0.72, `GradeLift` 0.006, `GradeSplit` 0.3 | Muted and cool, for an overcast Pacific Northwest look (#40) |
 | `/Vignette` | `Vignette` 0.3 | Darker edges and corners; deliberately subtle (edges at 70%), raise `Vignette` for more |
+
+| Coast | Sets | Look |
+|---|---|---|
+| `/Tropical` | `SunElev` 62, clear air (`HazeDist` 1500), trade-wind `/Cumulus` (62–92, scattered), `/ACES`, `Ocean` with turquoise shallows and pale sand (`SeaShallow`, `SeaDepth` 2.4, `SandCol`, `CoastSand`, no cobbles or stacks), a reef the surf breaks on (`CoastReef` [60 30 0.15]), palms (`FsMix` all palm, `FsCell` 2.2, no dead trees) | A tropical island at midday: `gallery/tropical_island.ps` |
+| `/PNWCoast` | `SunElev` 30 under two `/Stratus` layers (sea fog 3–22, thin except where `fc-coast-fog` thickens it at the coast; overcast 34–46), thick low haze, a cool muted grade (`GradeTemp` −0.4, `GradeSat` 0.62), a grey-green `Ocean`, dark basalt (`Rock`, `Rock2`, `Scree`), grey sand and cobble (`CoastCobbles` 0.5 plus `CoastCobbleK` 1.2 under cliffs), more stacks and surf rocks, driftwood (`CoastDrift` 1), Sitka spruce and red cedar (`FsMix`) to the cliff tops (`FsLine` 90) | The Pacific Northwest coast in fog: `gallery/pnw_coast.ps` |
+
+Each is a whole look for a map with `MapSea` 0 (the fog layer's heights
+assume it); the piece brings the map, the camera and `SunAzim`. Pick the
+sun's azimuth so the view doesn't look into a low sun over open sea (the
+sea toward a low sun reads cream).
 
 Grade presets combine with each other (list the one whose values should win
 first: `[ /CoolMuted /Vignette ]`) and with the other groups. See the colour
@@ -238,14 +248,197 @@ heights in `/Clear`, `/Overcast` and `/Storm` assume the standard terrain
 | `CamAbove` | 6 | Otherwise, the camera sits this far above the ground below it. | 5, 6, 8 |
 | `CamHeight` | null | A number puts the camera at exactly that height and overrides both of the above. | |
 | `Profile` | false | true loads `lib/fc_bench.ps`, wraps the main procedures with call counters and timers, and prints a table when `fc-render` finishes (see Profiling below). false wraps nothing and the picture is unchanged. | false, true |
+| `BakeCache` | false | Keep the erosion and forest bakes in `renders/cache/` and read them back when nothing they depend on has changed (`lib/fc_cache.ps`; see Bake cache below). The picture is the same byte for byte either way. `render_bands.sh` turns it on. | false, true |
 | `WaterY` | null | A number puts a lake (or sea) surface at that height everywhere the ground is lower (`lib/fc_water.ps`). | null, −0.5 |
 | `WaterRise` | null | A number sets `WaterY` this far above the ground under the camera (worked out during setup, from the terrain before erosion). | 1.4 |
 | `Rivers` | false | Carve rivers along the erosion map's drainage and fill them (needs `Erode`). Adds the flow pass to the bake and the river bake after it. | false, true |
 | `MapWater` | false | Fill the terrain map's `/lake` features (`MapOn`) with water at their levels, each over its polygon and shore band. | true |
+| `StandAt` | null | `[x z]` in map coordinates (the terrain's own: what `MapFeatures` use, `x` east, `z` north): stand the camera there. Sets `TerrOX`/`TerrOZ` as `fc_landscape.ps` loads, overriding the piece's own. The height still comes from `CamAbove`, `CamLift` or `CamHeight`. | [430 0] |
+| `LookAt` | null | `[x z]` or `[x y z]` in map coordinates: aim the centre of the frame there. `Yaw` is set as the file loads (before the erosion and forest windows, which lie along it, are placed) and `Pitch` during `fc-landscape-setup`, once the camera height and the ground at the target (`fc-height`, eroded) are known; over water (`WaterY`, or a map's `MapSea`) it aims at the surface instead. A map lake's level (`MapWater`) isn't consulted: give `[x y z]` to aim at its water rather than its bed. `y` gives the target's height outright. Overrides the piece's `Yaw` and `Pitch`. A target where the camera stands is ignored, with a message. | [190 185] (a peak) |
+| `LookTilt` | 0 | Degrees added to the `Pitch` that `LookAt` works out: positive tilts the view up, so the target sits lower in the frame: tan(`LookTilt`)/tan(`HFov`/2) half frame widths, about a quarter of the height per 10° on a 320×200 frame at `HFov` 60. | 0, 4 |
 
-The camera always stands at x = z = 0, looking along +z before `Yaw`.
-To stand somewhere else in the terrain, move the terrain under it with
-`TerrOX`/`TerrOZ`.
+The camera always stands at x = z = 0 in the world, looking along +z before
+`Yaw`. To stand somewhere else in the terrain, the terrain moves under it:
+`TerrOX`/`TerrOZ`, or `StandAt` and `LookAt` to name map points instead of
+trying offsets and angles. With `MapOn`, `fc-map-plan` marks a camera placed
+this way and the point it aims at, so a view can be planned on the plan
+(`-D Plan=true` in `gallery/charted_range.ps`):
+
+```sh
+scripts/render.sh -D Plan=true -D 'StandAt=[430 0]' -D 'LookAt=[190 185]' gallery/charted_range.ps
+scripts/frame.sh -D 'StandAt=[430 0]' -D 'LookAt=[190 185]' -D LookTilt=4 gallery/charted_range.ps
+```
+
+## Composition passes (`scripts/frame.sh`, `render.sh --sweep`, `lib/fc_frame.ps`)
+
+Two quick looks before paying for detail, both through `scripts/render.sh`
+(so they are timed in `timings.tsv`):
+
+- **Framing pass.** `scripts/frame.sh gallery/foo.ps` (the same as
+  `scripts/render.sh --frame`) renders at `Res` 0.5 with `AA` off and draws a
+  rule-of-thirds grid, the horizon (eye level: where rays are level, from
+  `Pitch` and `HFov`; the log prints its height as a percentage from the top)
+  and, with `LookAt`, a red circle on the aim point. It writes
+  `renders/foo-frame.png`. `-D Res=...` or `-D AA=...` override the defaults;
+  other `-D` options pass through as usual.
+- **Contact sheets.** `scripts/render.sh --sweep NAME=SPEC gallery/foo.ps`
+  renders one frame per value (`SPEC` is `A:B`, `A:B:STEP` or `A,B,C`) at
+  `Res` 0.25, labels each `NAME = value` in its corner, and composites them
+  into `renders/foo-sweep.png` (the frames are `foo-sweep-001.png`, ...).
+  `--grid 3x2` sets the sheet's columns and rows. `--sweep Seed=1:9` is the
+  seed sheet: `Seed` makes the range, and a frame you like is a `Seed` you
+  can set. pscat's own `--sweep-seed SPEC` works too, but it overrides every
+  `srand` call with the same value (the noises, the trees, the erosion
+  droplets and the jitter all reseed from it, instead of from the offsets of
+  `Seed`), so its frames can't be reproduced by a setting. A swept
+  setting has to be one the piece reads with `/NAME where` (or leaves to a
+  library's default); `--frame` and `--sweep` combine. pscat refuses `--lint`
+  with a sweep, so sweeps aren't linted.
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `FrameGrid` | false | `lib/fc_frame.ps`: draw the thirds grid, horizon and aim point over the page just before `showpage` (`--frame` sets it). | true |
+| `FrameLabel` | null | `lib/fc_frame.ps`: a name, such as `/Seed`; its value is printed in the bottom-left corner before `showpage` (`--sweep` sets it). | /Seed |
+
+`lib/fc_frame.ps` wraps `showpage`, so it works on any piece without changes;
+`render.sh` loads it ahead of the piece only for these passes. Its procedure
+`pw ph fc-frame-overlay` draws the grid and horizon on a `pw`×`ph` frame.
+
+## Render passes and placement (`lib/fc_passes.ps`, with `Pass` or `PassKeep`)
+
+For a landscape used as part of a larger work (#33). `fc_landscape.ps` loads
+`lib/fc_passes.ps` last when `Pass` isn't `/beauty` or `PassKeep` names a
+pass; with neither, nothing changes. A pass is written as is: no colour grade,
+no tone curve.
+
+```sh
+scripts/render.sh --pass mask gallery/foo.ps        # renders/foo-mask.png
+scripts/render.sh --pass matte -D PassMat=/snow gallery/foo.ps   # renders/foo-matte.png
+scripts/render.sh -D "Scene=(scenes/evening_lake.ps)" --pass depth scenes/scene.ps
+DPI=288 scripts/render_bands.sh gallery/foo.ps -- --pass mask  # bands: renders/foo-mask.png
+```
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `Pass` | /beauty | What the image shows. `/mask`: coverage, white on the landscape and black on open sky; clouds over the sky count by their opacity (1 − `Tr`) unless `MaskClouds` is false; antialiased edges come out soft, an alpha. `/depth`: 1 − t/`DepthFar`, clamped (white near, black at `DepthFar` and on the sky; t is the hit distance, `LnT`; not `FcKey`, which water scales for the antialiasing). `/material`: one flat colour per material (table below), the one with the largest share of the pixel; `AA` is turned off, so every pixel is exactly one of the eight colours. `/matte`: the share of the pixel that `PassMat` covers, 0–1, soft where materials blend. `/mask` and `/depth` march the hit (and the clouds, for the mask) without shading anything, so they cost a fraction of the picture. | /mask, /depth, /material, /matte |
+| `PassMat` | /snow | The material `/matte` shows: `/sky /cloud /rock /snow /forest /water /sand /grass`. | /snow |
+| `PassKeep` | [] | Passes to record while the image renders, any of `/beauty /mask /depth /material`, to draw again with `fc-pass-draw` and to clip with (below). With `Crop`, the kept rows and columns outside the crop stay zero: sky in the mask and IDs, black in the beauty and depth. One byte a pixel (three for the beauty); the centre sample, so the kept mask, depth and IDs aren't antialiased (the kept beauty is, when `Pass` is `/beauty`: it copies the finished rows). | [/beauty /mask /depth /material] |
+| `MaskClouds` | true | Clouds over the sky count in the mask (and so in `fc-sky-clip`). false: the mask is the ground alone. | false |
+| `DepthFar` | null | The distance at which `/depth` reaches black; null: `TMax`. | 500 |
+
+The materials, and their colours in `/material` (sRGB):
+
+| ID | Name | Colour | What |
+|---|---|---|---|
+| 0 | sky | 0 0 0 | rays that hit nothing |
+| 1 | cloud | 255 255 255 | the clouds in front of whatever is behind, by their opacity |
+| 2 | rock | 214 39 40 | bare ground: rock, scree, strata |
+| 3 | snow | 102 224 255 | `fc_terrain`'s snow (`Ksnow`) |
+| 4 | forest | 44 160 44 | `fc_terrain`'s painted forest (`Kfor`), `fc_trees`' trees (`FsMat` 1), and its far canopy (`Ftc`) and needle-litter forest floor (`Ftn`) painted on the ground |
+| 5 | water | 31 79 216 | lakes, rivers and the sea (`fc_water`'s `AqWet`) |
+| 6 | sand | 242 200 75 | `fc_coast`'s beaches, `fc_ocean`'s sand |
+| 7 | grass | 166 216 84 | `fc_trees`' grass and meadow below the treeline (`Ftg`) |
+
+A pixel's shares come from what the hit and the shading left behind: no hit is
+sky; a water hit is water; a tree is forest; ground is sand S (`fc_coast`'s
+`XcMw`, `fc_ocean`'s `OcSd`), then, top down as `fc_trees` paints them, the
+needle-litter forest floor (`Ftn`; read as the hook leaves it, so roughly) and
+the far canopy (`Ftc`), both forest, and grass (`Ftg`), then of the rest R:
+snow R·`Ksnow`, painted forest R(1 − `Ksnow`)·`Kfor`, and rock what is left. These are zeroed before each pixel, so a piece's own
+surface hook that sets none of them reads as rock. Each is scaled by the clouds'
+transmittance `Tr`, and the cloud gets 1 − `Tr`. Shore stones, wet sand and
+ledge snow count as the ground under them.
+
+**Placement.** `fc-render` (and so `fc-landscape`) fills `pw`×`ph` units of
+the *current* user space at one sample per device pixel (along each axis), so translate and
+scale first to put a landscape in a rectangle of a larger page:
+`gsave 36 84 translate 1.125 dup scale 320 200 fc-landscape grestore`. The
+detail follows the placed size. `Crop`, `PixSeed` and `Res` count in the
+frame, as before, and the framing overlay (`--frame`) is drawn over the frame
+where it was placed. `scripts/render_bands.sh` assumes the frame fills the
+page (it cuts by the `%%BoundingBox` height), so for bands render the
+landscape and its passes as pieces of their own, full frame. A pass after
+`--` (`--pass mask` or `-D Pass=/mask`) goes to every band and names the
+bands and the stitched image `<name>-mask.png`, in `OUT` if it is set.
+`render.sh --pass` rejects an unknown pass name.
+
+**One render, several passes.** With `PassKeep`, a page can render once and
+use the passes as it likes (`docs/examples/framed_print.ps`):
+
+| Procedure | Stack | What it does |
+|---|---|---|
+| `fc-landscape-keep` | `pw ph → –` | `fc-landscape` through an empty clip: render and record, paint nothing. |
+| `fc-pass-draw` | `name → –` | Paint a kept pass (`/beauty /mask /depth /material`) over `0 0 pw ph` of the current user space. |
+| `fc-sky-clip` | `– → –` | Intersect the clip with the kept mask's sky (mask below 0.5), in the same space. Art drawn after it sits behind the mountains. |
+| `fc-land-clip` | `– → –` | ... or with the landscape. A beauty drawn through it leaves the sky to what was drawn before, or transparent with `render.sh --transparent`. |
+| `fc-render-row` | `row → –` | (`fc_render.ps`) Called with each finished row string (row `FrJ`, from column `FrI0`) before it is drawn; does nothing unless `fc_passes` is loaded. |
+
+The clips are hard-edged, one landscape pixel per step. pscat has no
+`ImageType 3` (masked images) and no `nulldevice`, so the mask can't be an
+alpha channel of the picture within PostScript: for soft compositing, render
+`--pass mask` as its own PNG. A piece that redefines `fc-pixel` itself
+bypasses the passes; one that redefines the hooks keeps them.
+
+## Bake cache (`lib/fc_cache.ps`, with `BakeCache`)
+
+The erosion bake (about 1.5 min at `ErN` 1024, more with `ErFar` or
+`ErThermal`) and the forest bake (about 9 s) run before every render, and
+before every band of a banded one. With `BakeCache` on, `fc-landscape-setup`
+runs each through `fc-cache-run`: a bake whose inputs match a file in
+`renders/cache/` is read back from it instead (a fraction of a second), and
+one that doesn't is baked and then filed there for next time. The rivers
+(`Rivers`) are part of the erosion's entry, since they carve its map.
+
+```sh
+BAKE_CACHE=1 scripts/render.sh -D ErN=1024 gallery/alpine_forest.ps   # bakes, files the bakes
+BAKE_CACHE=1 scripts/render.sh -D ErN=1024 gallery/alpine_forest.ps   # reads them back
+DPI=288 scripts/render_bands.sh gallery/alpine_forest.ps -- -D ErN=1024   # on by default: the probe bakes, the bands read
+```
+
+- **It needs `scripts/render.sh`.** pscat can't write files
+  (`docs/pscat-issues.md` #15), so a bake that missed prints itself to the
+  log, and `render.sh` moves it into `renders/cache/<bake>-<key>.ps` by a
+  temporary file and a rename (bands running in parallel never read half a
+  file). `render.sh` also defines `FcCacheSrc`, a hash of `lib/*.ps`, the
+  piece, `.pscat-version` and the installed pscat's version; without it
+  (bare `pscat`) nothing is cached. `regress.sh` turns the cache off, so its
+  renders always bake. A piece that runs the setup inside a dictionary of
+  its own (`currentdict` isn't `userdict`) isn't cached.
+- **The key** is everything a bake can read when it starts: every entry of
+  `userdict` (and of the current dictionary, if a piece has begun its own),
+  procedures included (operators by name), the random stream's state, the
+  bake's name and `FcCacheSrc`. Reals are hashed exactly, except inside
+  arrays of over 64 entries, where they count to 1e-9 (a character loop per
+  number would take seconds over a large map). An array or dict that an
+  earlier cached bake of the same run made (the erosion map, at the forest's
+  turn) counts as that bake's key instead of its contents. Render-only
+  names are left out (`Crop`, `Res`, `PixSeed`, `RowTimes`, `AA`, `Pass`,
+  `PassKeep`, `FrameGrid`, `FrameLabel`, `Profile`, and `LnSetUp`, `BakeCache`,
+  `BakeCacheSkip`, `BakeCacheDebug`, `FcCacheSrc`), so a probe, its bands, a
+  crop and a preview at another `Res` all share a bake; so are the libraries'
+  `usertime` stamps (`EbT0`, `FsT0` ...). A setting the key should leave out
+  only causes a miss; add render-only ones of a piece's own to
+  `BakeCacheSkip`.
+- **A hit leaves exactly the state a bake would**: every name the bake
+  defined or changed, temporaries included, and the random stream (`srand`
+  to the state the bake left), so later draws and the next bake's key are
+  the same either way. A bake that changes an existing array or dict in
+  place, takes a name away, or leaves one array in two places inside what
+  it made can't be written that way, so it isn't cached (the log says
+  `can't keep <name>`); the erosion, river and forest bakes do none of these.
+  `render.sh --sweep-seed` turns the cache off, since pscat's seed sweep
+  overrides the `srand` that puts the stream back.
+- **Disk:** about 20 MB per million reals (the erosion map at `ErN` 1024 is
+  one, plus `ErFlow` with `Rivers`); the forest map at `FsN` 384 is about
+  8 MB. After filing a bake, `render.sh` deletes the oldest files once
+  `renders/cache/` is over `BAKE_CACHE_MAX_MB` (default 2048);
+  `rm -rf renders/cache` empties it.
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `BakeCache` | false | Read and write `renders/cache/`. `BAKE_CACHE=1 scripts/render.sh` (or `-D BakeCache=true`) turns it on; `render_bands.sh` sets `BAKE_CACHE=1` unless it is `0`. | false, true |
+| `BakeCacheSkip` | [] | More names to leave out of the key: settings only the render reads, if a piece adds its own. | |
+| `BakeCacheDebug` | false | Print each key entry's hash (`%%FcKey name h1 h2`) to the log; sort and diff two logs to find what makes a second run miss. | |
 
 ## Profiling (`lib/fc_bench.ps`, with `Profile`)
 
@@ -318,6 +511,14 @@ blend sky (`SkyModel` false), exactly as before.
 | `HazeDist` | 520 | Distance at which haze reaches 63% at height 0. Smaller means thicker air. | 400, 520, 650 |
 | `HazeH` | 45 | Height over which the haze thins by a factor of e. | 45 |
 | `HazeChroma` | 1 with `SkyModel`, else 0 | How far the haze fades each channel at its own rate. 1 takes the haze to be the model's Rayleigh air plus enough neutral aerosol to reach `HazeDist` in green, so blue fades a little sooner and red a little later (about 15% and 4% at `HazeDist` 650: a haze that thick is mostly aerosol); 0 fades every channel over `HazeDist`; 2 or 3 exaggerates the blue distance. `HazeDist` is the green channel's distance. | 0, 1 |
+| `Shafts` | false | Sun shafts (#49): crepuscular rays where clouds shadow the haze. Loads `lib/fc_shafts.ps`, which marches each ray's haze once through the clouds' shadows and darkens the shadowed part; lit haze keeps its value. Off, the closed-form haze runs as before. Needs a sun above the horizon and clouds that cast shadows; strongest looking toward a low sun, with haze that reaches up toward the cloud base (a larger `HazeH`). Costs up to `ShaftSteps` shadow probes per ray, each one density evaluation per layer (times the layer's `Probes`: 3 for the storm) at `min(ShaftOct, ShadOct)` octaves. | false, true |
+| `ShaftSteps` | 48 | Shadow probes per ray, evenly spaced over its first `ShaftDist` and offset by the pixel's blue-noise value (as the cloud march's, #27, so bands and crops match). Fewer is faster and grainier or more rippled. | 32, 48, 96 |
+| `ShaftJitter` | 0.2 | How much of that blue-noise offset the steps get. 1 is a whole step: no ripples, but a fine grain in the haze (about three times the shafts-off grain at 32 steps). 0 puts every probe at its step's middle: no grain, but where a step is long beside a cloud's shadow, faint ripples. | 0, 0.2, 1 |
+| `ShaftDist` | `HazeDist` | How far out the probes go. The haze beyond is taken to be shadowed by the average of the marched part. | 300 … 600 |
+| `ShaftOct` | 1 | Noise octaves in each shadow probe (at most the layer's `ShadOct`). More gives finer, grainier shafts and costs more. | 1, 2 |
+| `ShaftDark` | 0.8 | The share of the haze's light that is direct sun, lost where the air is in shadow. 0 shows no shafts; 1 makes shadowed haze dark. | 0.6 … 0.9 |
+
+With `Shafts`, `fc_shafts.ps` also wraps `fc-landscape-sky` at the first ray (the hook is defined after it loads), so a ray that misses everything below the horizon loses its shadowed haze as far terrain beside it does. A piece's own `fc-landscape-sky` is wrapped the same way; if it calls `fc-sky` for rays below the horizon, those are darkened twice. Not shadowed: the haze in water reflections (closed form), and mountains' shadows in the haze (only clouds cast shafts).
 
 `fc-sun-update` recomputes everything derived after a piece changes
 `SunDir`, `SunElev` or the moon after loading.
@@ -553,6 +754,8 @@ takes the domain warp away near features. `fc-map-bake` samples it all
 into a `MapN`² table when the library loads; a piece that changes the map
 afterwards calls `fc-map-bake` again, before `fc-landscape-setup` (the
 erosion bake reads the terrain). `fc-map-plan` draws the map from above;
+`(label) x z yaw fc-map-plan-camera` marks a viewpoint on it and
+`x z fc-map-plan-target` an aim point (it marks `StandAt`/`LookAt` itself);
 `gallery/charted_range.ps` shows the lot. Only `TerrFn` 3 uses the map.
 
 | Setting | Default | What it does | Used |
@@ -642,6 +845,17 @@ sea (their load is lost).
 | `CoastSand`, `CoastCobble` | sRGB | The beach's colours; cobbles are mottled. | |
 | `CoastCobbles` | 0.3 | How much of the beaches is cobble, 0–1. | |
 | `CoastSandW` | 40 | How far inland the beach material reaches. | |
+| `CoastCobbleK` | 0 | More cobble under cliffs: added to `CoastCobbles` in proportion to how cliffed the shore is (#40), so coves under cliffs are cobble and open beaches sand. | 1.2 (`/PNWCoast`) |
+| `CoastDrift` | 0 | Driftwood along the top of the beach, 0–1 (#40): logs 0.8–1.8 units long and 0.1–0.2 across, lying at any angle, a third sunk in the sand, one candidate per 2.5-unit cell kept by noise (half of them at 1) (more with a higher value; the random stream is untouched). A heightfield bump, so near detail only (more than five terrain octaves), on low shores only (cliffedness under 0.5). | 1 (`/PNWCoast`) |
+| `CoastDriftBand` | [8 24] | `lo hi`: the band of (wobbled) distance from the water the logs lie in: the high-tide line at the back of the beach. | |
+| `CoastDriftCol` | [0.60 0.57 0.52] | Bleached wood, sRGB, darker along the grain. | |
+| `CoastFog` | [0.25 40] | `add reach` for `fc-coast-fog` (below), and optionally a third number, `top`: the added fog thins out from `MapSea` up to that height. | [0.25 40 20] (`/PNWCoast`) |
+
+`x y z oct fc-coast-fog dd` is a cloud layer's `Shape` (see Cloud layers):
+it adds `add` to the layer's density at the coastline (by `fc-coast-dist`,
+over land or water), fading to nothing `reach` away (a reach that wanders by two noise octaves, ±0.9 `reach`, so the bank's edge breaks into lobes), so fog lies along the
+shore and fills coves (all of a cove is near some shore) while the open sea
+and the land inland stay clearer. `/PNWCoast` uses it on a low `/Stratus`.
 
 ## Terrain surface and light (`fc_terrain.ps`)
 
@@ -729,10 +943,12 @@ it, the forest is only a colour texture on the ground.
 | `FsTrunks` | true | Trunks, and crowns lifted off the ground where the lower branches have died (dense stands; the species' `base` and `baseDense`). Only where a crown is over about 4 px wide. false keeps every crown on the ground, every tree alive (snags and logs need trunks), near spruce outlines as smooth as before: the look before #25. | true |
 | `FsSnag` | 0.03 | Fraction of the trees that are dead snags: a bare, broken-off trunk. Only drawn where trunks are. | 0.03 |
 | `FsFallen` | 0.02 | Fraction lying on the ground as logs. | 0.02 |
-| `FsMix` | [1] | **Experimental.** Weights of the species in `FsSpecies`, in order: spruce, fir, pine, larch, broadleaf. `[1]` is a pure spruce forest (the default look). Broadleaves only grow well below the treeline, so their share is smaller higher up. A mix with pine and broadleaf (`[0.45 0.2 0.15 0.1 0.1]`) lost blind pairwise to the spruce stand on the current sky (blocky pine and broadleaf crowns, pole-like trunks; `docs/prs/25-trees-species/`); work continues in #53. | [1] |
+| `FsSnagDens` | 0.55 | Snags only in a closed stand (#53). A snag's share fades out over `FsSnagDens` ± 0.15 of the forest density at the tree's cell: the full `FsSnag` above `FsSnagDens` + 0.15, none below `FsSnagDens` − 0.15. Trees that would have been snags below that stand alive. In the open, a lone snag reads as a fence post. 0 puts snags anywhere, as before #53. | 0.55 |
+| `FsMix` | [1] | Weights of the species in `FsSpecies`, in order: spruce, fir, pine, larch, broadleaf, Sitka spruce, red cedar, palm (zero weights skip a species: `/PNWCoast` has `[0 0 0 0 0 0.6 0.4]`). `[1]` is a pure spruce forest (the default look). Broadleaves only grow well below the treeline, so their share is smaller higher up. Where every weight has faded out, a tree is a spruce. With #53's pine and broadleaf crowns, the mix `[0.45 0.2 0.15 0.1 0.1]` beats the spruce stand on realism in blind pairwise, in both orders (`docs/prs/53-pine-broadleaf/`); it lost before #53 (`docs/prs/25-trees-species/`). | [1] |
 | `FsAutumn` | 0 | Season: at 1 the larches are gold and the broadleaves turned (per-tree, some earlier than others). Evergreens ignore it. | 0 |
-| `FsSpecies` | (five dicts) | The species table (pine and broadleaf are experimental, see `FsMix` and #53): one dict per species with its crown profile (`env droop tiers`, and optionally `rag` and `lobes`, how ragged the outline is and how many lobes it has round the trunk, both 1 for spruce), `rad` (crown radius / height), `hmul` (height), `base` and `baseDense` (crown base / height in the open and in a dense stand), `trunk` (radius / height), colours `alb alb2 shade autumn bark` (sRGB; `null` means the spruce setting) and an altitude band `lo hi` (height relative to the treeline). Define a whole table to add a species; the pieces' `FsMix` then needs a weight for it. | |
+| `FsSpecies` | (eight dicts) | The species table (pine and broadleaf are #53's; Sitka spruce, western red cedar and the palm are #40's): one dict per species with its crown profile (`env droop tiers`, and optionally `rag` and `lobes`, how ragged the outline is and how many lobes it has round the trunk, both 1 for spruce), `rad` (crown radius / height), `hmul` (height), `base` and `baseDense` (crown base / height in the open and in a dense stand), `trunk` (radius / height), colours `alb alb2 shade autumn bark` (sRGB; `null` means the spruce setting) and an altitude band `lo hi` (height relative to the treeline). Define a whole table to add a species; the pieces' `FsMix` then needs a weight for it. Optional `form`: `/palm` makes a palm instead of a conifer (#40): `fronds` drooping fronds (11) on a curved trunk leaning `lean` of its height (0.14, varied per tree), `droop` how far the fronds hang (1 is the tips about 0.65 crown radius under the crown's centre), `rad` the crown radius; `env`, `tiers`, `base` and `baseDense` are unused, and palms are never dead. A palm needs a larger `FsCell` (about 2.2): its lean and crown together stay within 0.55 cell, which caps the crown. `/blob` (#53, pine and broadleaf) makes a crown of rounded masses of foliage round a core (`fc-blob-prof`): `masses` of them (6), each `msize` of the crown radius (0.45, varied 0.6–1.4 times), `mflat` as tall as wide (0.6), set `mspread` (0..1, 0.9) of the way out to the crown's envelope, an ellipsoid at `menv` 0 and a cone at 1 (0), but never so far out from the trunk that it leaves the core, the crown's own ellipsoid shrunk by `mcore` (0.6). `env`, `droop`, `tiers` and `lobes` are unused there, and `rag` notches the masses' outlines (keep it under about 2.5). `mcore` must be at most 1 and `menv` between 0 and 1 (checked). Caveat: up close (crowns over about 40 px) a pine's pad tiers can read as topiary, and its small top pad can sit just clear of the rest. Optional `slim` (0.6): a lifted crown's radius is `1 − slim·base` of the full one (0 for the blob crowns). `rag` must be under 5, and `droop`, `base` and `baseDense` not negative: loading stops with a `rangecheck` otherwise. The table is read once, when `lib/fc_trees.ps` loads (colours converted, missing keys filled in, bounds and the spruce globals worked out), so define `FsSpecies` and `FsMix` before the `run` line. Changing either afterwards isn't supported: what was worked out from them at load stays as it was, so the result is a mix of old and new. | |
 | `FsBark` | [0.21 0.16 0.12] | Spruce bark (other species carry their own). | |
+| `FsShoreH` | 1.5 | On a coast (`lib/fc_coast.ps` loaded): no trees on low ground (under `FsShoreH` above the beach's berm, `MapSea + CoastBerm`) within `CoastSandW` of the water, fading in over its outer half; higher ground (cliff tops, stacks) keeps its trees however near the sea. 0 turns the gate off (#40). | 1.5 |
 | `FsSnagCol` | [0.40 0.36 0.31] | Weathered dead wood: snags, and the sides of logs. | |
 | `FsLogCol` | [0.30 0.27 0.20] | The mossy top of a fallen trunk. | |
 | `FsN` | 384 | Density map resolution. | 384 |
@@ -843,7 +1059,7 @@ These are procedures, not settings. Redefine them **after** loading
 | `fc-forest-dens` | `x z h ny curv → density height-scale` | `fc_trees`' rules. Wrap it to keep trees off some ground, as `fc_water` does. Redefine it before `fc-landscape-setup`. |
 | `fc-terrain-material` | reads and changes `Alb KlMul KskyMul KbMul` | Defined by `fc_trees` (forest floor), and chained onto by `fc_coast` (beaches) and `fc_water` (shores). With none of them it doesn't exist, and a piece can define it to paint the ground. |
 | `fc-terrain-base` | `x z → lift mask pin` | Defined by `fc_map.ps` (`MapOn`); otherwise absent and the noise massif is used. Map coordinates in; the lift in world units, the massif mask 0–1 and the pin 0–1 out. A piece can define its own (an analytic island, say) before `fc-landscape-setup`. |
-| `fc-pixel` | `u v → r g b` | `fc-landscape-pixel`. Replace it entirely for a different scene. |
+| `fc-pixel` | `u v → r g b` | `fc-landscape-pixel` (wrapped by `fc_passes.ps` when a pass is asked for). Replace it entirely for a different scene. |
 
 While a hook runs, `Mx My Mz` is the pixel's unit ray, from `(0, CamY, 0)`.
 `PixAng` is the angle one pixel covers, so `t PixAng mul` is a pixel's

@@ -67,6 +67,11 @@ table in `references/recipes.md`:
   with `/Alpine` is a known valley, while `/Foothills` from it is a flat
   plain); a new `Seed` is a new range. To get forest large in frame, put the
   camera among the trees (lower `CamAbove`, a nearer slope), not in settings.
+  Rather than nudging offsets and angles by trial, name map points:
+  `/StandAt [x z]` stands the camera there and `/LookAt [x z]` (or `[x y z]`)
+  aims the frame's centre at another, setting `Yaw` and `Pitch`; `LookTilt`
+  tilts up from there, putting the target lower in the frame. With `MapOn`,
+  `fc-map-plan` marks the camera and its target, so plan the view on the plan.
 
 ### 2. Write the piece
 
@@ -80,14 +85,27 @@ A misspelt preset stops with `fc_presets: no preset called ...`.
 ### 3. Framing pass (cheap)
 
 ```sh
-DPI=36 scripts/render.sh gallery/<name>.ps       # 160x100, 1.5 to 3 minutes
+scripts/frame.sh gallery/<name>.ps     # renders/<name>-frame.png: Res 0.5, no AA,
+                                       # a thirds grid, the horizon, LookAt's point
 ```
 
-Cheaper still: `DPI=36 scripts/render.sh -D Res=0.25 -D ErN=256 -D ErDrops=20000 gallery/<name>.ps`
-(`-D` options go before the piece path).
+Cheaper still: `scripts/frame.sh -D Res=0.25 -D ErN=256 -D ErDrops=20000 gallery/<name>.ps`
+(`-D` options go before the piece path; a plain `DPI=36 scripts/render.sh` works
+too, without the overlay).
 Check the composition: horizon height, where the light falls, what is in the
 foreground. Adjust camera, then seed, then settings. Two or three passes, not
-ten. `-D Profile=true` prints where the time goes if a render is slow.
+ten. To choose a seed or a value, make a contact sheet, one labelled frame per
+value at `Res` 0.25 (`renders/<name>-sweep.png`):
+
+```sh
+scripts/render.sh --sweep Seed=1:9 gallery/<name>.ps         # nine ranges
+scripts/render.sh --sweep Pitch=2,5,8 --grid 3x1 gallery/<name>.ps
+```
+
+Sweep `Seed`, not `--sweep-seed` (that feeds one value to every `srand`, so
+the frame you pick can't be set back as a `Seed`). A swept setting must be one the piece
+reads with `where` (or leaves to a library). `-D Profile=true` prints where the
+time goes if a render is slow.
 
 ### 4. Crops at full detail
 
@@ -117,6 +135,16 @@ the background (tens of minutes to an hour); the result is
 (#19, #27), so the cuts leave no seams. Copy the chosen render
 to `gallery/previews/` (or the example's `docs/` directory) by hand:
 `renders/` is git-ignored.
+
+**Passes**, when the landscape is a part of a larger work (or asked for):
+the same render with `--pass mask` (sky alpha), `--pass depth`,
+`--pass material` (flat IDs: sky, cloud, rock, snow, forest, water, sand,
+grass) or `--pass matte -D PassMat=/snow` gives `renders/<name>-<pass>.png`;
+`render_bands.sh ... -- --pass mask` bands it into `renders/<name>-mask.png`. To put a landscape inside a page of other art,
+translate and scale before `fc-landscape` (detail follows the placed size),
+and with `PassKeep` render once and use `fc-pass-draw`, `fc-sky-clip` (art
+behind the mountains) and `fc-land-clip`: `docs/examples/framed_print.ps`,
+`docs/settings.md` "Render passes and placement".
 
 ### 6. Review loop
 

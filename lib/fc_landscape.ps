@@ -36,6 +36,20 @@
 %   MapWater  false  fill the lakes of a terrain map (MapOn, fc_map.ps) at
 %                    their levels. Any of these four loads lib/fc_water.ps,
 %                    which wraps the hit and surface hooks below
+%   StandAt   null   [x z] in map (terrain) coordinates: stand the camera
+%                    there (sets TerrOX TerrOZ, overriding the piece's)
+%   LookAt    null   [x z] or [x y z]: aim the camera at that map point
+%                    (sets Yaw as this file loads, and Pitch during setup,
+%                    once the camera height and the ground there are known;
+%                    without y, the ground at x z, or WaterY / MapSea where
+%                    higher; a map lake's level isn't used: give y)
+%   LookTilt  0      degrees added to the Pitch LookAt works out (positive
+%                    tilts the view up, lowering the target in the frame)
+%   BakeCache false  keep the erosion and forest bakes in renders/cache/ and
+%                    read them back (lib/fc_cache.ps)
+%   Pass      /beauty  /mask, /depth, /material or /matte: draw that render
+%                    pass instead of the picture (lib/fc_passes.ps)
+%   PassKeep  []     passes to record for drawing again (fc-pass-draw)
 %
 % Hooks: fc-pixel calls these by name, so a piece can redefine any of them
 % after loading (each one's default is below):
@@ -52,6 +66,25 @@
 % after the surface and sky, LnT is the hit distance (TMax for sky) and
 % LnR LnG LnB the colour before clouds. A piece can also write its own
 % /fc-pixel from these parts.
+
+% --- where the camera stands and what it aims at (#23) -----------------------
+% StandAt and LookAt are map points. The offsets and the yaw are set here,
+% before any library reads them (fc_sky's camera, the erosion and forest
+% windows, which lie along Yaw); the pitch needs heights, so setup sets it.
+/StandAt where { pop } { /StandAt null def } ifelse
+/LookAt where { pop } { /LookAt null def } ifelse
+/LookTilt where { pop } { /LookTilt 0 def } ifelse
+StandAt null ne { /TerrOX StandAt 0 get def /TerrOZ StandAt 1 get def } if
+/LnLkOn false def
+LookAt null ne {
+    /LnLkX LookAt 0 get /TerrOX where { pop TerrOX } { 0 } ifelse sub def
+    /LnLkZ LookAt LookAt length 1 sub get /TerrOZ where { pop TerrOZ } { 0 } ifelse sub def
+    /LnLkD LnLkX dup mul LnLkZ dup mul add sqrt def
+    LnLkD 1e-6 gt {
+        /LnLkOn true def
+        /Yaw LnLkX LnLkZ atan dup 180 gt { 360 sub } if def
+    } { (fc_landscape: LookAt is where the camera stands; Yaw and Pitch left alone\n) print } ifelse
+} if
 
 (lib/fc_sky.ps) run
 (lib/fc_noise2.ps) run (lib/fc_noise3.ps) run
@@ -73,6 +106,7 @@ TreesOn { /TreeLine -1000 fc-default } if     % fc_trees paints the forest
 (lib/fc_terrain.ps) run
 (lib/fc_render.ps) run
 (lib/fc_erode.ps) run
+(lib/fc_cache.ps) run
 TreesOn { (lib/fc_trees.ps) run } if
 Profile { (lib/fc_bench.ps) run } if
 
@@ -85,14 +119,30 @@ Profile { (lib/fc_bench.ps) run } if
     WaterRise null ne { /WaterY 0 0 TerrOct fc-height-proc WaterRise add def } if
     TreesOn { Seed 303 add fc-trees-init } if
     Seed 202 add srand
-    Erode { fc-erode-bake } if
-    Rivers { Erode { fc-water-rivers } { (fc_landscape: Rivers needs Erode\n) print } ifelse } if
-    TreesOn { fc-forest-bake } if
+    % the bakes go through fc_cache.ps, which (with BakeCache on) reads
+    % them back from renders/cache/ when their inputs haven't changed;
+    % the rivers carve the erosion map, so they belong to its bake
+    Erode { (erode) { fc-erode-bake Rivers { fc-water-rivers } if } fc-cache-run } {
+        Rivers { (fc_landscape: Rivers needs Erode\n) print } if
+    } ifelse
+    TreesOn { (forest) { fc-forest-bake } fc-cache-run } if
     CamHeight null ne { /CamY CamHeight def } {
         0 0 TerrOct fc-height CamAbove add
         CamLift 0 gt { TerrTop CamLift mul exch fc-max } if
         /CamY exch def
     } ifelse
+    LnLkOn {
+        % pitch to the target: its own y, or the ground there, or the
+        % water over it (WaterY, or a map's sea MapSea) where that is higher
+        LookAt length 3 ge { LookAt 1 get } {
+            LnLkX LnLkZ TerrOct fc-height
+            WaterY null ne { WaterY fc-max } if
+            /MapSea where { pop MapSea null ne { MapSea fc-max } if } if
+        } ifelse
+        CamY sub LnLkD atan dup 180 gt { 360 sub } if LookTilt add /Pitch exch def
+        fc-camera-update
+        LnGrade { fc-grade-update } if
+    } if
     /LnSetUp true def
 } bind def
 
@@ -141,6 +191,11 @@ LnGrade {
 
 % water wraps the hooks above, so it loads after them
 WaterY null ne WaterRise null ne or Rivers or MapWater or { (lib/fc_water.ps) run } if
+
+% render passes (#33) wrap fc-pixel and fc-render, so they load last
+/Pass /beauty fc-default
+/PassKeep [] fc-default
+Pass /beauty ne PassKeep length 0 gt or { (lib/fc_passes.ps) run } if
 
 /fc-landscape {                                  % pw ph -> -
     LnSetUp not { fc-landscape-setup } if

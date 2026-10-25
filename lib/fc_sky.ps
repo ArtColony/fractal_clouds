@@ -500,6 +500,12 @@ fc-sun-update
     } ifelse
 } bind def
 
+% Sun shafts (fractal_clouds#49): Shafts true marches the haze through the
+% clouds' shadows (lib/fc_shafts.ps, which replaces fc-haze-colour, fc-haze
+% and fc-sky); off, the closed form above is all there is
+/Shafts false fc-default
+Shafts { (lib/fc_shafts.ps) run } if
+
 % ToneCurve picks the curve, once, as this file loads (fractal_clouds#24):
 %   /Exp   1 - exp(-Exposure L) per channel, then a 2.2 power (the original)
 %   /ACES  Stephen Hill's fit of the ACES reference rendering and sRGB

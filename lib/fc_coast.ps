@@ -61,6 +61,11 @@
 /CoastCobble [ 0.50 0.48 0.45 ] fc-colour
 /CoastCobbles 0.3 fc-default         % how much of the beaches is cobble, 0..1
 /CoastSandW 40 fc-default            % how far inland the beach reaches
+/CoastCobbleK 0 fc-default           % (#40) more cobble under cliffs: added to CoastCobbles there
+/CoastDrift 0 fc-default             % (#40) driftwood logs along the top of the beach, 0..1
+/CoastDriftBand [ 8 24 ] fc-default  % ... between these distances from the water
+/CoastDriftCol [ 0.60 0.57 0.52 ] fc-colour  % bleached wood
+/CoastFog [ 0.25 40 ] fc-default      % (#40) fc-coast-fog: density added at the coast, how far it reaches
 
 /TerrCoast true def
 % the sea is the water's plane unless the piece set its own
@@ -153,6 +158,11 @@
                 MapSea 0.5 add XcN XcT sub 6 mul add XcH sub XcS mul XcH add XcH fc-max /XcH exch def
             } if
         } if
+        % driftwood on the beach (near detail only)
+        CoastDrift 0 gt Ho 5 gt and XcK 0.5 lt and
+        XcD CoastDriftBand 0 get gt and XcD CoastDriftBand 1 get lt and {
+            Hmx Hmz fc-coast-drift XcH add /XcH exch def
+        } if
         XcH
     } ifelse
     % the map's own stacks
@@ -165,6 +175,53 @@
             XcSf 1 get XcH sub mul XcH add XcH fc-max
         } if
     } forall
+} bind def
+
+% --- driftwood (#40) -----------------------------------------------------------
+% x z -> height of a log there (0 if none): one candidate log per 2.5-unit
+% cell, kept by noise where CoastDrift says, lying at any angle, 0.4 to 0.9
+% units each way from its centre and 0.05 to 0.11 in radius, sunk a
+% third of that into the sand. Each log stays inside its own cell, so one
+% cell is enough. Noise, not rand: the random stream is untouched.
+/fc-coast-drift {
+    /XdZ exch def /XdX exch def
+    /XdI XdX 2.5 div floor def /XdJ XdZ 2.5 div floor def
+    XdI 0.731 mul 0.17 add XdJ 0.913 mul 0.29 add fc-noise2
+    0.72 CoastDrift 0.22 mul sub gt {
+        XdI 1.37 mul 5.3 add XdJ 0.71 mul 2.9 add fc-noise2 /XdA exch def
+        XdI 0.53 mul 9.1 add XdJ 1.21 mul 4.4 add fc-noise2 /XdB exch def
+        % the centre (within 0.25 of the cell's middle), heading, length, radius
+        XdX XdI 0.5 add XdA 0.5 sub 0.2 mul add 2.5 mul sub
+        XdZ XdJ 0.5 add XdB 0.5 sub 0.2 mul add 2.5 mul sub
+        /XdDz exch def /XdDx exch def
+        XdA XdB add 900 mul /XdT exch def
+        /XdL XdB 0.6 mul 0.3 add 0.4 fc-max 0.9 fc-min def
+        /XdR XdA 0.06 mul 0.05 add def
+        XdDx XdT cos mul XdDz XdT sin mul add abs /XdU exch def
+        XdDz XdT cos mul XdDx XdT sin mul sub abs /XdV exch def
+        XdU XdL lt XdV XdR lt and {
+            XdR dup mul XdV dup mul sub sqrt XdR 0.33 mul sub 0 fc-max
+            XdL XdL 0.12 sub XdU fc-smooth mul
+        } { 0 } ifelse
+    } { 0 } ifelse
+} bind def
+
+% --- sea fog (#40) --------------------------------------------------------------
+% x y z oct -> dd: a cloud layer's Shape (docs/settings.md, Cloud layers)
+% that thickens it near the coastline, over land or water, so fog fills
+% coves and lies along the shore, thinning out to sea and inland:
+% CoastFog [ add reach ] adds `add` at the coastline, fading to 0 at `reach`.
+/fc-coast-fog {
+    pop /XfY exch def
+    TerrOZ add /XfZ exch def TerrOX add /XfX exch def
+    XfX XfZ fc-coast-dist pop abs
+    % the reach wanders (two octaves), so the bank's edge breaks into lobes
+    XfX 0.016 mul 3.7 add XfZ 0.016 mul 8.1 add fc-noise2 0.5 sub
+    XfX 0.05 mul 1.3 add XfZ 0.05 mul 6.2 add fc-noise2 0.5 sub 0.5 mul add
+    CoastFog 1 get 1.2 mul mul add
+    0 CoastFog 1 get 3 -1 roll fc-smooth 1 exch sub CoastFog 0 get mul
+    % and, with a third number, it thins out toward that height (a soft top)
+    CoastFog length 2 gt { MapSea CoastFog 2 get XfY fc-smooth 1 exch sub mul } if
 } bind def
 
 % --- beaches ---------------------------------------------------------------------
@@ -186,9 +243,19 @@
                 Kx 0.05 mul 3.9 add Kz 0.05 mul 7.2 add fc-noise2 /XcMn exch def
                 Kx 1.3 mul Kz 1.3 mul fc-noise2 0.5 mul 0.75 add /XcMm exch def
                 CoastSand [ CoastCobble { XcMm mul } forall ]
-                0.75 CoastCobbles 0.5 mul sub dup 0.1 add XcMn fc-smooth mix3v
+                0.75 CoastCobbles CoastCobbleK XcMk mul add 0.5 mul sub dup 0.1 add XcMn fc-smooth mix3v
                 Alb exch XcMw mix3v /Alb exch def
                 /KbMul KbMul 1 XcMw sub mul def          % sand isn't fractured rock
+            } if
+            % driftwood: bleached, darker in the cracks along the grain
+            CoastDrift 0 gt XcMd CoastDriftBand 0 get gt and XcMd CoastDriftBand 1 get lt and XcMk 0.5 lt and {
+                Kx TerrOX add Kz TerrOZ add fc-coast-drift 0.004 gt {
+                    XdDx XdT cos mul XdDz XdT sin mul add 0.7 mul XdDz XdT cos mul XdDx XdT sin mul sub 40 mul
+                    fc-noise2 0.6 mul 0.55 add XdA 0.4 mul add
+                    /XcMm exch def
+                    /Alb [ CoastDriftCol { XcMm mul } forall ] def
+                    /KbMul 0 def
+                } if
             } if
         } if
     } if

@@ -57,6 +57,7 @@
 /FsTrunks true fc-default            % trunks under lifted crowns (where a crown is over ~4 px)
 /FsSnag 0.03 fc-default              % fraction of the trees that are dead snags
 /FsFallen 0.02 fc-default            % fraction lying on the ground
+/FsSnagDens 0.55 fc-default       % snags fade out over this +- 0.15 of the stand's density (0: anywhere)
 /FsMix [ 1 ] fc-default              % weights of the species in FsSpecies, in order
 /FsAutumn 0 fc-default               % 0 summer; 1 larches gold and broadleaves turned
 /FsBark [ 0.21 0.16 0.12 ] fc-colour         % spruce bark
@@ -66,7 +67,11 @@
 % --- species -------------------------------------------------------------
 % One dict per species; FsMix picks among the first few by weight. Colours
 % are sRGB here and converted below (null means the spruce setting). A
-% piece can define its own table before loading. Keys:
+% piece can define its own table before loading. The table is read once,
+% here at load: its colours are converted in place, missing keys filled in,
+% and the bounds, species globals and FsMix's length worked out from it.
+% Changing FsSpecies or FsMix after the run line isn't supported: what was
+% worked out from them stays as it was. Keys:
 %   env droop tiers   the crown profile (see fc-tree-prof)
 %   rag lobes         (optional, 1) how ragged the outline is, and how many
 %                     lobes it has around the trunk
@@ -80,6 +85,17 @@
 %   bark              the trunk
 %   lo hi             altitude band: full weight below lo (height relative
 %                     to the treeline), none above hi
+%   slim              (optional, 0.6) how much slimmer a lifted crown is:
+%                     its radius times 1 - slim * base
+%   form              (optional, /cone) /palm (#40) or /blob (#53): a crown
+%                     of rounded masses, with
+%   masses msize mspread mflat mcore menv
+%                     how many masses, their radius (of the crown's), how
+%                     far out they sit (0..1), their height over their
+%                     radius, the core's size (of the crown's), and the
+%                     envelope (0 an ellipsoid, 1 a cone; fc-blob-prof)
+% rag must be under 5, droop, base and baseDense not negative, mcore at
+% most 1 and menv 0..1 (checked).
 /FsSpecies [
     << /name (spruce) /env FsEnv /droop FsDroop /tiers FsTiers /rad 0.28 /hmul 1
        /base 0 /baseDense 0.38 /trunk 0.011 /alb null /alb2 null /shade null
@@ -88,18 +104,38 @@
        /base 0.04 /baseDense 0.30 /trunk 0.011
        /alb [ 0.22 0.30 0.14 ] /alb2 [ 0.18 0.27 0.19 ] /shade [ 0.12 0.20 0.19 ]
        /autumn null /bark [ 0.31 0.29 0.27 ] /lo 1000 /hi 1001 >>
-    << /name (pine) /env 0.5 /droop 0.12 /tiers 5 /rad 0.30 /hmul 0.95
-       /base 0.40 /baseDense 0.58 /trunk 0.013
-       /alb [ 0.30 0.33 0.14 ] /alb2 [ 0.25 0.31 0.16 ] /shade [ 0.16 0.22 0.18 ]
-       /autumn null /bark [ 0.44 0.27 0.14 ] /rag 2.2 /lobes 2.5 /lo 1000 /hi 1001 >>
+    % (#53) pine and broadleaf: crowns of rounded masses (fc-blob-prof), a
+    % pine's flat pads round a cone, a broadleaf's rounder ones round a dome
+    << /name (pine) /form /blob /masses 10 /msize 0.45 /mspread 1 /mflat 0.5 /mcore 0.5 /menv 0.7
+       /env 1 /droop 0 /tiers 1 /rad 0.32 /hmul 0.95 /slim 0
+       /base 0.22 /baseDense 0.40 /trunk 0.012
+       /alb [ 0.24 0.29 0.14 ] /alb2 [ 0.20 0.27 0.17 ] /shade [ 0.12 0.19 0.17 ]
+       /autumn null /bark [ 0.27 0.21 0.17 ] /rag 1.6 /lo 1000 /hi 1001 >>
     << /name (larch) /env 1.15 /droop 0.38 /tiers 9 /rad 0.23 /hmul 1
        /base 0.12 /baseDense 0.40 /trunk 0.011
        /alb [ 0.38 0.46 0.18 ] /alb2 [ 0.33 0.42 0.17 ] /shade [ 0.20 0.27 0.19 ]
        /autumn [ 0.74 0.52 0.14 ] /bark [ 0.33 0.25 0.19 ] /rag 1.4 /lobes 1.5 /lo 1000 /hi 1001 >>
-    << /name (broadleaf) /env 0.45 /droop 0.08 /tiers 4 /rad 0.33 /hmul 0.8
-       /base 0.30 /baseDense 0.48 /trunk 0.012
-       /alb [ 0.33 0.44 0.16 ] /alb2 [ 0.28 0.40 0.18 ] /shade [ 0.17 0.26 0.18 ]
-       /autumn [ 0.72 0.42 0.12 ] /bark [ 0.42 0.39 0.35 ] /rag 2.6 /lobes 3 /lo -12 /hi -4 >>
+    << /name (broadleaf) /form /blob /masses 10 /msize 0.38 /mspread 1 /mflat 0.8 /mcore 0.7
+       /env 1 /droop 0 /tiers 1 /rad 0.45 /hmul 0.65 /slim 0
+       /base 0.12 /baseDense 0.22 /trunk 0.016
+       /alb [ 0.24 0.30 0.14 ] /alb2 [ 0.22 0.28 0.16 ] /shade [ 0.13 0.20 0.17 ]
+       /autumn [ 0.72 0.42 0.12 ] /bark [ 0.36 0.34 0.31 ] /rag 1.6 /lo -12 /hi -4 >>
+    % (#40) the Pacific Northwest coast: heavier, darker, droopier crowns
+    << /name (sitka) /env 1.25 /droop 0.40 /tiers 10 /rad 0.27 /hmul 1
+       /base 0.05 /baseDense 0.40 /trunk 0.012
+       /alb [ 0.17 0.23 0.13 ] /alb2 [ 0.15 0.21 0.18 ] /shade [ 0.08 0.14 0.14 ]
+       /autumn null /bark [ 0.33 0.27 0.23 ] /rag 1.3 /lobes 1.5 /lo 1000 /hi 1001 >>
+    << /name (cedar) /env 0.95 /droop 0.50 /tiers 8 /rad 0.30 /hmul 0.95
+       /base 0.04 /baseDense 0.34 /trunk 0.013
+       /alb [ 0.19 0.25 0.10 ] /alb2 [ 0.17 0.24 0.13 ] /shade [ 0.09 0.15 0.12 ]
+       /autumn null /bark [ 0.44 0.25 0.17 ] /rag 1.8 /lobes 2 /lo 1000 /hi 1001 >>
+    % (#40) a coconut palm: /form /palm is a crown of drooping fronds on a
+    % curved trunk (fc-palm-prof); env, droop and tiers mean other things
+    % there (see fc-palm-prof), base is unused
+    << /name (palm) /form /palm /fronds 11 /lean 0.14 /droop 1.0
+       /env 1 /tiers 1 /rad 0.24 /hmul 1 /base 0 /baseDense 0 /trunk 0.009
+       /alb [ 0.36 0.46 0.14 ] /alb2 [ 0.50 0.48 0.18 ] /shade [ 0.16 0.26 0.14 ]
+       /autumn null /bark [ 0.47 0.42 0.35 ] /lo 1000 /hi 1001 >>
 ] fc-default
 FsSpecies {
     /Fsd exch def
@@ -110,6 +146,21 @@ FsSpecies {
     } forall
     Fsd /rag known not { Fsd /rag 1 put } if         % optional keys
     Fsd /lobes known not { Fsd /lobes 1 put } if
+    Fsd /form known not { Fsd /form /cone put } if
+    Fsd /fronds known not { Fsd /fronds 11 put } if
+    Fsd /lean known not { Fsd /lean 0 put } if
+    Fsd /slim known not { Fsd /slim 0.6 put } if
+    [ [ /masses 6 ] [ /msize 0.45 ] [ /mspread 0.9 ] [ /mflat 0.6 ] [ /mcore 0.6 ] [ /menv 0 ] ] {
+        aload pop Fsd 2 index known { pop pop } { Fsd 3 1 roll put } ifelse
+    } forall
+    % (#53) a rag of 5 or more divides by zero in fc-tree-prof, and a
+    % negative droop or base turns a crown inside out
+    Fsd /rag get 5 ge Fsd /droop get 0 lt or Fsd /base get 0 lt or Fsd /baseDense get 0 lt or
+    Fsd /mcore get 1 gt or Fsd /menv get 0 lt or Fsd /menv get 1 gt or {
+        (fc_trees: species ) print Fsd /name get print
+        (: rag must be under 5, droop, base and baseDense not negative, mcore at most 1, menv 0..1) =
+        /FsSpecies errordict /rangecheck get exec
+    } if
 } forall
 /FsNsp FsMix length FsSpecies length fc-min def
 /FsMixed FsNsp 1 gt def
@@ -125,7 +176,21 @@ FsSpecies {
     /FcSbase FcSp /base get def /FcSbaseD FcSp /baseDense get def
     /FcSenv FcSp /env get def /FcSdroop FcSp /droop get def /FcStiers FcSp /tiers get def
     /FcSrag FcSp /rag get def /FcSlobes FcSp /lobes get def
+    /FcSpalm FcSp /form get /palm eq def /FcSfronds FcSp /fronds get def /FcSlean FcSp /lean get def
+    /FcSslim FcSp /slim get def /FcSblob FcSp /form get /blob eq def
+    FcSblob {
+        /FcSnm FcSp /masses get cvi def /FcSmsz FcSp /msize get def /FcSmsp FcSp /mspread get def
+        /FcSmfl FcSp /mflat get def /FcSmcore FcSp /mcore get def /FcSmenv FcSp /menv get def
+    } if
 } bind def
+% (#40) palms in the stand: their leaning trunks reach FsCell 0.25 from
+% where they stand (only then, so other stands keep their bounds and steps)
+/FsPalmOn false def
+0 1 FsNsp 1 sub { dup FsSpecies exch get /form get /palm eq exch FsMix exch get 0 gt and { /FsPalmOn true def } if } for
+% (#53) crowns of masses in the stand: the hit is on the mass nearest it,
+% so the shading asks which tree's solid it is on even without trunks
+/FsBlobOn false def
+0 1 FsNsp 1 sub { dup FsSpecies exch get /form get /blob eq exch FsMix exch get 0 gt and { /FsBlobOn true def } if } for
 /FcSp FsSpecies 0 get def fc-tree-sp
 % bounds for fc-tree-cell's early out (#17), over every species (FcHs is
 % at most 1, the 1.001 covers its rounding): the widest trunk (a snag's),
@@ -133,6 +198,7 @@ FsSpecies {
 % the widest a tree can be for fc-tree-cell's trunk test to run (FcL > 0)
 /FcHmulMax 0 FsSpecies { /hmul get fc-max } forall def
 /FcRtMax 0 FsSpecies { /trunk get fc-max } forall FcHmulMax mul FsHMax mul 1.6 mul 1.02 mul def
+FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
 /FcRmax FsCell 0.55 mul 0.6 fc-max FcRtMax fc-max def
 % and the tallest top for fc-tree-sunvis: FcH, or FcB FcH where a lifted
 % base is over 1 (a custom table's base near 1; FcB is at most 1.25 times
@@ -181,7 +247,23 @@ FsSpecies {
     Fdl 7 add Fdl 2 add Fdh fc-smooth 0.12 mul  0.72 0.82 Fdn fc-smooth mul
     2 copy lt { exch } if pop
     0.95 mul
+    FsShoreOn { fc-forest-shore mul } if
     Fdl 5 add Fdl 6 sub Fdh fc-smooth 0.55 mul 0.45 add
+} bind def
+
+% on a coast (lib/fc_coast.ps, #40): no trees on the beach. Low ground
+% (under FsShoreH above the berm) within CoastSandW of the water is bare;
+% cliff tops and stacks, however near, keep theirs. Reads Fdx Fdz Fdh.
+/FsShoreH 1.5 fc-default             % trees start this far above the beach's berm
+/FsShoreOn /fc-coast-dist where { pop FsShoreH 0 gt } { false } ifelse def
+/fc-forest-shore {                               % -> 0..1
+    Fdh MapSea sub CoastBerm sub /Fde exch def
+    Fde FsShoreH ge { 1 } {
+        0.2 FsShoreH Fde fc-smooth
+        Fdx TerrOX add Fdz TerrOZ add fc-coast-dist pop
+        CoastSandW 0.5 mul CoastSandW 3 -1 roll fc-smooth
+        2 copy lt { exch } if pop
+    } ifelse
 } bind def
 
 % fade from crowns (1) to canopy texture (0) as crowns shrink below ~2 px
@@ -245,6 +327,33 @@ FsSpecies {
         } for
     } for
     /FsSl null def
+    % with palms, the density's maximum over the texels within reach
+    % (fc-forest-mapt): a crown can be a cell from its cell's centre, where
+    % fc-tree-cell reads the density, plus the nearest-texel and bilinear
+    % lookups' texel and a half; a square of FsDxR texels each way, taken
+    % as a max along rows, then along columns
+    FsPalmOn {
+        /FsDxR FsCell FsTex div 1.5 add ceiling cvi def
+        /FsDx FsN FsN mul array def
+        /Fbt FsN FsN mul array def
+        0 1 FsN 1 sub { /Fbj exch def
+            0 1 FsN 1 sub { /Fbi exch def
+                0 Fbi FsDxR sub 0 fc-max 1 Fbi FsDxR add FsN 1 sub fc-min {
+                    FsDm exch Fbj FsN mul add get fc-max
+                } for
+                Fbt Fbj FsN mul Fbi add 3 -1 roll put
+            } for
+        } for
+        0 1 FsN 1 sub { /Fbj exch def
+            0 1 FsN 1 sub { /Fbi exch def
+                0 Fbj FsDxR sub 0 fc-max 1 Fbj FsDxR add FsN 1 sub fc-min {
+                    FsN mul Fbi add Fbt exch get fc-max
+                } for
+                FsDx Fbj FsN mul Fbi add 3 -1 roll put
+            } for
+        } for
+        /Fbt null def
+    } if
     /FsBaked true def
     (fc-forest: ) print FsN 9 string cvs print (^2 map, ms ) print usertime FsT0 sub =
 } bind def
@@ -267,6 +376,22 @@ FsSpecies {
             Fma Fmk FsN add get 1 Fmu sub mul Fma Fmk FsN add 1 add get Fmu mul add Fmv mul add
         } forall
     } ifelse } ifelse
+} bind def
+
+% x z -> density height-scale, as fc-forest-map, but with palms (#40) the
+% density is at least the nearest texel's neighbourhood maximum: where the
+% march looks for trees and how a hit is classified, so a palm leaning out
+% over bare sand is still found. (Whether each tree stands goes by its own
+% cell's density, in fc-tree-cell.)
+/fc-forest-mapt {
+    FsPalmOn FsBaked and {
+        2 copy fc-forest-map /FmHs exch def /FmD exch def
+        FsZ0 sub FsTex div 0.5 add cvi exch FsX0 sub FsTex div 0.5 add cvi
+        dup 0 lt 1 index FsN 1 sub gt or 2 index 0 lt or 2 index FsN 1 sub gt or { pop pop 0 } {
+            exch FsN mul add FsDx exch get
+        } ifelse
+        FmD fc-max FmHs
+    } { fc-forest-map } ifelse
 } bind def
 
 % x z -> the steepest the ground gets near there (2.3 off the map, which
@@ -347,12 +472,223 @@ FsSpecies {
         dup Fcsw add /Fcsw exch def
         FsMixWt Fcsi 3 -1 roll put
     } for
-    /Fcsr FsR 6 get FcK get Fcsw mul def
-    /Fcsi 0 def
-    { Fcsi FsNsp 1 sub ge { exit } if
-      Fcsr FsMixWt Fcsi get sub dup /Fcsr exch def 0 lt { exit } if
-      /Fcsi Fcsi 1 add def } loop
-    FsSpecies Fcsi get
+    % (#53: where every weight has faded to nothing, a spruce)
+    Fcsw 0 gt {
+        /Fcsr FsR 6 get FcK get Fcsw mul def
+        /Fcsi 0 def
+        { Fcsi FsNsp 1 sub ge { exit } if
+          Fcsr FsMixWt Fcsi get sub dup /Fcsr exch def 0 lt { exit } if
+          /Fcsi Fcsi 1 add def } loop
+        FsSpecies Fcsi get
+    } { FsSpecies 0 get } ifelse
+} bind def
+
+% --- palms (#40) -------------------------------------------------------------
+% A species with /form /palm is a coconut palm: a crown of FcSfronds
+% drooping fronds on a curved, leaning trunk. Its crown is the same kind of
+% heightfield over the ground as a conifer's, but always lifted (a thin
+% layer of fronds; base = top - thickness) and centred over the top of the
+% trunk, not over where the palm stands.
+
+% the palm's lean and crown (in fc-tree-cell, for a live palm FcH FcK):
+% the crown's centre is FcPlx FcPlz from the foot, at height FcPyc; lean
+% plus crown radius stay within 0.55 cell, so the 3x3 cells still hold
+% every crown that can reach a point
+/fc-palm-cell {
+    /FcPla FsR 5 get FcK get 360 mul def
+    FcH FcSlean mul FsR 7 get FcK get 0.6 mul 0.4 add mul FsCell 0.25 mul fc-min /FcPlm exch def
+    /FcPlx FcPla cos FcPlm mul def /FcPlz FcPla sin FcPlm mul def
+    /FcR FcH FcSrad mul FsR 4 get FcK get 0.3 mul 0.85 add mul FsCell 0.55 mul FcPlm sub fc-min def
+    /FcL FsTrunks { FcR FcPx div 4 sub 8 div 0 fc-max 1 fc-min } { 0 } ifelse def
+    /FcB 0 def
+    /FcPyc FcH 0.9 mul def
+} bind def
+
+% dx dz -> top base above the ground, or -1 0 off the crown; (dx, dz) from
+% the crown's centre. Each frond k heads out at an angle (the tree's
+% rotation plus k of 360/fronds, jittered), reaches 0.75..1 FcR, and at
+% v (0..1 of its length) its rachis stands at FcPyc + FcR (0.35 v - d v^2):
+% it rises a little and droops, by d, the species' droop times 0.6..1.4.
+% The leaflets hang off either side, so across the frond (c, -1..1) the top
+% falls by 0.22 FcR c^2 (a V in section); the half-width tapers to both
+% ends and is combed into leaflets close up. The layer is 0.07 FcR thick
+% (at least 1.5 px). As the crown shrinks on screen (FcR under 12 px) the
+% gaps between fronds close, into a drooping umbrella that can't alias.
+% Leaves the frond's FqV, FqDk, FqC and FqAk (heading) for the shading.
+/fc-palm-prof {
+    /Fqz exch def /Fqx exch def
+    /Fqr Fqx dup mul Fqz dup mul add sqrt def
+    Fqr FcR ge { -1 0 } {
+        FcR FcPx div 4 sub 8 div 0 fc-max 1 fc-min /Fql exch def
+        /FqT -1 def
+        Fqr FcR 0.09 mul lt {
+            % the knob of frond bases at the top of the trunk
+            /FqT FcPyc FcR 0.10 mul add def /FqV 0 def /FqDk 0 def /FqC 0 def /FqAk 0 def
+        } {
+            /FqSp 360 FcSfronds div def
+            /FqRot FsR 2 get FcK get 360 mul def
+            /FqPhi Fqz Fqx atan def
+            FqPhi FqRot sub FqSp div /Fqa exch def
+            /Fqk0 Fqa 0.5 add floor cvi def
+            % the nearest frond, and its neighbour on this side
+            [ Fqk0 Fqk0 Fqa Fqk0 sub 0 gt { 1 } { -1 } ifelse add ] { /Fqk exch def
+                Fqk FcSfronds mod FcSfronds add FcSfronds mod 37 mul FcK add 255 and /Fqi exch def
+                /Fqj FsR 6 get Fqi get def
+                Fqk Fqj 0.5 sub 0.35 mul add FqSp mul FqRot add /Fqak exch def
+                FqPhi Fqak sub /Fqd exch def
+                /Fqal Fqr Fqd cos mul def
+                /Fqac Fqr Fqd sin mul def
+                Fqal 0 gt {
+                    Fqal FcR div FsR 8 get Fqi get 0.25 mul 0.75 add div /Fqv exch def
+                    Fqv 1 lt {
+                        4 Fqv mul 1 Fqv sub mul 0.6 exp 0.15 mul 0.025 add FcR mul /Fqw exch def
+                        % leaflets (0.035 apart), where they are over 3 px apart
+                        0.035 FcPx div 3 sub 3 div 0 fc-max 1 fc-min /Fqcf exch def
+                        Fqcf 0 gt {
+                            Fqal 10286 mul sin abs 1 exch sub 0.45 mul Fqcf mul 1 exch sub Fqw mul /Fqw exch def
+                        } if
+                        Fqw Fql mul FcR 1 Fql sub mul add /Fqw exch def
+                        Fqac abs Fqw lt {
+                            FcSdroop Fqj 0.8 mul 0.6 add mul /Fqdk exch def
+                            FcPyc FcR 0.35 Fqv mul Fqdk Fqv dup mul mul sub mul add
+                            Fqac Fqw div dup mul FcR 0.22 mul mul Fql mul sub
+                            dup FqT gt {
+                                /FqT exch def /FqV Fqv def /FqDk Fqdk def
+                                /FqC Fqac Fqw div def /FqAk Fqak def
+                            } { pop } ifelse
+                        } if
+                    } if
+                } if
+            } forall
+        } ifelse
+        FqT 0 lt { -1 0 } {
+            FqT dup FcR 0.07 mul 1 FqV 0.5 mul sub mul FcPx 1.5 mul fc-max sub
+        } ifelse
+    } ifelse
+} bind def
+
+% the ray's entry into the trunk (fc-tree-cell, in the march): two sheared
+% cylinders, the lower half leaning 1.4 times the mean and the upper 0.6,
+% so the trunk curves up toward the crown. A horizontal slice of a sheared
+% cylinder is a circle, so the hit is a quadratic, exact as for a straight
+% trunk, with the ray's horizontal direction sheared too.
+/fc-palm-trunk {
+    /Fqh FcPyc 0.5 mul def
+    [ 0 Fqh 0 1.4  Fqh FcPyc 0.7 0.6 ] /Fqsg exch def
+    0 4 4 { /Fqi exch def
+        /Fqy0 Fqsg Fqi get def /Fqy1 Fqsg Fqi 1 add get def
+        /Fqsx FcPlx Fqsg Fqi 3 add get mul FcPyc div def
+        /Fqsz FcPlz Fqsg Fqi 3 add get mul FcPyc div def
+        Fcdx FcPlx Fqsg Fqi 2 add get mul sub FcY Fqy0 sub Fqsx mul sub /Fqdx exch def
+        Fcdz FcPlz Fqsg Fqi 2 add get mul sub FcY Fqy0 sub Fqsz mul sub /Fqdz exch def
+        /Fqmx Mx Fqsx My mul sub def /Fqmz Mz Fqsz My mul sub def
+        /FqA Fqmx dup mul Fqmz dup mul add def
+        FqA 0.000001 gt {
+            /Fqb Fqdx Fqmx mul Fqdz Fqmz mul add def
+            Fqb dup mul Fqdx dup mul Fqdz dup mul add FcRt dup mul sub FqA mul sub /Fqq exch def
+            Fqq 0 gt {
+                Fqb neg Fqq sqrt sub FqA div /Fqs exch def
+                Fqs 0 gt FcTs 0 lt Fqs FcTs lt or and {
+                    FcY My Fqs mul add dup Fqy0 0.0001 fc-max gt exch Fqy1 lt and {
+                        /FcTs Fqs def /FcTcx FcX Fcdx sub def /FcTcz FcZ Fcdz sub def
+                        /FcTRt FcRt def /FcTH FcPyc def /FcTK FcK def /FcTSp FcSp def /FcTKind 0 def
+                        /FcTLx FcPlx def /FcTLz FcPlz def
+                    } if
+                } if
+            } if
+        } if
+    } for
+} bind def
+% y -> ox oz: the trunk's axis at height y, from its foot (for the shading)
+/fc-palm-axis {
+    /Fqy exch def
+    Fqy FcTH 0.5 mul lt { Fqy FcTH div 1.4 mul } { Fqy FcTH div 0.5 sub 0.6 mul 0.7 add } ifelse
+    0 fc-max 1 fc-min /Fqo exch def
+    FcTLx Fqo mul FcTLz Fqo mul
+} bind def
+
+% --- crowns of rounded masses (#53) -------------------------------------------
+% A species with /form /blob (pine, broadleaf) has a crown, between the
+% crown base FcB FcH and the top FcH, of a core and rounded masses of
+% foliage, each a squashed ellipsoid (radius s, half-height v). Mass 0 is
+% the core: the crown's own ellipsoid shrunk by mcore, which ties the
+% others into one crown. The others (radius msize R, 0.6..1.4 of it,
+% v = mflat s) climb the crown, k of them at e = 2 (k - 1 + jitter) /
+% (n - 1) - 1 (-1 its foot, 1 its top), round it at the golden angle
+% (plus jitter), and out to the crown's envelope there (an ellipsoid at
+% menv 0, a cone at 1) by mspread (0.7..1 of it), so they are its lobes;
+% but never so far out they leave the core. Over a point the crown runs
+% from the lowest mass bottom to the highest top there, and the mass
+% nearest FcY is the solid (FhIt FhIb, for FcIn), so the gaps between
+% masses stay open; the underside is the masses' rounded bottoms, so the
+% crown base is soft and rises toward the rim. Two octaves of noise (R/2.6
+% and R/9, rag times 0.1 deep) scale every mass's radius at a point, which
+% notches the outline and dents the top. Smaller on screen (each mass
+% under 3.5 px) the masses slide together into one ellipsoid filling the
+% crown, before they can alias. Masses are clipped to FcR (fc-tree-cell)
+% and stay below FcH, so the search bounds hold. dx dz -> top base above
+% the ground, or -1 0; leaves the mass nearest FcY (centre FhWx FhWy FhWz,
+% radius FhWs, half-height FhWv) for the shading.
+/fc-blob-prof {
+    /Fhz exch def /Fhx exch def
+    FcR FcPx div FcSmsz mul 1.5 sub 2 div 0 fc-max 1 fc-min /Fhl exch def   % (masses over 1.5..3.5 px)
+    /Fhyb FcB FcH mul def /Fhch FcH Fhyb sub def
+    /FhRot FsR 3 get FcK get 360 mul def
+    % the outline's noise: one value for every mass at this point
+    Fhx FcR div 2.6 mul FcK 0.37 mul add Fhz FcR div 2.6 mul FcK 0.21 mul add fc-noise2
+    0.5 sub 0.2 FcSrag mul Fhl mul mul 1 add /Fhf exch def
+    % and finer, at a seventh of the radius, where that is over two pixels
+    FcR FcPx div 18 sub 18 div 0 fc-max 1 fc-min /Fhl2 exch def
+    Fhl2 0 gt {
+        Fhx FcR div 9 mul 3.3 add Fhz FcR div 9 mul FcK 0.13 mul add fc-noise2
+        0.5 sub 0.2 FcSrag mul Fhl2 mul mul Fhf add /Fhf exch def
+    } if
+    /FhT -1 def /FhB FcH def /FhId 1000 def
+    0 1 FcSnm 1 sub { /Fhi exch def
+        Fhi 53 mul FcK add 255 and /Fhk exch def
+        Fhi 0 eq {
+            % the core: the crown's own ellipsoid, shrunk, which ties the
+            % masses together into one crown
+            /Fhs FcSmcore FcR mul def /Fhc 0 def /Fha 0 def
+            /Fhv Fhch 0.5 mul FcSmcore mul def
+            /Fhy Fhyb Fhch 0.5 0.15 FcSmenv mul sub mul add def
+        } {
+            /Fhs FsR 1 get Fhk get 0.8 mul 0.6 add FcSmsz mul FcR mul def
+            /Fhv Fhs FcSmfl mul Fhch 0.5 mul fc-min def
+            % up the crown (-1 its foot, 1 its top), and out to the crown's
+            % ellipsoid there, so the masses are its lobes
+            /Fhe Fhi 1 sub FsR 2 get Fhk get add FcSnm 1 sub div 2 mul 1 sub 1 fc-min def
+            /Fhy Fhyb Fhch 0.5 mul add Fhch 0.5 mul Fhv sub Fhe mul add def
+            % (menv 0: an ellipsoid; 1: a cone, widest at the foot)
+            1 Fhe dup mul sub 0 fc-max sqrt 0.6 mul 0.4 add
+            1 Fhe sub 0.5 mul 0.85 mul 0.15 add  FcSmenv mul exch 1 FcSmenv sub mul add /Fhw exch def
+            /Fhc FcR Fhs sub 0 fc-max Fhw mul
+                 FcSmsp mul FsR 4 get Fhk get 0.3 mul 0.7 add mul
+            % but no further out than keeps it on the core: no mass floats free
+                 Fhs 0.85 mul FcSmcore FcR mul 0.5 mul add fc-min def
+            /Fha Fhi 137.5 mul FhRot add FsR 5 get Fhk get 40 mul add def
+        } ifelse
+        % slid together, far off
+        /Fhmx Fha cos Fhc mul Fhl mul def /Fhmz Fha sin Fhc mul Fhl mul def
+        /Fhs Fhs Fhl mul FcR 0.98 mul 1 Fhl sub mul add Fhf mul def
+        % (into one mass filling the crown, or a dome if it is on the ground)
+        /Fhy Fhy Fhl mul Fhyb Fhch FcB 0 gt { 0.5 } { 0 } ifelse mul add 1 Fhl sub mul add def
+        /Fhv Fhv Fhl mul Fhch FcB 0 gt { 0.5 } { 1 } ifelse mul 1 Fhl sub mul add def
+        Fhx Fhmx sub dup mul Fhz Fhmz sub dup mul add Fhs dup mul div /Fhd exch def
+        Fhd 1 lt {
+            1 Fhd sub sqrt Fhv mul /Fhh exch def
+            /Fht Fhy Fhh add def
+            /Fhb Fhy Fhh sub Fht FcPx 1.5 mul sub fc-min 0 fc-max def   % (at least 1.5 px thick)
+            Fht FhT gt { /FhT Fht def } if
+            Fhb FhB lt { /FhB Fhb def } if
+            % the mass nearest FcY (vertically; negative inside it)
+            FcY Fht sub Fhb FcY sub fc-max dup FhId lt {
+                /FhId exch def /FhIt Fht def /FhIb Fhb def
+                /FhWx Fhmx def /FhWz Fhmz def /FhWy Fhy def /FhWs Fhs def /FhWv Fhv def
+            } { pop } ifelse
+        } if
+    } for
+    FhT 0 lt { -1 0 } { FhT FhB } ifelse
 } bind def
 
 % candidate tree of cell (i, j) against the point FcX FcZ, FcY above the
@@ -364,7 +700,10 @@ FsSpecies {
 /fc-tree-cell {                                  % i j -> -
     /Fcj exch def /Fci exch def
     Fci Fcj fc-tree-hash /FcK exch def
-    FsR 0 get FcK get FcD lt {
+    % (#40: palms lean out over the edge of their stand, so whether one
+    % stands goes by the density at its cell, not at the point)
+    FsR 0 get FcK get
+    FsPalmOn { Fci 0.5 add FsCell mul Fcj 0.5 add FsCell mul fc-forest-map pop } { FcD } ifelse lt {
         % where it stands, relative to the point
         FcX Fci 0.5 add FsR 1 get FcK get 0.5 sub 0.9 mul add FsCell mul sub /Fcdx exch def
         FcZ Fcj 0.5 add FsR 2 get FcK get 0.5 sub 0.9 mul add FsCell mul sub /Fcdz exch def
@@ -377,6 +716,7 @@ FsSpecies {
         Fchd FcRmax sub FcHc 0 fc-max lt
         FcRay FsTrunks and {
             Fcdx Mx mul Fcdz Mz mul add dup 0 lt
+            FsPalmOn { Fchd FcRtMax lt or } if      % (a leaning trunk can be ahead from inside its reach)
             exch dup mul Fchd dup mul FcRtMax dup mul sub FcA mul sub 0 gt and
             FcLmax FcPx div 4 gt and
             or
@@ -392,13 +732,24 @@ FsSpecies {
         % alive, a snag, or fallen
         FsR 8 get FcK get dup FsSnag lt { pop 1 } { FsSnag FsFallen add lt { 2 } { 0 } ifelse } ifelse
         /FcKind exch def
+        FcSpalm { /FcKind 0 def } if                 % (no dead palms)
         % dead trees only where a trunk would show; smaller on screen they
         % stand as live crowns, so the far canopy keeps its density
         FcKind 0 ne {
             /FcL FsTrunks { FcH 0.28 mul FcPx div 4 sub 8 div 0 fc-max 1 fc-min } { 0 } ifelse def
             FcL 0 le { /FcKind 0 def } if
         } if
-        FcKind 0 eq {
+        % (#53) snags only in a closed stand, where a tree dies of shade and
+        % crowding: in the open a lone snag reads as a fence post. Their
+        % share fades out over FsSnagDens +- 0.15 of the density (at the
+        % cell's centre, so the tree is the same from every point).
+        FcKind 1 eq FsSnagDens 0 gt and {
+            FsR 8 get FcK get
+            FsSnagDens 0.15 sub FsSnagDens 0.15 add
+            Fci 0.5 add FsCell mul Fcj 0.5 add FsCell mul fc-forest-map pop
+            fc-smooth FsSnag mul ge { /FcKind 0 def } if
+        } if
+        FcKind 0 eq FcSpalm and { fc-palm-cell } { FcKind 0 eq {
             /FcR FcH FcSrad mul FsR 4 get FcK get 0.3 mul 0.85 add mul FsCell 0.55 mul fc-min def
             % trunks, and the crown lifted off the ground, where the crown is
             % wide enough on screen; higher in a dense stand, where the
@@ -409,7 +760,7 @@ FsSpecies {
                 FsR 7 get FcK get 0.5 mul 0.75 add mul FcL mul FcSup { 0.5 mul } if
             } { 0 } ifelse def
             % a crown that has lost its lower whorls is slimmer too
-            FcB 0 gt { /FcR FcR 1 FcB 0.6 mul sub mul def } if
+            FcB 0 gt { /FcR FcR 1 FcB FcSslim mul sub mul def } if
         } {
             /FcB 0 def
             FcKind 1 eq {
@@ -422,12 +773,20 @@ FsSpecies {
                 /FcRt FcH 0.014 mul def
                 /FcLa FsR 7 get FcK get 360 mul def
             } ifelse
-        } ifelse
+        } ifelse } ifelse
+        % a palm's crown stands over the top of its leaning trunk: from here
+        % to the trunk test, the point is relative to the crown's centre
+        FcSpalm {
+            /Fcdx0 Fcdx def /Fcdz0 Fcdz def /Fchd0 Fchd def
+            /Fcdx Fcdx FcPlx sub def /Fcdz Fcdz FcPlz sub def
+            /Fchd Fcdx dup mul Fcdz dup mul add sqrt def
+        } if
         FcKind 0 eq FcL 0 gt or {   % (a dead tree here always has a trunk)
         Fchd FcR sub dup FcHc lt { /FcHc exch def } { pop } ifelse
         Fchd FcR lt {
             % what stands over this point: its top and its base over the ground
-            FcKind 0 eq {
+            FcKind 0 eq FcSpalm and { Fcdx Fcdz fc-palm-prof } {
+            FcKind 0 eq FcSblob and { Fcdx Fcdz fc-blob-prof } { FcKind 0 eq {
                 /FcEnv FcSenv def /FcDroop FcSdroop def /FcTiers FcStiers def
                 % (the species' outline only near, where trunks show: far off it
                 % has faded into the envelope anyway)
@@ -450,24 +809,29 @@ FsSpecies {
                         Fcac abs FcRt lt { FcRt dup mul Fcac dup mul sub sqrt 0 } { -1 0 } ifelse
                     } { -1 0 } ifelse
                 } ifelse
-            } ifelse
+            } ifelse } ifelse } ifelse
             /Fcbase exch def /Fctop exch def
             Fctop 0 ge {
                 Fctop FcBy gt {
                     /FcBy Fctop def /FcBz Fcdz def /FcBx Fcdx def
-                    /FcBH FcH def /FcBR FcR def /FcBK FcK def /FcBSp FcSp def
+                    /FcBH FcH def /FcBR FcR def /FcBK FcK def /FcBSp FcSp def /FcBB FcB def
                 } if
+                % (a crown of masses: the mass nearest FcY, so the gaps
+                % between masses stay open)
+                FcKind 0 eq FcSblob and { /Fctop FhIt def /Fcbase FhIb def } if
                 FcY Fctop sub Fcbase FcY sub fc-max dup FcIn lt {
                     /FcIn exch def /FcIx Fcdx def /FcIz Fcdz def /FcIt Fctop def /FcIb Fcbase def
-                    /FcIH FcH def /FcIR FcR def /FcIRt FcRt def /FcIK FcK def /FcISp FcSp def
+                    /FcIH FcH def /FcIR FcR def /FcIRt FcRt def /FcIK FcK def /FcISp FcSp def /FcIB FcB def
                     /FcIKind FcKind def /FcILa FcLa def
                 } { pop } ifelse
             } if
         } if
+        FcSpalm { /Fcdx Fcdx0 def /Fcdz Fcdz0 def /Fchd Fchd0 def } if
         % the trunk ahead on the ray, where it shows below the crown: the
         % ray's entry into the cylinder (exact, so thin trunks aren't stepped over)
+        FcRay FcL 0 gt and FcSpalm and { fc-palm-trunk } {
         FcRay FcL 0 gt and FcKind 2 ne and {
-            FcKind 0 eq { FcB FcH mul } { FcH } ifelse /Fcyt exch def
+            FcKind 0 eq { FcB FcSblob { 1 FcB sub 0.6 mul add } if FcH mul } { FcH } ifelse /Fcyt exch def
             Fcyt 0 gt {
                 Fcdx Mx mul Fcdz Mz mul add /Fcqb exch def
                 Fcqb dup mul Fchd dup mul FcRt dup mul sub FcA mul sub /Fcqd exch def
@@ -490,7 +854,7 @@ FsSpecies {
                     } if
                 } if
             } if
-        } if
+        } if } ifelse
         } if
         } if
     } if
@@ -539,7 +903,7 @@ FsSpecies {
     My Fft mul CamY add  Ffx Ffz FsO fc-height sub /Ffg exch def
     TreesOn {
         /FcY Ffg def
-        Ffg Ffx Ffz Fft Ffx Ffz fc-forest-map fc-canopy sub
+        Ffg Ffx Ffz Fft Ffx Ffz fc-forest-mapt fc-canopy sub
         dup 0 lt Ffg 0 gt and FnW 1 ge and FcIn 0 gt and { pop FcIn } if
     } { Ffg } ifelse
 } bind def
@@ -556,7 +920,7 @@ FsSpecies {
         /FsO FsT fc-terrain-oct def
         /FsX Mx FsT mul def /FsZ Mz FsT mul def
         /FsGap FsY FsX FsZ FsO fc-height sub def
-        TreesOn { FsX FsZ fc-forest-map } { 0 1 } ifelse /FsHsc exch def /FsD exch def
+        TreesOn { FsX FsZ fc-forest-mapt } { 0 1 } ifelse /FsHsc exch def /FsD exch def
         /FsBand FsD 0.001 gt { FsHMax FsHsc mul } { 0 } ifelse def
         /FsMin FsT PixAng mul 0.6 mul 0.02 add def
         /FcTs -1 def
@@ -606,7 +970,7 @@ FsSpecies {
         % ground hit keeps the middle (so the terrain is as it was).
         /FsHm FsHit def FsTrunks { /FsHit FsHin def } if
         /FsX Mx FsHit mul def /FsZ Mz FsHit mul def
-        FsX FsZ fc-forest-map /FsHsc exch def /FsD exch def
+        FsX FsZ fc-forest-mapt /FsHsc exch def /FsD exch def
         FsHit fc-forest-w /FsW exch def
         FsD 0.001 gt FsW 0 gt and {
             /FcY My FsHit mul CamY add FsX FsZ FsO fc-height sub def
@@ -622,7 +986,7 @@ FsSpecies {
                         /FcTH FcIH def /FcTK FcIK def /FcTSp FcISp def /FcTKind 1 def
                     } {
                         FcIKind 2 eq { /FsKind 2 def } {
-                            FcIb 0.01 gt FcY FcIb sub FcIt FcY sub lt and { /FsKind 3 def } if
+                            FcIb 0.01 gt FcY FcIb sub FcIt FcY sub lt and FcISp /form get /blob ne and { /FsKind 3 def } if
                         } ifelse
                     } ifelse
                 } if
@@ -638,22 +1002,35 @@ FsSpecies {
 % toward the sun; the terrain's own shadow is fc-terrain-shadow's job).
 % A probe inside a crown's solid (not in the gap under a lifted one) cuts
 % the light.
+% With palms (#40) the probes are closer, and a probe within FsVisTol of a
+% crown's solid counts (FsVisTol is set per probe there, from the probes'
+% spacing, and the shade doesn't compound): a palm's crown is a thin layer
+% the probes would mostly step over.
+/FsVisS FsPalmOn { [ 0.2 0.4 0.62 0.85 1.1 1.35 1.6 1.9 2.2 2.55 2.9 3.4 ] } { [ 0.12 0.35 0.7 1.2 1.9 2.9 ] } ifelse def
+/FsVisTol FsPalmOn { 0.1 } { 0 } ifelse def
 /fc-tree-sunvis {
     /Fvz exch def /Fvy exch def /Fvx exch def
-    /Fvv 1 def
-    [ 0.12 0.35 0.7 1.2 1.9 2.9 ] {
+    /Fvv 1 def /Fvsp 0 def
+    FsVisS {
         /Fvs exch def
+        % (palms) the tolerance spans the gap to the previous probe, so a
+        % thin crown layer is caught by some probe wherever it crosses
+        FsPalmOn { /FsVisTol Fvs Fvsp sub 0.6 mul SunDir 1 get abs mul 0.1 fc-max def /Fvsp Fvs def } if
         /Fvpx Fvx SunDir 0 get Fvs mul add def
         /Fvpy Fvy SunDir 1 get Fvs mul add def
         /Fvpz Fvz SunDir 2 get Fvs mul add def
-        Fvpx Fvpz fc-forest-map /Fvhs exch def /Fvd exch def
+        Fvpx Fvpz fc-forest-mapt /Fvhs exch def /Fvd exch def
         Fvd 0.001 gt {
             /FcY Fvpy Fvpx Fvpz FsO fc-height sub def
             % inside a tree's solid, or under the ground where a tree stands
             % (or well under it anywhere)
             % (#17: no tree there reaches above FsHMax FcHmulMax Fvhs)
             FcY Fvhs FcTopMax mul gt not {
-                Fvpx Fvpz Fvd Fvhs fc-crowns FcY gt FcY 0 le and FcIn 0 lt or { /Fvv Fvv 0.3 mul def } if
+                Fvpx Fvpz Fvd Fvhs fc-crowns FcY gt FcY 0 le and FcIn FsVisTol lt or {
+                    % (palms: one layer of fronds, so probes catching the
+                    % same layer don't darken it twice)
+                    FsPalmOn { /Fvv Fvv 0.3 fc-min def } { /Fvv Fvv 0.3 mul def } ifelse
+                } if
             } if
         } if
     } forall
@@ -675,20 +1052,23 @@ FsSpecies {
     /Fwt exch def
     /Fwx Mx Fwt mul def /Fwy My Fwt mul CamY add def /Fwz Mz Fwt mul def
     /FsO Fwt fc-terrain-oct def /FcPx Fwt PixAng mul def
-    Fwx Fwz fc-forest-map /Fwhs exch def /Fwd exch def
-    FsTrunks { /FcY Fwy Fwx Fwz FsO fc-height sub def } if     % (for FcIn)
+    Fwx Fwz fc-forest-mapt /Fwhs exch def /Fwd exch def
+    FsTrunks FsBlobOn or { /FcY Fwy Fwx Fwz FsO fc-height sub def } if     % (for FcIn)
     Fwx Fwz Fwd Fwhs fc-crowns /Fw0 exch def
     Fw0 0 lt { false } {
     % the crown that was hit, and the hit relative to its trunk
-    % (with trunks, the tree whose solid the hit is on: under a lifted
-    % crown that need not be the highest one)
-    FsTrunks FcIn 100 lt and FcIKind 0 eq and {
+    % (with trunks, or crowns of masses, the tree whose solid the hit is
+    % on: under a lifted crown, or in a gap between masses, that need not
+    % be the highest one)
+    FsTrunks FsBlobOn or FcIn 100 lt and FcIKind 0 eq and {
         /FcH FcIH def /FcR FcIR def /FcK FcIK def /FcSp FcISp def /Fw0 FcIt def
-        /FcBx FcIx def /FcBz FcIz def
+        /FcBx FcIx def /FcBz FcIz def /FwB FcIB def
     } {
-        /FcH FcBH def /FcR FcBR def /FcK FcBK def /FcSp FcBSp def
+        /FcH FcBH def /FcR FcBR def /FcK FcBK def /FcSp FcBSp def /FwB FcBB def
     } ifelse
     /FwSp FcSp def                       % (fc-tree-sunvis overwrites FcSp)
+    FwSp /form get /palm eq { fc-tree-shade-palm } {
+    FwSp /form get /blob eq { fc-tree-shade-blob } {
     /FcEnv FcSp /env get def /FcTiers FcSp /tiers get def
     /Fwdx FcBx def /Fwdz FcBz def
     % normal from the smooth envelope, not by differencing the stepped
@@ -748,7 +1128,126 @@ FsSpecies {
             SkyAmb Fwi get Fws mul SkyLight mul Bounce Fwi get Fwb mul 0.35 mul add mul
         add
     } for
+    } ifelse } ifelse
     true } ifelse
+} bind def
+
+% a crown of masses (#53; from fc-tree-shade-1, as for a palm, with the
+% tree's crown base in FwB) -> r g b. The normal is a third the hit
+% mass's and two thirds the whole crown's, tilted by clumps of foliage;
+% there are no whorls. Leaves are lit like needles:
+% sprays about two pixels across close up, gaps into the crown between
+% the clumps, less sky low in the crown and in the hollows between masses.
+/fc-tree-shade-blob {
+    /FcSp FwSp def fc-tree-sp /FcB FwB def
+    % the hit's height over the ground, and the mass it is on
+    /FcY Fwy Fwx Fwz FsO fc-height sub def
+    FcBx FcBz fc-blob-prof pop pop
+    /Fw0 FcY FhWy FhWv add fc-min def
+    /Fwq Fw0 FcH FcB mul sub FcH 1 FcB sub mul 0.0001 fc-max div 0 fc-max 1 fc-min def
+    % the mass's normal
+    FcBx FhWx sub FhWs dup mul div
+    Fw0 FhWy sub FhWv dup mul div
+    FcBz FhWz sub FhWs dup mul div
+    /Fnz exch def /Fny exch def /Fnx exch def
+    /Fnn Fnx Fnx mul Fny Fny mul add Fnz Fnz mul add sqrt 0.000001 fc-max def
+    /Fnx Fnx Fnn div def /Fny Fny Fnn div def /Fnz Fnz Fnn div def
+    % two thirds of it the whole crown's (an ellipsoid round it), so the masses
+    % are lit as one crown, not as so many balls
+    /Fhcy FcH FcB mul FcH add 0.5 mul def /Fhcv FcH 1 FcB sub mul 0.5 mul 0.0001 fc-max def
+    FcBx FcR dup mul div  Fw0 Fhcy sub Fhcv dup mul div  FcBz FcR dup mul div
+    /Fhnz exch def /Fhny exch def /Fhnx exch def
+    /Fnn Fhnx Fhnx mul Fhny Fhny mul add Fhnz Fhnz mul add sqrt 0.000001 fc-max def
+    /Fnx Fhnx Fnn div 2 mul Fnx add def /Fny Fhny Fnn div 2 mul Fny add def /Fnz Fhnz Fnn div 2 mul Fnz add def
+    /Fnn Fnx Fnx mul Fny Fny mul add Fnz Fnz mul add sqrt 0.000001 fc-max def
+    /Fnx Fnx Fnn div def /Fny Fny Fnn div def /Fnz Fnz Fnn div def
+    % how far out on its mass (1 at the rim): the hollows between masses
+    % and the rims seen edge-on are darker
+    /Fwu FcBx FhWx sub dup mul FcBz FhWz sub dup mul add sqrt FhWs 0.0001 fc-max div 1 fc-min def
+    % clumps of foliage, a fifth of the crown radius, tilt the normal
+    /Fwff 5 FcR 0.05 fc-max div def
+    Fwx Fwff mul FcK 0.29 mul add Fwz Fwff mul 0.7 mul add  Fwy Fwff mul FcK 0.17 mul add fc-noise2 0.5 sub /Fwn1 exch def
+    Fwz Fwff mul 11.3 add Fwx Fwff mul 0.6 mul sub  Fwy Fwff mul 7.1 add fc-noise2 0.5 sub /Fwn2 exch def
+    FcR FcPx div 4 sub 8 div 0 fc-max 1 fc-min /Fwlod exch def
+    % and finer clumps, where they are over two pixels
+    FcR FcPx div 15.5 div 2 sub 2 div 0 fc-max 1 fc-min /Fhl3 exch def
+    Fhl3 0 gt {
+        Fwx Fwff mul 3.1 mul 1.7 add Fwz Fwff mul 3.1 mul add Fwy Fwff mul 3.1 mul fc-noise2 0.5 sub 0.8 mul Fhl3 mul Fwn1 add /Fwn1 exch def
+        Fwz Fwff mul 3.1 mul 4.3 add Fwx Fwff mul 3.1 mul sub Fwy Fwff mul 3.1 mul 2.2 add fc-noise2 0.5 sub 0.8 mul Fhl3 mul Fwn2 add /Fwn2 exch def
+    } if
+    /Fnx Fnx Fwn1 0.75 mul Fwlod mul add def /Fnz Fnz Fwn2 0.75 mul Fwlod mul add def
+    /Fny Fny Fwn1 Fwn2 add 0.4 mul Fwlod mul add def
+    /Fnn Fnx Fnx mul Fny Fny mul add Fnz Fnz mul add sqrt 0.000001 fc-max def
+    /Fnx Fnx Fnn div def /Fny Fny Fnn div def /Fnz Fnz Fnn div def
+    % gaps between the clumps into the dark inside of the crown
+    0.30 0.58 Fwx Fwff mul 2.3 mul 5.7 add Fwz Fwff mul 2.3 mul add Fwy Fwff mul 2.3 mul 2.9 add fc-noise2 fc-smooth
+    0.7 mul 0.3 add Fwlod mul 1 Fwlod sub 0.7 mul add /Fwwh exch def
+    % close up: sprays of leaves or needles, about two pixels across
+    FsTrunks Fwlod 0 gt and {
+        0.5 FcPx div 25 fc-min /Fwff exch def
+        0.3 0.62 Fwx Fwff mul 3.7 add Fwz Fwff mul add Fwy Fwff mul 1.3 mul 5.1 add fc-noise2 fc-smooth
+        0.6 mul 0.4 add Fwlod mul 1 Fwlod sub add Fwwh mul /Fwwh exch def
+    } if
+    % the species' colour, per tree, and clumps lighter and darker
+    FcSp /alb get FcSp /alb2 get FsR 1 get FcK get mix3v
+    FcSp /autumn get null ne FsAutumn 0 gt and {
+        FcSp /autumn get FsAutumn FsR 5 get FcK get 0.5 mul 0.75 add mul 1 fc-min mix3v
+    } if
+    FsR 2 get FcK get 0.4 mul 0.8 add Fwn1 Fwn2 sub 0.5 mul 1 add mul
+    /Fwv exch def [ exch { Fwv mul } forall ] /Fwa exch def
+    % sun: wrapped, the terrain's shadow and the crowns' (its own masses too)
+    Fnx SunDir 0 get mul Fny SunDir 1 get mul add Fnz SunDir 2 get mul add 0.3 add 1.3 div
+    dup 0 lt { pop 0 } if /Fwl exch def
+    Fwl 0 gt ShadowsOn and { /Fwl Fwl Fwx Fwy Fwz fc-terrain-shadow mul def } if
+    Fwl 0 gt { /Fwl Fwl Fwx Fwy Fwz fc-tree-sunvis mul def } if
+    % sky: less low in the crown, at the masses' rims, in dense stands
+    /Fwo Fwq 0.7 mul 0.3 add  1 Fwu 4 exp 0.35 mul sub mul  1 Fwd 0.25 mul sub mul def
+    /Fws Fny 0.45 mul 0.55 add Fwo mul Fwwh mul def
+    /Fwl Fwl Fwwh mul def
+    /Fwb 1 Fny sub 0.5 mul Fwo mul def
+    0 1 2 { /Fwi exch def
+        Fwa Fwi get SunCol Fwi get Fwl mul 1.5 mul mul
+        Fwa Fwi get FwSp /shade get Fwi get mul FwSp /alb get Fwi get div
+            SkyAmb Fwi get Fws mul SkyLight mul Bounce Fwi get Fwb mul 0.35 mul add mul
+        add
+    } for
+} bind def
+
+% a palm's crown (from fc-tree-shade-1: the hit at Fwx Fwy Fwz, the tree
+% in FcH FcR FcK, the hit from the crown's centre in FcBx FcBz) -> r g b
+/fc-tree-shade-palm {
+    /FcSp FwSp def fc-tree-sp /FcPyc FcH 0.9 mul def
+    FcBx FcBz fc-palm-prof pop pop
+    % the normal: the frond's slope along it, and the leaflets' across it
+    /Fwca FqAk cos def /Fwsa FqAk sin def
+    0.35 FqDk 2 mul FqV mul sub /Fwsl exch def
+    FqC -1.5 mul Fql mul /Fwsc exch def
+    Fwx 9.1 mul Fwz 7.3 mul add FcK 0.3 mul add Fwy 6.1 mul fc-noise2 0.5 sub 0.8 mul /Fwn1 exch def
+    Fwsl Fwca mul Fwsc Fwsa mul sub Fwn1 add neg
+    1
+    Fwsl Fwsa mul Fwsc Fwca mul add Fwn1 0.6 mul sub neg
+    /Fnz exch def /Fny exch def /Fnx exch def
+    /Fnn Fnx Fnx mul Fny Fny mul add Fnz Fnz mul add sqrt def
+    /Fnx Fnx Fnn div def /Fny Fny Fnn div def /Fnz Fnz Fnn div def
+    % green, yellower in the old drooping fronds and toward the tips; the
+    % knob of frond bases is brown
+    FwSp /alb get FwSp /alb2 get FsR 1 get FcK get 0.5 mul FqV 0.35 mul add FqDk 0.25 mul add 1 fc-min mix3v
+    FqV 0.05 lt { FwSp /bark get 0.6 mix3v } if
+    FsR 2 get FcK get 0.3 mul 0.85 add Fwn1 0.5 mul 1 add mul
+    /Fwv exch def [ exch { Fwv mul } forall ] /Fwa exch def
+    % sun: wrapped, and through the leaflets when the sun is behind them
+    Fnx SunDir 0 get mul Fny SunDir 1 get mul add Fnz SunDir 2 get mul add
+    dup 0.3 add 1.3 div 0 fc-max exch neg 0 fc-max 0.35 mul add /Fwl exch def
+    Fwl 0 gt ShadowsOn and { /Fwl Fwl Fwx Fwy Fwz fc-terrain-shadow mul def } if
+    Fwl 0 gt { /Fwl Fwl Fwx Fwy Fwz fc-tree-sunvis mul def } if
+    /Fws Fny 0.45 mul 0.55 add def
+    /Fwb 1 Fny sub 0.5 mul def
+    0 1 2 { /Fwi exch def
+        Fwa Fwi get SunCol Fwi get Fwl mul 1.5 mul mul
+        Fwa Fwi get FwSp /shade get Fwi get mul FwSp /alb get Fwi get div
+            SkyAmb Fwi get Fws mul SkyLight mul Bounce Fwi get Fwb mul 0.35 mul add mul
+        add
+    } for
 } bind def
 
 % the hit point of a trunk, log or underside hit: Fwx Fwy Fwz, FsO, Fwd
@@ -783,8 +1282,11 @@ FsSpecies {
 /fc-tree-shade-trunk {                           % t -> r g b
     fc-tree-shade-at
     /Fwq Fwg FcTH div 0 fc-max 1 fc-min def      % height up the trunk
-    % the normal, straight out from the axis
+    % the normal, straight out from the axis (a palm's leans, #40)
     Fwx FcTcx sub /Fnx exch def Fwz FcTcz sub /Fnz exch def
+    FcTKind 0 eq { FcTSp /form get /palm eq } { false } ifelse {
+        Fwg fc-palm-axis /Fnz Fnz 3 -1 roll sub def /Fnx Fnx 3 -1 roll sub def
+    } if
     /Fnn Fnx dup mul Fnz dup mul add sqrt 0.0001 fc-max def
     /Fnx Fnx Fnn div def /Fnz Fnz Fnn div def /Fny 0 def
     % bark, or weathered wood: furrows round the trunk, darker and damper low down
@@ -826,6 +1328,11 @@ FsSpecies {
     % the sun, wrapped as for the crown, reaches it only when low
     Fnx SunDir 0 get mul Fny SunDir 1 get mul add Fnz SunDir 2 get mul add 0.25 add 1.25 div
     dup 0 lt { pop 0 } if /Fwl exch def
+    % a palm's fronds are a single thin layer: the sun shines through them
+    FcISp /form get /palm eq {
+        /Fwa [ FcISp /alb get { 0.8 mul } forall ] def
+        /Fwl SunDir 1 get 0 fc-max 0.45 mul Fwl add def
+    } if
     Fwl 0 gt ShadowsOn and { /Fwl Fwl Fwx Fwy Fwz fc-terrain-shadow mul def } if
     Fwl 0 gt { /Fwl Fwl Fwx Fwy Fwz fc-tree-sunvis mul def } if
     /Fws 0.25 1 Fwd 0.7 mul sub mul def
@@ -880,6 +1387,14 @@ FsSpecies {
                 Kx Kz fc-forest-map pop Ftw mul Ftn fc-max /Ftn exch def
                 /KskyMul KskyMul 1 Ftn 0.85 mul sub mul def
                 /KbMul KbMul 1 Ftn sub mul def
+                /FsO Kt fc-terrain-oct def
+                /KlMul KlMul Kx Kh 0.05 add Kz fc-tree-sunvis mul def
+            } if
+        } if
+        % (#40) palms lean out over bare sand: there their shade goes by the
+        % march's dilated density (fc-forest-mapt), not the stand's edge
+        FsPalmOn Ftd 0.001 le and {
+            Kx Kz fc-forest-mapt pop 0.001 gt { Kt fc-forest-w 0 gt } { false } ifelse {
                 /FsO Kt fc-terrain-oct def
                 /KlMul KlMul Kx Kh 0.05 add Kz fc-tree-sunvis mul def
             } if
