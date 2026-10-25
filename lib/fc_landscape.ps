@@ -45,6 +45,9 @@
 %                    higher; a map lake's level isn't used: give y)
 %   LookTilt  0      degrees added to the Pitch LookAt works out (positive
 %                    tilts the view up, lowering the target in the frame)
+%   Pass      /beauty  /mask, /depth, /material or /matte: draw that render
+%                    pass instead of the picture (lib/fc_passes.ps)
+%   PassKeep  []     passes to record for drawing again (fc-pass-draw)
 %
 % Hooks: fc-pixel calls these by name, so a piece can redefine any of them
 % after loading (each one's default is below):
@@ -181,6 +184,11 @@ LnGrade {
 
 % water wraps the hooks above, so it loads after them
 WaterY null ne WaterRise null ne or Rivers or MapWater or { (lib/fc_water.ps) run } if
+
+% render passes (#33) wrap fc-pixel and fc-render, so they load last
+/Pass /beauty fc-default
+/PassKeep [] fc-default
+Pass /beauty ne PassKeep length 0 gt or { (lib/fc_passes.ps) run } if
 
 /fc-landscape {                                  % pw ph -> -
     LnSetUp not { fc-landscape-setup } if

@@ -29,6 +29,11 @@
 # is a blue-noise tile at the pixel), so that is also the same as a plain
 # render.sh run of the whole frame.
 #
+# A render pass (lib/fc_passes.ps) after `--`, as `--pass mask` or
+# `-D Pass=/mask`, goes to every band and names the result
+# renders/<name>-mask.png, so it doesn't overwrite the picture. OUT, as for
+# render.sh, puts the bands and the stitched image in another directory.
+#
 # BAND_WRAP, if set, is put in front of each band's command (for example a
 # lock that limits how many renders run at once).
 set -euo pipefail
@@ -54,6 +59,23 @@ fi
 [ "$auto" != 0 ] || auto="$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu)"
 
 name="$(basename "$piece" .ps)"
+out="${OUT:-renders}"
+# a pass among the defines: always hand it to render.sh as --pass, which
+# puts it in the file names (a bare -D Pass=... would not)
+pass="" args=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --pass) [ $# -ge 2 ] || { echo "render_bands: --pass needs a value" >&2; exit 2; }; pass="$2"; shift 2 ;;
+    -D) if [[ "${2:-}" == Pass=* ]]; then pass="${2#Pass=}"; pass="${pass#/}"; else args+=("$1" "${2:-}"); fi; shift 2 ;;
+    -DPass=*) pass="${1#-DPass=}"; pass="${pass#/}"; shift ;;
+    *) args+=("$1"); shift ;;
+  esac
+done
+sfx=""
+if [ -n "$pass" ] && [ "$pass" != beauty ]; then
+  args+=(--pass "$pass"); sfx="-$pass"
+fi
+set -- ${args[@]+"${args[@]}"}
 dpi="${DPI:-72}"
 page_h="$(awk '/^%%BoundingBox:/ {print $5; exit}' "$piece")"
 page_h="${page_h:-792}"
@@ -73,7 +95,7 @@ if [ -n "$auto" ]; then
   DPI="$probe_dpi" OUT="$tmp/probe" ${wrap[@]+"${wrap[@]}"} scripts/render.sh "$@" \
     -D RowTimes=true -D PixSeed=true "$tmp/${name}.ps"
   # cut points, one per line, then the plan on stderr
-  cutlist="$(python3 - "$tmp/probe/${name}.log" "$auto" "$page_h" "$dpi" "$probe_dpi" "$res" <<'P'
+  cutlist="$(python3 - "$tmp/probe/${name}${sfx}.log" "$auto" "$page_h" "$dpi" "$probe_dpi" "$res" <<'P'
 import sys, re
 log, n, page_h, dpi, pdpi = sys.argv[1], int(sys.argv[2]), float(sys.argv[3]), float(sys.argv[4]), float(sys.argv[5])
 res = float(sys.argv[6])
@@ -131,24 +153,25 @@ for ((i = 0; i < ${#edges[@]} - 1; i++)); do
 done
 failed=0
 for p in "${pids[@]}"; do wait "$p" || failed=1; done
-[ "$failed" = 0 ] || { echo "render_bands: a band failed; logs in renders/${name}_band*.log" >&2; exit 1; }
-python3 - "$name" "$(( $(date +%s) - t_start ))" "${edges[@]}" <<'P'
+[ "$failed" = 0 ] || { echo "render_bands: a band failed; logs in $out/${name}_band*${sfx}.log" >&2; exit 1; }
+python3 - "$out" "$name" "$sfx" "$(( $(date +%s) - t_start ))" "${edges[@]}" <<'P'
 import sys, re
 from PIL import Image
-name, wall, edges = sys.argv[1], int(sys.argv[2]), [float(e) for e in sys.argv[3:]]
-bands = [Image.open(f"renders/{name}_band{i}.png").convert("RGB") for i in range(len(edges) - 1)]
+out_dir, name, sfx, wall = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
+edges = [float(e) for e in sys.argv[5:]]
+bands = [Image.open(f"{out_dir}/{name}_band{i}{sfx}.png").convert("RGB") for i in range(len(edges) - 1)]
 W, H = bands[0].size
 out = Image.new("RGB", (W, H), "white")
 for i, b in enumerate(bands):
     # the row fc_render's Crop starts at: PostScript rounds halves up
     y0, y1 = int(edges[i] * H + 0.5), int(edges[i + 1] * H + 0.5)
     out.paste(b.crop((0, y0, W, y1)), (0, y0))
-    log = open(f"renders/{name}_band{i}.log").read()
+    log = open(f"{out_dir}/{name}_band{i}{sfx}.log").read()
     real = float(re.search(r"^real (\S+)", log, re.M).group(1))
     cpu = float(re.search(r"^user (\S+)", log, re.M).group(1))
     ms = re.search(r"fc-render .* ms (\S+)", log)
     print(f"  band {i}: rows {y0}-{y1}, {real/60:.1f} min wall, {cpu/60:.1f} min CPU"
           + (f" (setup {cpu/60 - float(ms.group(1))/60000:.1f})" if ms else ""))
-out.save(f"renders/{name}.png")
-print(f"render_bands: wrote renders/{name}.png ({W}x{H}, {len(bands)} bands, {wall/60:.1f} min wall)")
+out.save(f"{out_dir}/{name}{sfx}.png")
+print(f"render_bands: wrote {out_dir}/{name}{sfx}.png ({W}x{H}, {len(bands)} bands, {wall/60:.1f} min wall)")
 P

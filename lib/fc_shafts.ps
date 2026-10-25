@@ -1,0 +1,208 @@
+%!PS-Adobe-3.0
+% fc_shafts.ps -- sun shafts: cloud shadows in the haze (fractal_clouds#49).
+%
+% fc_sky.ps loads this at its end when a piece sets /Shafts true (before
+% loading). It replaces fc-haze-colour, fc-haze and fc-sky with versions that
+% darken the haze lying in cloud shadow, so lit and shadowed air form
+% crepuscular rays through the gaps in the clouds. With Shafts off (the
+% default) this file isn't loaded and the closed-form haze runs unchanged.
+%
+% The haze's in-scattered light is HazeCol (1 - T(t)): every bit of air
+% along the ray adds HazeCol times its share, dT. In sunlight that's right;
+% in a cloud's shadow the air loses the direct sun's part of it, a
+% ShaftDark fraction. So once per ray (in fc-haze-colour, which fc-pixel
+% calls once per ray before anything else) the haze is marched out from the
+% camera in ShaftSteps steps, each probing fc-cloud-shadow-oct (one density
+% probe per layer, no march), and the table SfTab keeps
+%
+%   L(s) = sum over steps up to s of dT (1 - shadow)
+%
+% the in-scatter that falls in shadow, by green-channel transmittance.
+% fc-haze then subtracts HazeCol ShaftDark L(t) from its closed form, and
+% fc-sky subtracts HazeCol ShaftDark L(end) from the sky. Lit haze keeps
+% exactly its old value. Air the clouds never shadow (L = 0) is unchanged.
+%
+% The table belongs to one ray: (Mx My Mz CamY) when fc-haze-colour built
+% it. Any other ray (a water reflection, fc_water's swapped fc-haze) gets the
+% closed form, unshadowed. The steps' offset comes from the same blue-noise
+% tile as the cloud march's (ClBlue, #27), read at the pixel (FrI FrJ)
+% shifted by half a tile and scaled by ShaftJitter, so every render of a pixel, crop or band, has the
+% same shafts, and the random stream is untouched.
+%
+% Settings (before loading):
+%   Shafts      false  turn the shafts on
+%   ShaftSteps  48     probes per ray (at most)
+%   ShaftOct    1      noise octaves in each shadow probe (at most the
+%                      layer's ShadOct): fewer is cheaper and smoother;
+%                      the shafts are broad, and fine octaves only add grain
+%   ShaftDist   HazeDist  how far out the probes go; the haze beyond is
+%                      shadowed by the average of the near part
+%   ShaftJitter 0.2    how much of the blue-noise offset the steps get: 1
+%                      is a full step (fine grain); 0 fixes them at the
+%                      steps' middles (no grain, but faint ripples where a
+%                      step is long beside a cloud's shadow)
+%   ShaftDark   0.8    the share of the haze's light that is direct sun,
+%                      lost in shadow (0: no shafts; 1: shadowed haze black)
+
+/ShaftSteps 48 fc-default
+/ShaftDark 0.8 fc-default
+/ShaftOct 1 fc-default
+/ShaftJitter 0.2 fc-default
+/ShaftDist HazeDist fc-default
+
+/SfTab ShaftSteps 1 add array def
+/SfTT ShaftSteps 1 add array def      % green transmittance at the step ends
+/SfOk false def
+/SfKx 0 def /SfKy 0 def /SfKz 0 def /SfKc 0 def
+/SfJI -1 def /SfJJ -1 def /SfJT -1 def /SfJk 0 def
+
+% the step offset, 0..1: the cloud tile at (FrI + 32, FrJ + 32); a further
+% ray in the same pixel (an AA sample) steps on by the golden ratio
+/fc-shaft-jitter {                               % - -> j
+    /FrI where { pop /ClBlue where { pop true } { false } ifelse } { false } ifelse {
+        FrI SfJI ne FrJ SfJJ ne or FrT0 SfJT ne or {
+            /SfJI FrI def /SfJJ FrJ def /SfJT FrT0 def /SfJk 0 def
+        } { /SfJk SfJk 1 add def } ifelse
+        ClBlue FrJ 32 add 63 and 64 mul FrI 32 add 63 and add get 0.5 add 256 div
+        SfJk 0.618034 mul add dup floor sub
+    } { 0.5 } ifelse
+} bind def
+
+% green-channel transmittance from the camera to distance s on the ray
+% (the small-exponent fallback is per call, as in fc-haze, so a nearly level
+% ray doesn't lose its precision to 1 - exp(-x))
+/fc-shaft-tr {                                   % s -> T
+    dup SfA mul abs 0.0001 ge { SfA mul neg 2.71828 exch exp 1 exch sub SfA div } if
+    SfD0 mul neg 2.71828 exch exp
+} bind def
+
+% march the current ray (Mx My Mz from CamY) and fill SfTab: ShaftSteps
+% equal steps over its first ShaftDist (or less, for a ray that climbs out
+% of the haze sooner), each weighted by the haze light it holds (the drop in
+% transmittance across it). Haze beyond ShaftDist is taken to be shadowed as
+% much as the marched part on average: shafts that far are too fine to see,
+% and probes spread over the whole ray were too sparse to keep the
+% near ones smooth
+/fc-shaft-march {                                % - -> -
+    /SfA My HazeH div def
+    /SfD0 2.71828 CamY HazeH div neg exp HazeDist div HazeW 1 get mul def
+    % the end: TMax, or where a rising ray is HazeH above the higher of the
+    % camera and 4 HazeH (higher air adds next to nothing)
+    /SfEnd TMax def
+    My 0.000001 gt {
+        HazeH 4 mul CamY fc-sf-max CamY sub HazeH add My div
+        dup SfEnd lt { /SfEnd exch def } { pop } ifelse
+    } if
+    /SfE SfEnd ShaftDist fc-sf-min def
+    /SfDt SfE ShaftSteps div def
+    /SfJ fc-shaft-jitter 0.5 sub ShaftJitter mul 0.5 add def
+    /SfAcc 0 def /SfT0 1 def
+    SfTab 0 0 put SfTT 0 1 put
+    0 1 ShaftSteps 1 sub {
+        /SfI exch def
+        SfI 1 add SfDt mul fc-shaft-tr /SfT1 exch def
+        SfT0 SfT1 sub /SfW exch def
+        SfW 0.00002 gt {
+            SfI SfJ add SfDt mul /SfS exch def
+            Mx SfS mul My SfS mul CamY add Mz SfS mul ShaftOct fc-cloud-shadow-oct
+            1 exch sub SfW mul SfAcc add /SfAcc exch def
+        } if
+        SfTab SfI 1 add SfAcc put SfTT SfI 1 add SfT1 put
+        /SfT0 SfT1 def
+    } for
+    % the shadowed share of the marched haze, for the rest
+    /SfMean 1 SfT0 sub dup 0.00001 gt { SfAcc exch div } { pop 0 } ifelse def
+    /SfTE SfT0 def
+} bind def
+
+/fc-sf-max { 2 copy lt { exch } if pop } bind def
+/fc-sf-min { 2 copy gt { exch } if pop } bind def
+
+% the shadowed in-scatter up to distance t on the table's ray; within a
+% step it is interpolated by transmittance, not distance, so it never
+% exceeds the haze light up to t (1 - T(t)) however fast the density changes
+/fc-shaft-at {                                   % t -> L
+    dup SfE ge {
+        fc-shaft-tr SfTE exch sub SfMean mul SfTab ShaftSteps get add
+    } {
+        dup 0 le { pop 0 } {
+            dup SfDt div floor cvi ShaftSteps 1 sub fc-sf-min /SfN exch def
+            fc-shaft-tr SfTT SfN get exch sub
+            SfTT SfN get SfTT SfN 1 add get sub dup 1e-12 gt { div } { pop pop 0 } ifelse
+            SfTab SfN 1 add get SfTab SfN get sub mul SfTab SfN get add
+        } ifelse
+    } ifelse
+} bind def
+
+% subtract the shadowed haze light L (green) at distance t from r g b. The
+% haze adds more in some channels than in green (HazeChroma), so channel c
+% loses L scaled by its own haze over green's: (1 - T^(w_c/w_g)) / (1 - T),
+% T green's transmittance to t. Clamped at 0
+/fc-shaft-sub {                                  % r g b t L -> r g b
+    ShaftDark mul /SfL exch def
+    fc-shaft-tr /SfTg exch def
+    /SfB exch def /SfG exch def /SfR exch def
+    SfL 0 gt 1 SfTg sub 0.000001 gt and {
+        [ SfR SfG SfB ] 0 1 2 {
+            /SfC exch def
+            dup SfC get
+            HazeCol SfC get SfL mul
+            1 SfTg HazeW SfC get HazeW 1 get div exp sub 1 SfTg sub div mul
+            sub dup 0 lt { pop 0 } if
+            exch
+        } for pop
+    } { SfR SfG SfB } ifelse
+} bind def
+
+/fc-shaft-key { SfOk { Mx SfKx eq My SfKy eq and Mz SfKz eq and CamY SfKc eq and } { false } ifelse } bind def
+
+/fc-haze-colour-plain /fc-haze-colour load def
+/fc-haze-closed /fc-haze load def
+/fc-sky-plain /fc-sky load def
+
+/fc-haze-colour {                                % dx dz -> -
+    /SfOk false def                              % (it may call fc-sky)
+    2 copy fc-haze-colour-plain
+    Mz eq exch Mx eq and /fc-cloud-shadow-oct where { pop true } { false } ifelse and {
+        fc-shaft-march
+        /SfKx Mx def /SfKy My def /SfKz Mz def /SfKc CamY def /SfOk true def
+    } if
+    SfSkyWrapped not { fc-shaft-wrap-sky } if
+} bind def
+
+% fc_landscape.ps's sky hook (fc-landscape-sky) answers a ray that misses
+% everything below the horizon with HazeCol itself, not fc-sky, so those
+% pixels would keep their unshadowed haze beside far terrain that loses it.
+% The hook is defined after this file loads, so it is wrapped at the first
+% ray instead: a below-horizon miss on the table's ray gets the whole ray's
+% subtraction, as fc-sky does above the horizon. (A piece's own hook is
+% wrapped the same way; if it calls fc-sky for such rays too, they are
+% darkened twice.)
+/SfSkyWrapped false def
+/fc-shaft-wrap-sky {                             % - -> -
+    /SfSkyWrapped true def
+    /fc-landscape-sky where {
+        pop
+        /fc-landscape-sky-plain /fc-landscape-sky load def
+        /fc-landscape-sky {                      % dx dy dz -> r g b
+            fc-shaft-key { 1 index 0 lt 3 index Mx eq and 2 index My eq and 1 index Mz eq and } { false } ifelse
+            4 1 roll fc-landscape-sky-plain 4 -1 roll {
+                SfEnd SfEnd fc-shaft-at fc-shaft-sub
+            } if
+        } bind def
+    } if
+} bind def
+
+/fc-haze {                                       % r g b t -> r g b
+    dup /SfHt exch def fc-haze-closed
+    fc-shaft-key {
+        SfHt SfHt fc-shaft-at fc-shaft-sub
+    } if
+} bind def
+
+/fc-sky {                                        % dx dy dz -> r g b
+    fc-shaft-key { 2 index Mx eq 2 index My eq and 1 index Mz eq and } { false } ifelse
+    4 1 roll fc-sky-plain 4 -1 roll {
+        SfEnd SfEnd fc-shaft-at fc-shaft-sub
+    } if
+} bind def
