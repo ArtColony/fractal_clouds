@@ -4,7 +4,7 @@
 % Status: draft
 % fractal_clouds#36: the epic's features in one picture. A cliffed coast at
 % golden hour, from low over the water under a headland: the sun low over
-% the sea with glitter on the swell, sea stacks in its light, the cliffs
+% the sea with glitter on the swell, sea stacks against it, the cliffs
 % (with Sitka spruce and cedar on top) receding to the far headland, and
 % three cloud layers (cumulus, altocumulus, cirrus) in the evening sky.
 % Everything is presets and settings; nothing is drawn by hand.
@@ -69,9 +69,9 @@
 /HFov where { pop } { /HFov 72 def } ifelse
 /TMax where { pop } { /TMax 1400 def } ifelse
 
-% --- light: the sun low over the sea, left of the stacks -----------------------
-/SunElev where { pop } { /SunElev 4 def } ifelse
-/SunAzim where { pop } { /SunAzim -45 def } ifelse
+% --- light: the sun low over the sea, at the edge of the big stack -------------
+/SunElev where { pop } { /SunElev 3 def } ifelse
+/SunAzim where { pop } { /SunAzim -32 def } ifelse
 /Exposure where { pop } { /Exposure 2.1 def } ifelse
 /HazeDist where { pop } { /HazeDist 1000 def } ifelse
 /CloudLayers where { pop } { /CloudLayers [
@@ -90,6 +90,9 @@
 /CoastStacks where { pop } { /CoastStacks 0.6 def } ifelse
 /WindDir where { pop } { /WindDir -20 def } ifelse
 /RippleAmp where { pop } { /RippleAmp 0.06 def } ifelse
+% no wet-sand mirror: no beach is in view, and the wet band also mirrored the
+% sky on the cliff and stack walls, lighting them from behind
+/WetSand where { pop } { /WetSand 0 def } ifelse
 
 Plan { /Erode where { pop } { /Erode false def } ifelse } if
 
