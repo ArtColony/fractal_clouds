@@ -1,0 +1,6 @@
+REALISM: B
+AESTHETICS: B
+- B’s rougher foreground ridges feel more like weathered rock.
+- Its irregular snow boundaries look more natural.
+- The extra surface detail adds depth and visual interest without disrupting the composition.
+- The difference is subtle; lighting, sky, and framing are nearly identical.

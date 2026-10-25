@@ -22,6 +22,13 @@
 /TerrH 52 fc-default                 % height of the tallest peaks
 /TerrBase -6 fc-default              % valley floor
 /TerrOct 8 fc-default                % most octaves, for near terrain
+% Foreground ground cover (#29, lib/fc_ground.ps, loaded at the end of this
+% file): rocks, shrubs and grass texture near the camera, and up to
+% GroundOct more octaves for the nearest ground
+/GroundOn false fc-default
+GroundOn { /GroundOct 3 fc-default /TerrNormMin 0.03 fc-default } if
+/GroundOct 0 fc-default              % octaves past TerrOct where the pixels are fine enough
+/TerrNormMin 0.08 fc-default         % shortest step for the shading normal, world units
 /MassifScale 0.22 fc-default         % massif wavelength, in ridge wavelengths
 /WarpAmp 0.45 fc-default             % domain warp, in ridge wavelengths
 /MassifLo 0.30 fc-default /MassifHi 0.56 fc-default  % massif mask ramp
@@ -247,9 +254,9 @@
 
 /fc-terrain-oct {                                % t -> oct (real; fades the last in)
     PixAng mul 2 mul TerrScale mul
-    dup 0.0000001 lt { pop TerrOct } {
+    dup 0.0000001 lt { pop TerrOct GroundOct add } {
         1 exch div ln 2 ln div
-        dup TerrOct gt { pop TerrOct } if
+        dup TerrOct GroundOct add gt { pop TerrOct GroundOct add } if
         dup 2 lt { pop 2 } if
     } ifelse
 } bind def
@@ -293,7 +300,7 @@
     /Kt exch def
     /Kx Mx Kt mul def /Ky My Kt mul CamY add def /Kz Mz Kt mul def
     /Ko Kt fc-terrain-oct def
-    /Ke Kt PixAng mul 2 mul 0.08 fc-max def
+    /Ke Kt PixAng mul 2 mul TerrNormMin fc-max def
     /Kh Kx Kz Ko fc-height def
     Kx Ke add Kz Ko fc-height Kh sub neg
     Ke
@@ -357,6 +364,12 @@
     % it may change Alb and scale the sun, sky and bump terms
     /KlMul 1 def /KskyMul 1 def /KbMul 1 def
     /fc-terrain-material where { pop fc-terrain-material } if
+    GroundOn {                                  % rocks, shrubs and grass near the camera (#29)
+        fc-ground-shade
+        /Nx Nx GnTx add def /Nz Nz GnTz add def
+        /Nn Nx Nx mul Ny Ny mul add Nz Nz mul add sqrt def
+        /Nx Nx Nn div def /Ny Ny Nn div def /Nz Nz Nn div def
+    } if
     /Ksn 0 def /Ksw 0 def
     StrataAmp 0 gt Ny 0.92 lt and { fc-terrain-strata } if
     % crevices darken, crest edges catch a little more light, on bare rock
@@ -504,3 +517,5 @@
 
 % terrain from a map: the hook, the painted grid and the feature list
 MapOn { (lib/fc_map.ps) run } if
+% foreground ground cover (#29): wraps fc-height, so it loads last
+GroundOn { (lib/fc_ground.ps) run } if
