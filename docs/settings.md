@@ -738,10 +738,15 @@ gets a rock.
 | `GroundNear` | 0.35 | Two-pixel footprint (world units) under which the grass texture starts; full at 0.55 of it. | |
 
 A rock layer is skipped once its biggest rock is under about a pixel
-across, and each rock fades in between two pixels and about half a pixel
-of radius; `fc-height` skips the whole wrapper below the octave at which
-nothing can show (the shadow march, occlusion ring and bakes use fewer
-octaves, so they never pay for it).
+across, and each rock fades in as its radius grows from about 1 px to
+about 3.3 px; `fc-height` skips the whole wrapper below the octave at which
+nothing can show (the shadow march, occlusion ring and the forest and
+erosion bakes use fewer octaves, and the river-bed bake and the `LookAt`
+aim call the plain terrain height, `fc-height-base`, so none of them pay
+for it or see a rock). With the default cap (`TerrOct` + `GroundOct` = 11
+octaves) the two-pixel footprint never gets below 0.044 units, so the
+finest roughness octave (0.042) and grass octave (0.022) only switch on if
+`GroundOct` is raised.
 
 ## Terrain from a map (`fc_map.ps`, with `MapOn`)
 
