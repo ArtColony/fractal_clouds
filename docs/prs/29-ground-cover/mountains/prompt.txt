@@ -1,0 +1,5 @@
+Two procedurally generated renders of a mountain landscape under clouds are attached: the first is image A, the second is image B. Judge them blind, on what you can see, as a landscape photographer would.
+
+Answer exactly in this format, one line each, then at most 5 short bullet points of reasons:
+REALISM: A or B (which looks more like a real photograph)
+AESTHETICS: A or B (which is the more pleasing image)

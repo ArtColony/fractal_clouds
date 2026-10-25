@@ -156,7 +156,8 @@
         0 1 ErN 1 sub { /AqI exch def
             /AqK AqJ ErN mul AqI add def
             RvC AqK get AqCut gt {
-                ErX0 AqI ErTex mul add ErZ0 AqJ ErTex mul add TerrOct fc-height
+                ErX0 AqI ErTex mul add ErZ0 AqJ ErTex mul add TerrOct
+                GroundOn { fc-height-base } { fc-height } ifelse    % the terrain, without #29's rocks
             } { 1000 } ifelse
             AqHb AqK 3 -1 roll put
         } for
