@@ -145,7 +145,7 @@ SnowFill 0 gt {
     /fc-height {                                 % x z oct -> h
         /Hso exch def /Hsz exch def /Hsx exch def
         Hsx Hsz Hso fc-height-nosnow
-        ErBaked ErBaking not and ErDelta and { fc-snow-fill } { /Hsf 0 def } ifelse
+        ErBaked ErBaking not and { ErDelta } { false } ifelse { fc-snow-fill } { /Hsf 0 def } ifelse
     } bind def
 } if
 /fc-snow-fill {                                  % h -> h' (reads Hsx Hsz)
@@ -157,7 +157,7 @@ SnowFill 0 gt {
         Hsx Hsz SnowFillR add fc-erode-lookup mul add
         Hsx Hsz SnowFillR sub fc-erode-lookup mul add 4 div
         Hsx Hsz fc-erode-lookup mul sub TerrH mul /Hsd exch def
-        Hsd 0.05 gt {
+        Hsd 0 gt {
             Hsx 0.021 mul Hsz 0.021 mul fc-noise2 16 mul SnowLine add
             dup 4 sub exch 12 add Hsh fc-smooth
             SnowFill mul Hsd dup mul mul Hsd SnowFillSoft add div /Hsf exch def
