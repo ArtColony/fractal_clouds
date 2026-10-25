@@ -204,7 +204,7 @@ time of day, weather, terrain, and (optionally) season.
 |---|---|---|
 | `/Spring` | `SnowLine` 25, `FsAutumn` 0 | |
 | `/Summer` | `SnowLine` 27, `FsAutumn` 0 | `gallery/alpine_forest.ps`'s early summer |
-| `/Autumn` | `SnowLine` 24, `FsAutumn` 1 | Turns the larches gold and the broadleaves, but only if the stand has them: the default `FsMix [1]` is all spruce, which ignores it, so also set `FsMix` (experimental) |
+| `/Autumn` | `SnowLine` 24, `FsAutumn` 1 | Turns the larches gold and the broadleaves, but only if the stand has them: the default `FsMix [1]` is all spruce, which ignores it, so also set `FsMix` |
 | `/Winter` | `SnowLine` −8, `FsAutumn` 0 | Snow on every slope that is not too steep |
 
 | Tone and grade | Sets | Look |
@@ -710,6 +710,44 @@ the layer dict, `fc-storm-bounds` its `Bounds`.
 | `MapNoise` | 0 | With a map: how much of the noise massif mask still shows where the map pins nothing (it takes the larger of the two). 0 leaves unpinned ground to the map alone. | 0, 0.25 |
 | `MapPin` | 1 | With a map: how fully pinned ground loses the domain warp. 1 keeps the ridges there on the noise's unwarped network, so a peak lands where it was put; 0 lets them wander as usual. | 1 |
 
+## Ground cover (`fc_ground.ps`, with `GroundOn`, #29)
+
+Near-ground detail, all of it confined to where the pixels are fine enough
+to show it, so the far view is unchanged. `fc_terrain.ps` loads
+`lib/fc_ground.ps` at its end when `GroundOn` is true; it wraps `fc-height`
+(boulders and rough ground, so the march, normals, water and forest see
+them) and adds a shading step after the material hook (rock colour on the
+boulders, a contact and a sun shadow beside each, stones and shrubs, and a
+clumpy grass texture on ground the earlier steps painted green). Every
+per-rock number comes from an integer hash of its cell: no `rand`, so the
+bakes' random stream is untouched. The camera's own probe (`0 0`) never
+gets a rock.
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `GroundOn` | false | Turn the ground cover on (before loading). Also raises the defaults of `GroundOct` to 3 and `TerrNormMin` to 0.03. Won blind pairwise on the `alpine_forest` meadow (`docs/prs/29-ground-cover/`). | true in mountains, alpine_forest, evening_lake, charted_range, storm |
+| `GroundOct` | 0 (3 with `GroundOn`) | Octaves past `TerrOct` that `fc-terrain-oct` allows where the two-pixel footprint is small enough (inside about 50 units at 320 px, 200 at 1280). Works without `GroundOn` too. | |
+| `TerrNormMin` | 0.08 (0.03 with `GroundOn`) | Shortest step for the shading normal, world units: below it the normal stops getting finer close up. | |
+| `GroundRough` | 0.12 | Rough near ground: five octaves of value noise from 1.3 units (13 m) down to 0.04, each as high as `GroundRough` × its wavelength, each in its own turned frame and shown only once it spans 2.5 footprints. 0: none. | |
+| `GroundFar` | 0.6 | Two-pixel footprint (world units) beyond which the ground isn't roughened; full at a third of it. Keeps the roughness, and the snow it sheds, to the near ground. | |
+| `BoulderCell`, `BoulderDens`, `BoulderSize`, `BoulderH` | 2.6, 0.22, 0.42, 0.6 | Boulders, in the geometry: one candidate per jittered cell (world units), kept for about `BoulderDens` of the cells; radius up to `BoulderSize` (most much smaller); height about `BoulderH` × radius. Each is a flattened ellipsoid, elongated and turned its own way, partly buried, with a lumpy outline. | |
+| `StoneCell`, `StoneDens`, `StoneSize` | 0.55, 0.3, 0.11 | Stones in the shading only (smaller than the march's shortest step near the camera): rock coloured on bare ground, dark shrubs (`ShrubCol`) on green ground, each with a rounded normal. | |
+| `GroundPatch` | 0.5 | 0–1: how strongly boulders and stones gather in patches (two smooth noises) with open ground between. | |
+| `GrassAmp` | 1 | Strength of the grass texture on green ground (0: none): three octaves of clumps (1.7 m, 0.6 m, 0.2 m), each in its own turned, warped frame and only once it spans a few pixels, with sun-dried patches (`GrassDry`) and a clumpy normal. | |
+| `GrassDry`, `ShrubCol` | [0.56 0.52 0.33], [0.17 0.22 0.13] | sRGB colours of dried grass and of shrubs. | |
+| `GroundNear` | 0.35 | Two-pixel footprint (world units) under which the grass texture starts; full at 0.55 of it. | |
+
+A rock layer is skipped once its biggest rock is under about a pixel
+across, and each rock fades in as its radius grows from about 1 px to
+about 3.3 px; `fc-height` skips the whole wrapper below the octave at which
+nothing can show (the shadow march, occlusion ring and the forest and
+erosion bakes use fewer octaves, and the river-bed bake and the `LookAt`
+aim call the plain terrain height, `fc-height-base`, so none of them pay
+for it or see a rock). With the default cap (`TerrOct` + `GroundOct` = 11
+octaves) the two-pixel footprint never gets below 0.044 units, so the
+finest roughness octave (0.042) and grass octave (0.022) only switch on if
+`GroundOct` is raised.
+
 ## Terrain from a map (`fc_map.ps`, with `MapOn`)
 
 A piece lays out its geography in map coordinates, which are the terrain's
@@ -910,9 +948,10 @@ it, the forest is only a colour texture on the ground.
 | `FsTrunks` | true | Trunks, and crowns lifted off the ground where the lower branches have died (dense stands; the species' `base` and `baseDense`). Only where a crown is over about 4 px wide. false keeps every crown on the ground, every tree alive (snags and logs need trunks), near spruce outlines as smooth as before: the look before #25. | true |
 | `FsSnag` | 0.03 | Fraction of the trees that are dead snags: a bare, broken-off trunk. Only drawn where trunks are. | 0.03 |
 | `FsFallen` | 0.02 | Fraction lying on the ground as logs. | 0.02 |
-| `FsMix` | [1] | **Experimental.** Weights of the species in `FsSpecies`, in order: spruce, fir, pine, larch, broadleaf, Sitka spruce, red cedar, palm (zero weights skip a species: `/PNWCoast` has `[0 0 0 0 0 0.6 0.4]`). `[1]` is a pure spruce forest (the default look). Broadleaves only grow well below the treeline, so their share is smaller higher up. A mix with pine and broadleaf (`[0.45 0.2 0.15 0.1 0.1]`) lost blind pairwise to the spruce stand on the current sky (blocky pine and broadleaf crowns, pole-like trunks; `docs/prs/25-trees-species/`); work continues in #53. | [1] |
+| `FsSnagDens` | 0.55 | Snags only in a closed stand (#53). A snag's share fades out over `FsSnagDens` ± 0.15 of the forest density at the tree's cell: the full `FsSnag` above `FsSnagDens` + 0.15, none below `FsSnagDens` − 0.15. Trees that would have been snags below that stand alive. In the open, a lone snag reads as a fence post. 0 puts snags anywhere, as before #53. | 0.55 |
+| `FsMix` | [1] | Weights of the species in `FsSpecies`, in order: spruce, fir, pine, larch, broadleaf, Sitka spruce, red cedar, palm (zero weights skip a species: `/PNWCoast` has `[0 0 0 0 0 0.6 0.4]`). `[1]` is a pure spruce forest (the default look). Broadleaves only grow well below the treeline, so their share is smaller higher up. Where every weight has faded out, a tree is a spruce. With #53's pine and broadleaf crowns, the mix `[0.45 0.2 0.15 0.1 0.1]` beats the spruce stand on realism in blind pairwise, in both orders (`docs/prs/53-pine-broadleaf/`); it lost before #53 (`docs/prs/25-trees-species/`). | [1] |
 | `FsAutumn` | 0 | Season: at 1 the larches are gold and the broadleaves turned (per-tree, some earlier than others). Evergreens ignore it. | 0 |
-| `FsSpecies` | (eight dicts) | The species table (pine and broadleaf are experimental, see `FsMix` and #53; Sitka spruce, western red cedar and the palm are #40's): one dict per species with its crown profile (`env droop tiers`, and optionally `rag` and `lobes`, how ragged the outline is and how many lobes it has round the trunk, both 1 for spruce), `rad` (crown radius / height), `hmul` (height), `base` and `baseDense` (crown base / height in the open and in a dense stand), `trunk` (radius / height), colours `alb alb2 shade autumn bark` (sRGB; `null` means the spruce setting) and an altitude band `lo hi` (height relative to the treeline). Define a whole table to add a species; the pieces' `FsMix` then needs a weight for it. Optional `form`: `/palm` makes a palm instead of a conifer (#40): `fronds` drooping fronds (11) on a curved trunk leaning `lean` of its height (0.14, varied per tree), `droop` how far the fronds hang (1 is the tips about 0.65 crown radius under the crown's centre), `rad` the crown radius; `env`, `tiers`, `base` and `baseDense` are unused, and palms are never dead. A palm needs a larger `FsCell` (about 2.2): its lean and crown together stay within 0.55 cell, which caps the crown. | |
+| `FsSpecies` | (eight dicts) | The species table (pine and broadleaf are #53's; Sitka spruce, western red cedar and the palm are #40's): one dict per species with its crown profile (`env droop tiers`, and optionally `rag` and `lobes`, how ragged the outline is and how many lobes it has round the trunk, both 1 for spruce), `rad` (crown radius / height), `hmul` (height), `base` and `baseDense` (crown base / height in the open and in a dense stand), `trunk` (radius / height), colours `alb alb2 shade autumn bark` (sRGB; `null` means the spruce setting) and an altitude band `lo hi` (height relative to the treeline). Define a whole table to add a species; the pieces' `FsMix` then needs a weight for it. Optional `form`: `/palm` makes a palm instead of a conifer (#40): `fronds` drooping fronds (11) on a curved trunk leaning `lean` of its height (0.14, varied per tree), `droop` how far the fronds hang (1 is the tips about 0.65 crown radius under the crown's centre), `rad` the crown radius; `env`, `tiers`, `base` and `baseDense` are unused, and palms are never dead. A palm needs a larger `FsCell` (about 2.2): its lean and crown together stay within 0.55 cell, which caps the crown. `/blob` (#53, pine and broadleaf) makes a crown of rounded masses of foliage round a core (`fc-blob-prof`): `masses` of them (6), each `msize` of the crown radius (0.45, varied 0.6–1.4 times), `mflat` as tall as wide (0.6), set `mspread` (0..1, 0.9) of the way out to the crown's envelope, an ellipsoid at `menv` 0 and a cone at 1 (0), but never so far out from the trunk that it leaves the core, the crown's own ellipsoid shrunk by `mcore` (0.6). `env`, `droop`, `tiers` and `lobes` are unused there, and `rag` notches the masses' outlines (keep it under about 2.5). `mcore` must be at most 1 and `menv` between 0 and 1 (checked). Caveat: up close (crowns over about 40 px) a pine's pad tiers can read as topiary, and its small top pad can sit just clear of the rest. Optional `slim` (0.6): a lifted crown's radius is `1 − slim·base` of the full one (0 for the blob crowns). `rag` must be under 5, and `droop`, `base` and `baseDense` not negative: loading stops with a `rangecheck` otherwise. The table is read once, when `lib/fc_trees.ps` loads (colours converted, missing keys filled in, bounds and the spruce globals worked out), so define `FsSpecies` and `FsMix` before the `run` line. Changing either afterwards isn't supported: what was worked out from them at load stays as it was, so the result is a mix of old and new. | |
 | `FsBark` | [0.21 0.16 0.12] | Spruce bark (other species carry their own). | |
 | `FsShoreH` | 1.5 | On a coast (`lib/fc_coast.ps` loaded): no trees on low ground (under `FsShoreH` above the beach's berm, `MapSea + CoastBerm`) within `CoastSandW` of the water, fading in over its outer half; higher ground (cliff tops, stacks) keeps its trees however near the sea. 0 turns the gate off (#40). | 1.5 |
 | `FsSnagCol` | [0.40 0.36 0.31] | Weathered dead wood: snags, and the sides of logs. | |

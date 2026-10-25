@@ -135,7 +135,7 @@ Profile { (lib/fc_bench.ps) run } if
         % pitch to the target: its own y, or the ground there, or the
         % water over it (WaterY, or a map's sea MapSea) where that is higher
         LookAt length 3 ge { LookAt 1 get } {
-            LnLkX LnLkZ TerrOct fc-height
+            LnLkX LnLkZ TerrOct GroundOn { fc-height-base } { fc-height } ifelse  % (without #29's rocks)
             WaterY null ne { WaterY fc-max } if
             /MapSea where { pop MapSea null ne { MapSea fc-max } if } if
         } ifelse
