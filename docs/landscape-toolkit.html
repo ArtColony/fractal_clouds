@@ -748,6 +748,25 @@ scripts/fetch_fc.sh --check    # in CI</code></pre>
         </figure>
       </div>
     </div>
+
+    <div class="item has-fig">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/82">PR #82</a> &middot; issue #26 <span class="mark done">closed</span> <span class="mark optin">opt-in</span></p>
+        <h3>Snow the forest knows about, and snow as geometry</h3>
+        <p><code>FsSnow</code> makes the forest bake estimate the snow cover the ground shader will paint, using the shader's own formula, and thins the trees under it, so no tree stands in a deep snow field. <code>SnowFill</code> fills the gullies that erosion cut with snow as geometry in the upper snow band, so the march, shadows and forest all see smooth drifts.</p>
+        <p>Both are off by default, so every piece is unchanged. <code>FsSnow</code> adds about 15% to the forest bake. <code>SnowFill</code> made two crops that were nearly all above the snow line 20% and 57% slower.</p>
+      </div>
+      <div class="pair">
+        <figure>
+          <img src="../docs/prs/26-snow-forest/alpine_forest-before.png" width="288" height="120" loading="lazy" alt="Alpine forest crop with a low snow line: trees stand in the snow fields.">
+          <figcaption>Before</figcaption>
+        </figure>
+        <figure>
+          <img src="../docs/prs/26-snow-forest/alpine_forest-after.png" width="288" height="120" loading="lazy" alt="The same crop with FsSnow and SnowFill: the snow fields upslope are clear of trees.">
+          <figcaption>FsSnow 1, SnowFill 1</figcaption>
+        </figure>
+      </div>
+    </div>
   </div>
 
   <!-- colour grading -->
@@ -1024,35 +1043,36 @@ scripts/fetch_fc.sh --check    # in CI</code></pre>
 
   <h4>Where the epic stands</h4>
   <ul class="status-list">
-    <li><span class="who"><span class="mark done">closed</span></span><span>22 issues finished by merged PRs: #13, #14, #15, #17, #18, #19, #20, #22, #23, #24, #25, #27, #28, #29, #31, #32, #33, #38, #39, #40, #49, #53. Pixel regression (#35) came first, before the features. The showcase piece, <em>Golden coast</em>, is PR #75.</span></li>
-    <li><span class="who"><a href="https://github.com/ArtColony/fractal_clouds/issues/34">#34</a></span><span><span class="mark part">open</span> Releases and pinning are merged (PR #61). It closes once the techniques page is published.</span></li>
+    <li><span class="who"><span class="mark done">closed</span></span><span>23 issues finished by merged PRs: #13, #14, #15, #17, #18, #19, #20, #22, #23, #24, #25, #26, #27, #28, #29, #31, #32, #33, #38, #39, #40, #49, #53. Pixel regression (#35) came first, before the features. The showcase piece, <em>Golden coast</em>, is PR #75.</span></li>
+    <li><span class="who"><a href="https://github.com/ArtColony/fractal_clouds/issues/34">#34</a></span><span><span class="mark done">closing</span> Releases and pinning are merged (PR #61). The issue closes with the publication of <code>techniques.html</code> as an Artifact, done at the end of the epic.</span></li>
     <li><span class="who"><a href="https://github.com/ArtColony/fractal_clouds/issues/21">#21</a></span><span><span class="mark part">open</span> Fractured rock. Strata (PR #63) and terraces (PR #67) are merged opt-in, but both lost blind pairwise. Whether pairwise is the right bar for this issue is an owner call.</span></li>
     <li><span class="who"><a href="https://github.com/ArtColony/fractal_clouds/issues/30">#30</a></span><span><span class="mark part">open</span> Erosion. Thermal erosion and the far map are merged opt-in (PR #62), but talus reads clearly only from above, and the far map fills basins without cutting channels.</span></li>
-    <li><span class="who"><a href="https://github.com/ArtColony/fractal_clouds/issues/26">#26</a></span><span><span class="mark open">in progress</span> A forest that knows about snow, and snow as geometry.</span></li>
-    <li><span class="who"><a href="https://github.com/ArtColony/fractal_clouds/issues/16">#16</a>, <a href="https://github.com/ArtColony/fractal_clouds/issues/3">#3</a></span><span><span class="mark open">open</span> Native pscat operators and GPU research. Not started; both wait on pscat (below).</span></li>
+    <li><span class="who"><a href="https://github.com/ArtColony/fractal_clouds/issues/77">#77</a>&ndash;<a href="https://github.com/ArtColony/fractal_clouds/issues/81">#81</a></span><span><span class="mark open">follow-ups</span> The look and tooling issues found along the way, filed for after the epic. They are listed below with their issue numbers.</span></li>
   </ul>
 
   <div class="cols" style="margin-top:36px">
     <div>
       <h4>Known look issues</h4>
       <ul class="list">
-        <li><strong>Golden coast:</strong> the water shows regular ripple banding, and the sea stacks look boxy (PR #75).</li>
-        <li><strong>Wet sand</strong> mirrors the sky onto cliff and stack walls, which then glow even with the sun behind them. <em>Golden coast</em> works around it with <code>WetSand 0</code> (PR #75).</li>
-        <li><strong>Narrow map stacks</strong> break the march: a <code>/stack</code> narrower than about 0.8 of its height shows a floating cap and notched edges (PR #75).</li>
+        <li><strong>Ripple banding:</strong> the water in <em>Golden coast</em> shows regular ripple banding at low sun (<a href="https://github.com/ArtColony/fractal_clouds/issues/77">#77</a>).</li>
+        <li><strong>Wet sand</strong> mirrors the sky onto cliff and stack walls, which then glow even with the sun behind them. <em>Golden coast</em> works around it with <code>WetSand 0</code> (<a href="https://github.com/ArtColony/fractal_clouds/issues/78">#78</a>).</li>
+        <li><strong>Narrow map stacks</strong> break the march: a <code>/stack</code> narrower than about 0.8 of its height shows a floating cap and notched edges, so stacks are kept wide and look boxy (<a href="https://github.com/ArtColony/fractal_clouds/issues/78">#78</a>).</li>
+        <li><strong>Low sun:</strong> an olive band can show along the horizon, and the billow cumulus comes out soft at full detail (<a href="https://github.com/ArtColony/fractal_clouds/issues/80">#80</a>).</li>
         <li><strong>Twilight</strong> comes out dim purple-grey; real civil twilight is a deep blue that the cheap multiple-scattering pass doesn't give (PR #48).</li>
         <li><strong>The sea toward a low sun</strong> reads cream, because it reflects the horizon. Surf crests can look painted on from a low camera (PR #54).</li>
-        <li><strong>Tropical frame</strong> needs a reframe: its lagoon and reef are out of frame. The palm trunk's curve doesn't show at preview size, frond edges have specks, far palms show as green boxes, and the foreground sand is empty (PR #68).</li>
-        <li><strong>PNW frame:</strong> the forest edge against the meadow is abrupt, the fog still has a hard edge in places, and the cobble and driftwood appear only in the second view (PR #68).</li>
+        <li><strong>Tropical frame</strong> needs a reframe: its lagoon and reef are out of frame. The palm trunk's curve doesn't show at preview size, frond edges have specks, far palms show as green boxes, and the foreground sand is empty (PR #68, <a href="https://github.com/ArtColony/fractal_clouds/issues/79">#79</a>).</li>
+        <li><strong>PNW frame:</strong> the forest edge against the meadow is abrupt, the fog still has a hard edge in places, and the cobble and driftwood appear only in the second view (PR #68, <a href="https://github.com/ArtColony/fractal_clouds/issues/79">#79</a>).</li>
         <li><strong>Pine tiers</strong> can read as topiary in crowns over about 40 px wide (PR #73).</li>
-        <li><strong>The storm's</strong> rain curtain doesn't read at small sizes. It has no lightning or shelf cloud and can't share heights with another cloud layer (PR #57).</li>
+        <li><strong>The storm's</strong> rain curtain doesn't read at small sizes. It has no lightning or shelf cloud and can't share heights with another cloud layer (PR #57, <a href="https://github.com/ArtColony/fractal_clouds/issues/79">#79</a>).</li>
         <li><strong>Coasts</strong> have no arches or undercuts, since the terrain is a heightfield; <code>/Mesa</code> has no flat summits (PRs #55, #56).</li>
         <li><strong>Speed:</strong> <code>fc-height</code> is still about 60 to 67% of a forest render after PR #60. Cutting it means moving hit points, which the exact-only rule ruled out.</li>
+        <li><strong>Tooling:</strong> <code>render_bands.sh</code> needs a plan-only mode, and the pairwise prompt still names a mountain landscape (<a href="https://github.com/ArtColony/fractal_clouds/issues/81">#81</a>).</li>
       </ul>
     </div>
     <div>
       <h4>What pscat could add</h4>
       <div class="prose" style="margin-bottom:10px">
-        <p>Logged in <code>docs/pscat-issues.md</code> by entry number, not yet filed upstream.</p>
+        <p>Logged in <code>docs/pscat-issues.md</code> by entry number, not yet filed upstream. Using them here is tracked by <a href="https://github.com/ArtColony/fractal_clouds/issues/16">#16</a>, and GPU research by <a href="https://github.com/ArtColony/fractal_clouds/issues/3">#3</a>.</p>
       </div>
       <ul class="list">
         <li><strong>Native noise (entry 8).</strong> 3D fBm at six octaves costs 12.4&nbsp;&micro;s in PostScript against 0.25&nbsp;&micro;s for an empty loop, and noise is the inner loop of <code>fc-height</code>.</li>
