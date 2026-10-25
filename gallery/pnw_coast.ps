@@ -1,0 +1,82 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+%%Title: Pacific Northwest coast
+% Status: draft
+% fractal_clouds#40: the /PNWCoast preset. A cove between two cliffed,
+% forested headlands; driftwood along the top of its cobble beach, sea
+% stacks off the points, low overcast, and sea fog lying in the cove and
+% drifting through the spruce and cedar on the cliff tops.
+%   -D View=2     on the beach among the driftwood
+%   -D Plan=true  the map from above, the camera marked
+% Framing: DPI=36 scripts/render.sh gallery/pnw_coast.ps
+% Preview (gallery/previews/pnw_coast-640x400.png), three bands, one core each:
+%   DPI=144 scripts/render_bands.sh gallery/pnw_coast.ps 0.5 0.7 -- -D ErN=512 -D ErDrops=80000
+%   bands 1119 s, 1233 s, 1075 s (Apple silicon, Mac); 320x200 at DPI 72 about 12 min
+
+/Plan where { pop } { /Plan false def } ifelse
+/Seed where { pop } { /Seed 31 def } ifelse
+/AA where { pop } { /AA true def } ifelse
+
+% --- the map (x east, z north): the sea to the north ---------------------------
+/MapOn where { pop } { /MapOn true def } ifelse
+/MapSea where { pop } { /MapSea 0 def } ifelse
+/MapRect where { pop } { /MapRect [ -600 -600 600 600 ] def } ifelse
+/MapBackground where { pop } { /MapBackground [ -20 0 ] def } ifelse
+/MapLiftRange where { pop } { /MapLiftRange [ -20 30 ] def } ifelse
+/MapLiftGrid where { pop } { /MapLiftGrid [                % ground height, far (north) row first
+    (            )
+    (            )
+    (            )
+    (            )
+    (            )
+    (%%%%#  #%%%%)
+    (%%%%#==#%%%%)
+    (%%%%%==%%%%%)
+    (%%%%%++%%%%%)
+    (%%%%%%%%%%%%)
+    (%%%%%%%%%%%%)
+    (%%%%%%%%%%%%)
+] def } ifelse
+/MapFeatures where { pop } { /MapFeatures [
+    [ /cliff 22 90  -600 40  -300 60  -140 40  -90 -40 ]       % the western headland
+    [ /cliff 22 90   600 40   300 60   140 40   90 -40 ]       % the eastern one
+    [ /stack 18 10  -230 110 ]
+    [ /stack 13 7   -175 150 ]
+    [ /stack 20 12   230 120 ]
+    [ /stack 12 7    300 95 ]
+    [ /stack 9 6     175 165 ]
+] def } ifelse
+/MapPlanN where { pop } { /MapPlanN 240 def } ifelse
+
+% --- the cameras ------------------------------------------------------------------
+% View 1: above the western cliffs, looking across the cove and its fog;
+% View 2: on the cove's beach among the driftwood, looking along it east
+/View where { pop } { /View 1 def } ifelse
+View 2 eq {
+    /TerrOX where { pop } { /TerrOX -40 def } ifelse
+    /TerrOZ where { pop } { /TerrOZ -104 def } ifelse
+    /Yaw where { pop } { /Yaw 70 def } ifelse
+    /HFov where { pop } { /HFov 60 def } ifelse
+    /CamAbove where { pop } { /CamAbove 0.45 def } ifelse
+    /Pitch where { pop } { /Pitch -2 def } ifelse
+} {
+    /TerrOX where { pop } { /TerrOX -176 def } ifelse
+    /TerrOZ where { pop } { /TerrOZ -62 def } ifelse
+    /Yaw where { pop } { /Yaw 90 def } ifelse
+    /HFov where { pop } { /HFov 66 def } ifelse
+    /CamAbove where { pop } { /CamAbove 8 def } ifelse
+    /Pitch where { pop } { /Pitch -11 def } ifelse
+} ifelse
+/TMax where { pop } { /TMax 1200 def } ifelse
+/SunAzim where { pop } { /SunAzim -40 def } ifelse
+Plan { /Erode where { pop } { /Erode false def } ifelse } if
+
+(lib/fc_presets.ps) run
+[ /PNWCoast ] fc-presets
+(lib/fc_landscape.ps) run
+
+Plan {
+    320 200 fc-map-plan
+    (C) TerrOX TerrOZ Yaw fc-map-plan-camera
+} { 320 200 fc-landscape } ifelse
+showpage

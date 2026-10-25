@@ -219,6 +219,16 @@ time of day, weather, terrain, and (optionally) season.
 | `/CoolMuted` | `GradeTemp` −0.3, `GradeSat` 0.72, `GradeLift` 0.006, `GradeSplit` 0.3 | Muted and cool, for an overcast Pacific Northwest look (#40) |
 | `/Vignette` | `Vignette` 0.3 | Darker edges and corners; deliberately subtle (edges at 70%), raise `Vignette` for more |
 
+| Coast | Sets | Look |
+|---|---|---|
+| `/Tropical` | `SunElev` 62, clear air (`HazeDist` 1500), trade-wind `/Cumulus` (62–92, scattered), `/ACES`, `Ocean` with turquoise shallows and pale sand (`SeaShallow`, `SeaDepth` 2.4, `SandCol`, `CoastSand`, no cobbles or stacks), a reef the surf breaks on (`CoastReef` [60 30 0.15]), palms (`FsMix` all palm, `FsCell` 2.2, no dead trees) | A tropical island at midday: `gallery/tropical_island.ps` |
+| `/PNWCoast` | `SunElev` 30 under two `/Stratus` layers (sea fog 3–22, thin except where `fc-coast-fog` thickens it at the coast; overcast 34–46), thick low haze, a cool muted grade (`GradeTemp` −0.4, `GradeSat` 0.62), a grey-green `Ocean`, dark basalt (`Rock`, `Rock2`, `Scree`), grey sand and cobble (`CoastCobbles` 0.5 plus `CoastCobbleK` 1.2 under cliffs), more stacks and surf rocks, driftwood (`CoastDrift` 1), Sitka spruce and red cedar (`FsMix`) to the cliff tops (`FsLine` 90) | The Pacific Northwest coast in fog: `gallery/pnw_coast.ps` |
+
+Each is a whole look for a map with `MapSea` 0 (the fog layer's heights
+assume it); the piece brings the map, the camera and `SunAzim`. Pick the
+sun's azimuth so the view doesn't look into a low sun over open sea (the
+sea toward a low sun reads cream).
+
 Grade presets combine with each other (list the one whose values should win
 first: `[ /CoolMuted /Vignette ]`) and with the other groups. See the colour
 grade section below for what each setting does.
@@ -740,6 +750,17 @@ sea (their load is lost).
 | `CoastSand`, `CoastCobble` | sRGB | The beach's colours; cobbles are mottled. | |
 | `CoastCobbles` | 0.3 | How much of the beaches is cobble, 0–1. | |
 | `CoastSandW` | 40 | How far inland the beach material reaches. | |
+| `CoastCobbleK` | 0 | More cobble under cliffs: added to `CoastCobbles` in proportion to how cliffed the shore is (#40), so coves under cliffs are cobble and open beaches sand. | 1.2 (`/PNWCoast`) |
+| `CoastDrift` | 0 | Driftwood along the top of the beach, 0–1 (#40): logs 0.8–1.8 units long and 0.1–0.2 across, lying at any angle, a third sunk in the sand, one candidate per 2.5-unit cell kept by noise (half of them at 1) (more with a higher value; the random stream is untouched). A heightfield bump, so near detail only (more than five terrain octaves), on low shores only (cliffedness under 0.5). | 1 (`/PNWCoast`) |
+| `CoastDriftBand` | [8 24] | `lo hi`: the band of (wobbled) distance from the water the logs lie in: the high-tide line at the back of the beach. | |
+| `CoastDriftCol` | [0.60 0.57 0.52] | Bleached wood, sRGB, darker along the grain. | |
+| `CoastFog` | [0.25 40] | `add reach` for `fc-coast-fog` (below), and optionally a third number, `top`: the added fog thins out from `MapSea` up to that height. | [0.25 40 20] (`/PNWCoast`) |
+
+`x y z oct fc-coast-fog dd` is a cloud layer's `Shape` (see Cloud layers):
+it adds `add` to the layer's density at the coastline (by `fc-coast-dist`,
+over land or water), fading to nothing `reach` away (a reach that wanders by two noise octaves, ±0.9 `reach`, so the bank's edge breaks into lobes), so fog lies along the
+shore and fills coves (all of a cove is near some shore) while the open sea
+and the land inland stay clearer. `/PNWCoast` uses it on a low `/Stratus`.
 
 ## Terrain surface and light (`fc_terrain.ps`)
 
@@ -827,10 +848,11 @@ it, the forest is only a colour texture on the ground.
 | `FsTrunks` | true | Trunks, and crowns lifted off the ground where the lower branches have died (dense stands; the species' `base` and `baseDense`). Only where a crown is over about 4 px wide. false keeps every crown on the ground, every tree alive (snags and logs need trunks), near spruce outlines as smooth as before: the look before #25. | true |
 | `FsSnag` | 0.03 | Fraction of the trees that are dead snags: a bare, broken-off trunk. Only drawn where trunks are. | 0.03 |
 | `FsFallen` | 0.02 | Fraction lying on the ground as logs. | 0.02 |
-| `FsMix` | [1] | **Experimental.** Weights of the species in `FsSpecies`, in order: spruce, fir, pine, larch, broadleaf. `[1]` is a pure spruce forest (the default look). Broadleaves only grow well below the treeline, so their share is smaller higher up. A mix with pine and broadleaf (`[0.45 0.2 0.15 0.1 0.1]`) lost blind pairwise to the spruce stand on the current sky (blocky pine and broadleaf crowns, pole-like trunks; `docs/prs/25-trees-species/`); work continues in #53. | [1] |
+| `FsMix` | [1] | **Experimental.** Weights of the species in `FsSpecies`, in order: spruce, fir, pine, larch, broadleaf, Sitka spruce, red cedar, palm (zero weights skip a species: `/PNWCoast` has `[0 0 0 0 0 0.6 0.4]`). `[1]` is a pure spruce forest (the default look). Broadleaves only grow well below the treeline, so their share is smaller higher up. A mix with pine and broadleaf (`[0.45 0.2 0.15 0.1 0.1]`) lost blind pairwise to the spruce stand on the current sky (blocky pine and broadleaf crowns, pole-like trunks; `docs/prs/25-trees-species/`); work continues in #53. | [1] |
 | `FsAutumn` | 0 | Season: at 1 the larches are gold and the broadleaves turned (per-tree, some earlier than others). Evergreens ignore it. | 0 |
-| `FsSpecies` | (five dicts) | The species table (pine and broadleaf are experimental, see `FsMix` and #53): one dict per species with its crown profile (`env droop tiers`, and optionally `rag` and `lobes`, how ragged the outline is and how many lobes it has round the trunk, both 1 for spruce), `rad` (crown radius / height), `hmul` (height), `base` and `baseDense` (crown base / height in the open and in a dense stand), `trunk` (radius / height), colours `alb alb2 shade autumn bark` (sRGB; `null` means the spruce setting) and an altitude band `lo hi` (height relative to the treeline). Define a whole table to add a species; the pieces' `FsMix` then needs a weight for it. | |
+| `FsSpecies` | (eight dicts) | The species table (pine and broadleaf are experimental, see `FsMix` and #53; Sitka spruce, western red cedar and the palm are #40's): one dict per species with its crown profile (`env droop tiers`, and optionally `rag` and `lobes`, how ragged the outline is and how many lobes it has round the trunk, both 1 for spruce), `rad` (crown radius / height), `hmul` (height), `base` and `baseDense` (crown base / height in the open and in a dense stand), `trunk` (radius / height), colours `alb alb2 shade autumn bark` (sRGB; `null` means the spruce setting) and an altitude band `lo hi` (height relative to the treeline). Define a whole table to add a species; the pieces' `FsMix` then needs a weight for it. Optional `form`: `/palm` makes a palm instead of a conifer (#40): `fronds` drooping fronds (11) on a curved trunk leaning `lean` of its height (0.14, varied per tree), `droop` how far the fronds hang (1 is the tips about 0.65 crown radius under the crown's centre), `rad` the crown radius; `env`, `tiers`, `base` and `baseDense` are unused, and palms are never dead. A palm needs a larger `FsCell` (about 2.2): its lean and crown together stay within 0.55 cell, which caps the crown. | |
 | `FsBark` | [0.21 0.16 0.12] | Spruce bark (other species carry their own). | |
+| `FsShoreH` | 1.5 | On a coast (`lib/fc_coast.ps` loaded): no trees on low ground (under `FsShoreH` above the beach's berm, `MapSea + CoastBerm`) within `CoastSandW` of the water, fading in over its outer half; higher ground (cliff tops, stacks) keeps its trees however near the sea. 0 turns the gate off (#40). | 1.5 |
 | `FsSnagCol` | [0.40 0.36 0.31] | Weathered dead wood: snags, and the sides of logs. | |
 | `FsLogCol` | [0.30 0.27 0.20] | The mossy top of a fallen trunk. | |
 | `FsN` | 384 | Density map resolution. | 384 |
