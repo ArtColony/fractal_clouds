@@ -15,7 +15,7 @@ Status values: `open` (not filed yet), `filed #N`, `wontfile` (with the reason).
 ## 1. Skills say the LaserWriter 35 fonts "always resolve", but they need the texgyre pack
 
 - **Kind:** skill docs
-- **Status:** open
+- **Status:** filed PSCatLabs/pscat#727
 - **Where:** `plugin/skills/pscat/SKILL.md` line 129 (Fonts), `plugin/skills/psart/SKILL.md` line 102 (Type is material)
 - **Found:** 2026-10-21
 
@@ -39,7 +39,7 @@ that the rest of the LaserWriter 35 come from `pscat fonts install`
 ## 2. Skills say unknown font names "substitute Helvetica", but pack fonts error out
 
 - **Kind:** skill docs (possibly a behaviour question)
-- **Status:** open
+- **Status:** filed PSCatLabs/pscat#728
 - **Where:** `plugin/skills/pscat/SKILL.md` (Fonts: "Unknown names substitute Helvetica rather than erroring"), `plugin/skills/psart/SKILL.md` ("an unknown name silently becomes Helvetica")
 - **Found:** 2026-10-21
 
@@ -61,7 +61,7 @@ deciding whether a pack font should fall back the way an unknown name does
 ## 3. psart's "A sketch to start from" fails on a bare install
 
 - **Kind:** skill docs
-- **Status:** open
+- **Status:** filed PSCatLabs/pscat#729
 - **Where:** `plugin/skills/psart/SKILL.md`, the final code block
 - **Found:** 2026-10-21
 
@@ -77,7 +77,7 @@ bare bundle with no font catalog.
 ## 4. `/Interpolate true` on images is ignored
 
 - **Kind:** pscat divergence from Ghostscript (PLRM allows ignoring it; it's a hint)
-- **Status:** open
+- **Status:** filed PSCatLabs/pscat#730
 - **Where:** `image` / `colorimage` with an image dictionary, PNG output
 - **Found:** 2026-10-21, fractal_clouds#1 spike
 
@@ -107,7 +107,7 @@ document that it's ignored.
 ## 5. Many low-alpha layers stall: `setalpha` blending loses precision in 8 bits
 
 - **Kind:** pscat rendering precision
-- **Status:** open
+- **Status:** filed PSCatLabs/pscat#731
 - **Where:** `setalpha` fills, PNG output
 - **Found:** 2026-10-21, fractal_clouds#1 spike (splat renderer)
 
@@ -159,7 +159,7 @@ all stack hundreds of faint layers.
 ## 6. `cvs` writes reals at full precision, so strings sized for Ghostscript overflow
 
 - **Kind:** pscat divergence from Ghostscript (the PLRM leaves the digit count to the implementation)
-- **Status:** open
+- **Status:** filed PSCatLabs/pscat#732
 - **Where:** `cvs` (and so `=`/`==`, which print the same text) on reals
 - **Found:** 2026-10-21, fractal_clouds#1 (debug printing in the trees work)
 
@@ -184,7 +184,7 @@ at least list the difference in the pscat skill's pitfalls.
 ## 7. Level 2 binary object operators are missing (`writeobject`, `printobject`, `setobjectformat`)
 
 - **Kind:** missing PLRM Level 2 operators
-- **Status:** open
+- **Status:** filed PSCatLabs/pscat#733
 - **Where:** `systemdict`
 - **Found:** 2026-10-22, while looking for a fast way to save baked maps (fractal_clouds erosion and forest maps)
 
@@ -213,7 +213,7 @@ are from pscat 0.6.2 on an Apple-silicon Mac.
 ## 8. Native noise operators
 
 - **Kind:** feature request (performance)
-- **Status:** open
+- **Status:** filed PSCatLabs/pscat#734
 - **Found:** 2026-10-22, fractal_clouds#1 and #11
 
 Noise is the inner loop of every procedural texture and terrain, and in
@@ -250,7 +250,7 @@ not a measurement.
 ## 9. Fast save and load of numeric arrays
 
 - **Kind:** feature request (performance)
-- **Status:** open
+- **Status:** filed PSCatLabs/pscat#735
 - **Found:** 2026-10-22
 
 fractal_clouds bakes maps before rendering: erosion on a 1024² grid (about
@@ -277,7 +277,7 @@ to print them. Fixed-point hex (`readhexstring`; there is no
 ## 10. Parallel rendering of independent image bands
 
 - **Kind:** feature request (performance)
-- **Status:** open
+- **Status:** filed PSCatLabs/pscat#736
 - **Found:** 2026-10-22
 
 pscat runs on one core. fractal_clouds' `scripts/render_bands.sh` starts
@@ -294,7 +294,7 @@ with `/BandIndex` and `/BandCount` defined, has each render only its rows
 ## 11. A profiler
 
 - **Kind:** feature request (tooling)
-- **Status:** open
+- **Status:** filed PSCatLabs/pscat#737
 - **Found:** 2026-10-22
 
 Finding where render time went meant hand-written call counters in
@@ -309,7 +309,7 @@ milliseconds, about 0.8 µs of overhead per wrapped call.
 ## 12. Research: a GPU path for pure numeric procedures
 
 - **Kind:** research idea
-- **Status:** open (see fractal_clouds#3)
+- **Status:** filed PSCatLabs/pscat#742 (as a compiled kernel subset, CPU first, GPU as a preview backend)
 - **Found:** 2026-10-22
 
 The per-pixel procedures in a ray marcher are pure arithmetic over a few
@@ -328,7 +328,7 @@ Worth investigating after those two.
 ## 13. Seeded renders differ between macOS and Linux
 
 - **Kind:** reproducibility caveat (not a correctness bug)
-- **Status:** open
+- **Status:** filed PSCatLabs/pscat#738
 - **Environment:** pscat 0.6.2: `aarch64-apple-darwin` on macOS 15 against
   `aarch64-unknown-linux-musl` and `x86_64-unknown-linux-musl` in Alpine 3.20
   containers
@@ -370,7 +370,7 @@ using the platform's.
 ## 14. No masked images (`ImageType 3`) and no `nulldevice`
 
 - **Kind:** bug (missing operators)
-- **Status:** open
+- **Status:** filed PSCatLabs/pscat#739
 - **Found:** 2026-10-24
 
 Found while adding render passes (#33), pscat 0.6.2. An `image` with an
@@ -403,7 +403,7 @@ mask) and `nulldevice`.
 ## 15. No way to write a file: `file` refuses every write, and the file operators are missing
 
 - **Kind:** missing feature (file output)
-- **Status:** open
+- **Status:** filed PSCatLabs/pscat#740
 - **Found:** 2026-10-24, fractal_clouds#18 (caching the erosion and forest bakes)
 
 pscat 0.6.2 refuses to open any file for writing, whatever the path, even
@@ -434,3 +434,18 @@ wrapper script, nothing is cached.
 fast enough: pscat's `cvs` prints a real with its shortest round-trip
 digits, so a million reals print in 0.6 s (in 64 KB buffers; 2.5 s with a
 `print` per number) and `run` reads them back exactly in 0.17 s.
+
+## 16. The MCP render tool stops every call at 60 s
+
+- **Kind:** feature request (agents and MCP)
+- **Status:** filed PSCatLabs/pscat#741
+- **Found:** 2026-10-24
+
+The pscat MCP server limits each `render_postscript` call to 60 s (the server
+has a `--timeout` flag, but the default plugin setup and the server
+instructions use 60 s). A landscape here takes 30 to 60 core-minutes, and even a
+quarter-size draft takes minutes, so an agent working only through MCP can't
+render these pieces.
+
+**Possible request:** async render jobs (start, poll with progress, fetch,
+cancel), or a documented way to raise the timeout for a local server.
