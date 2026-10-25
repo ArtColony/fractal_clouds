@@ -21,6 +21,7 @@
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
+export BAKE_CACHE=0   # references and comparisons always come from real bakes (#18)
 
 refs="tests/regress/linux"
 cheap="ErN=256;ErDrops=20000"

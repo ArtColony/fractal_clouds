@@ -105,7 +105,10 @@ if [ -n "$auto" ]; then
 import sys, re
 log, n, page_h, dpi, pdpi = sys.argv[1], int(sys.argv[2]), float(sys.argv[3]), float(sys.argv[4]), float(sys.argv[5])
 res = float(sys.argv[6])
-cached = sys.argv[7] != "0"
+text = open(log).read()
+# the bands read the bakes back only if the probe filed or read them all
+cached = (sys.argv[7] != "0" and re.search(r"^fc-cache: \S+ (hit|written)", text, re.M) is not None
+          and "can't keep" not in text and "no FcCacheSrc" not in text)
 t0, rows = None, []
 for line in open(log):
     m = re.match(r"fc-row-t0 (\S+)", line)

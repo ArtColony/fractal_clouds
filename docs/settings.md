@@ -400,7 +400,10 @@ DPI=288 scripts/render_bands.sh gallery/alpine_forest.ps -- -D ErN=1024   # on b
   log, and `render.sh` moves it into `renders/cache/<bake>-<key>.ps` by a
   temporary file and a rename (bands running in parallel never read half a
   file). `render.sh` also defines `FcCacheSrc`, a hash of `lib/*.ps`, the
-  piece and `.pscat-version`; without it (bare `pscat`) nothing is cached.
+  piece, `.pscat-version` and the installed pscat's version; without it
+  (bare `pscat`) nothing is cached. `regress.sh` turns the cache off, so its
+  renders always bake. A piece that runs the setup inside a dictionary of
+  its own (`currentdict` isn't `userdict`) isn't cached.
 - **The key** is everything a bake can read when it starts: every entry of
   `userdict` (and of the current dictionary, if a piece has begun its own),
   procedures included (operators by name), the random stream's state, the
@@ -410,7 +413,8 @@ DPI=288 scripts/render_bands.sh gallery/alpine_forest.ps -- -D ErN=1024   # on b
   earlier cached bake of the same run made (the erosion map, at the forest's
   turn) counts as that bake's key instead of its contents. Render-only
   names are left out (`Crop`, `Res`, `PixSeed`, `RowTimes`, `AA`, `Pass`,
-  `PassKeep`, `FrameGrid`, `FrameLabel`, `Profile`), so a probe, its bands, a
+  `PassKeep`, `FrameGrid`, `FrameLabel`, `Profile`, and `LnSetUp`, `BakeCache`,
+  `BakeCacheSkip`, `BakeCacheDebug`, `FcCacheSrc`), so a probe, its bands, a
   crop and a preview at another `Res` all share a bake; so are the libraries'
   `usertime` stamps (`EbT0`, `FsT0` ...). A setting the key should leave out
   only causes a miss; add render-only ones of a piece's own to
@@ -426,7 +430,9 @@ DPI=288 scripts/render_bands.sh gallery/alpine_forest.ps -- -D ErN=1024   # on b
   overrides the `srand` that puts the stream back.
 - **Disk:** about 20 MB per million reals (the erosion map at `ErN` 1024 is
   one, plus `ErFlow` with `Rivers`); the forest map at `FsN` 384 is about
-  8 MB. Nothing is ever evicted: `rm -rf renders/cache` when it grows.
+  8 MB. After filing a bake, `render.sh` deletes the oldest files once
+  `renders/cache/` is over `BAKE_CACHE_MAX_MB` (default 2048);
+  `rm -rf renders/cache` empties it.
 
 | Setting | Default | What it does | Used |
 |---|---|---|---|

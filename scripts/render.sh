@@ -25,6 +25,8 @@
 #                                        # matte; writes renders/foo-mask.png
 #   BAKE_CACHE=1 scripts/render.sh ...  # keep the erosion and forest bakes in
 #                                        # renders/cache/ and read them back next time
+#                                        # (oldest files deleted past BAKE_CACHE_MAX_MB,
+#                                        # default 2048)
 #                                        # (-D BakeCache=true; lib/fc_cache.ps)
 #   scripts/render.sh --transparent ...  # pscat --transparent: what the page leaves
 #                                        # unpainted comes out as PNG alpha
@@ -42,6 +44,28 @@ set -euo pipefail
 # the whole script is one function, called on the last line, so bash has
 # read all of it before it runs: editing render.sh while a render is in
 # flight can't change what that run does
+# a short hash of stdin, with whichever tool this system has
+hash_text() {
+  if command -v shasum >/dev/null 2>&1; then shasum
+  elif command -v sha1sum >/dev/null 2>&1; then sha1sum
+  else cksum
+  fi | tr -cd '0-9a-f' | cut -c1-16
+}
+
+# keep renders/cache/ under BAKE_CACHE_MAX_MB (default 2048): delete the
+# oldest files first (a band reading one that goes just misses and bakes)
+prune_cache() {
+  local max_kb used f
+  max_kb=$(( ${BAKE_CACHE_MAX_MB:-2048} * 1024 ))
+  used="$(du -sk renders/cache | cut -f1)"
+  [ "$used" -gt "$max_kb" ] || return 0
+  while read -r f; do
+    [ "$used" -gt "$max_kb" ] || break
+    used=$(( used - $(du -k "$f" | cut -f1) ))
+    rm -f "$f"
+  done < <(ls -tr renders/cache/*.ps 2>/dev/null)
+}
+
 main() {
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"   # pieces load (lib/...) relative to the repo root
@@ -160,7 +184,7 @@ for ps in "${pieces[@]}"; do
   # stream back after a cache hit)
   if [ "${sweep[0]:-}" != --sweep-seed ] && { [[ "$defs" == *BakeCache* ]] || grep -q BakeCache "$ps"; }; then
     mkdir -p renders/cache
-    src_hash="$(cat lib/*.ps "$ps" .pscat-version | shasum | cut -c1-16)"
+    src_hash="$({ cat lib/*.ps "$ps" .pscat-version; echo "pscat $have"; } | hash_text)"
     pdefs="$defs /FcCacheSrc ($src_hash) def"
   fi
   if [ -n "$pdefs" ]; then src=-; else src="$ps"; fi
@@ -193,6 +217,7 @@ for ps in "${pieces[@]}"; do
     while read -r t f; do if [ -n "$t" ]; then mv -f "$t" "$f"; fi; done <<< "$done_list"
     rm -f renders/cache/*.ps.tmp."$$".*
     mv -f "$log.strip" "$log"
+    prune_cache
   fi
   secs="$(awk '/^real/ {print $2}' "$log")"
   [ ${#lint[@]} -eq 0 ] || grep -q 'pscat: lint: clean' "$log" || [ "$status" = error ] || status=lint
