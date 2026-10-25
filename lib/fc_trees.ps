@@ -291,8 +291,10 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     /Fsnq [ Fbi Fsnr add FsN 1 sub fc-min Fbj   Fbi Fsnr sub 0 fc-max Fbj
             Fbi Fbj Fsnr add FsN 1 sub fc-min   Fbi Fbj Fsnr sub 0 fc-max ] def
     0 2 6 { /Fsnk exch def
-        FsHt Fsnq Fsnk 1 add get FsN mul Fsnq Fsnk get add get Fsnh sub
-        dup 4 div Fsnc add /Fsnc exch def
+        Fsnq Fsnk 1 add get FsN mul Fsnq Fsnk get add /Fsnm exch def
+        FsHt Fsnm get Fsnh sub
+        dup FsSnFill { FsSf Fsnm get sub FsSf Fbk get add } if
+        4 div Fsnc add /Fsnc exch def
         7 div 0 fc-max 1 fc-min Fsno add /Fsno exch def
     } for
     /Fsnx FsX0 Fbi FsTex mul add def /Fsnz FsZ0 Fbj FsTex mul add def
@@ -306,6 +308,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     % the normal is (-gx, 1, -gz) Fsny: faces turned from the sun keep more
     Fbgx SunDir 0 get mul Fbgz SunDir 2 get mul add Fsny mul 0.35 mul 1 add mul
     0.24 0.58 3 -1 roll fc-smooth
+    FsSnFill { 0.05 0.3 FsSf Fbk get fc-smooth fc-max } if   % a filled channel is snow (as the shading has it)
     FsSnowBand 0 get FsSnowBand 1 get 3 -1 roll fc-smooth FsSnow mul 1 exch sub
 } bind def
 
@@ -315,10 +318,15 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     /FsZ0 Yaw cos FsDist mul FsSize 2 div sub def
     /FsTex FsSize FsN 1 sub div def
     /FsHt FsN FsN mul array def
+    % (#26) with snow in the geometry too, keep each texel's fill, so the
+    % snow estimate's hollow test sees the ground under it, as the shading does
+    /FsSnFill FsSnow 0 gt SnowFill 0 gt and def
+    FsSnFill { /FsSf FsN FsN mul array def } if
     0 1 FsN 1 sub { /Fbj exch def
         0 1 FsN 1 sub { /Fbi exch def
             FsHt Fbj FsN mul Fbi add
             FsX0 Fbi FsTex mul add FsZ0 Fbj FsTex mul add 6 fc-height put
+            FsSnFill { FsSf Fbj FsN mul Fbi add Hsf put } if
         } for
     } for
     /FsDm FsN FsN mul array def /FsHs FsN FsN mul array def
@@ -349,7 +357,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
             FsAl Fbk Fdh Fdl sub put                 % height relative to the treeline (species)
         } for
     } for
-    /FsHt null def
+    /FsHt null def FsSnFill { /FsSf null def } if
     % the steepest slope within a texel of each texel, plus an allowance
     % for the octaves the map leaves out: fc-forest-hit's step bound
     /FsLip FsN FsN mul array def
