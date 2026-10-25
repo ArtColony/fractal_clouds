@@ -710,6 +710,44 @@ the layer dict, `fc-storm-bounds` its `Bounds`.
 | `MapNoise` | 0 | With a map: how much of the noise massif mask still shows where the map pins nothing (it takes the larger of the two). 0 leaves unpinned ground to the map alone. | 0, 0.25 |
 | `MapPin` | 1 | With a map: how fully pinned ground loses the domain warp. 1 keeps the ridges there on the noise's unwarped network, so a peak lands where it was put; 0 lets them wander as usual. | 1 |
 
+## Ground cover (`fc_ground.ps`, with `GroundOn`, #29)
+
+Near-ground detail, all of it confined to where the pixels are fine enough
+to show it, so the far view is unchanged. `fc_terrain.ps` loads
+`lib/fc_ground.ps` at its end when `GroundOn` is true; it wraps `fc-height`
+(boulders and rough ground, so the march, normals, water and forest see
+them) and adds a shading step after the material hook (rock colour on the
+boulders, a contact and a sun shadow beside each, stones and shrubs, and a
+clumpy grass texture on ground the earlier steps painted green). Every
+per-rock number comes from an integer hash of its cell: no `rand`, so the
+bakes' random stream is untouched. The camera's own probe (`0 0`) never
+gets a rock.
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `GroundOn` | false | Turn the ground cover on (before loading). Also raises the defaults of `GroundOct` to 3 and `TerrNormMin` to 0.03. Won blind pairwise on the `alpine_forest` meadow (`docs/prs/29-ground-cover/`). | true in mountains, alpine_forest, evening_lake, charted_range, storm |
+| `GroundOct` | 0 (3 with `GroundOn`) | Octaves past `TerrOct` that `fc-terrain-oct` allows where the two-pixel footprint is small enough (inside about 50 units at 320 px, 200 at 1280). Works without `GroundOn` too. | |
+| `TerrNormMin` | 0.08 (0.03 with `GroundOn`) | Shortest step for the shading normal, world units: below it the normal stops getting finer close up. | |
+| `GroundRough` | 0.12 | Rough near ground: five octaves of value noise from 1.3 units (13 m) down to 0.04, each as high as `GroundRough` × its wavelength, each in its own turned frame and shown only once it spans 2.5 footprints. 0: none. | |
+| `GroundFar` | 0.6 | Two-pixel footprint (world units) beyond which the ground isn't roughened; full at a third of it. Keeps the roughness, and the snow it sheds, to the near ground. | |
+| `BoulderCell`, `BoulderDens`, `BoulderSize`, `BoulderH` | 2.6, 0.22, 0.42, 0.6 | Boulders, in the geometry: one candidate per jittered cell (world units), kept for about `BoulderDens` of the cells; radius up to `BoulderSize` (most much smaller); height about `BoulderH` × radius. Each is a flattened ellipsoid, elongated and turned its own way, partly buried, with a lumpy outline. | |
+| `StoneCell`, `StoneDens`, `StoneSize` | 0.55, 0.3, 0.11 | Stones in the shading only (smaller than the march's shortest step near the camera): rock coloured on bare ground, dark shrubs (`ShrubCol`) on green ground, each with a rounded normal. | |
+| `GroundPatch` | 0.5 | 0–1: how strongly boulders and stones gather in patches (two smooth noises) with open ground between. | |
+| `GrassAmp` | 1 | Strength of the grass texture on green ground (0: none): three octaves of clumps (1.7 m, 0.6 m, 0.2 m), each in its own turned, warped frame and only once it spans a few pixels, with sun-dried patches (`GrassDry`) and a clumpy normal. | |
+| `GrassDry`, `ShrubCol` | [0.56 0.52 0.33], [0.17 0.22 0.13] | sRGB colours of dried grass and of shrubs. | |
+| `GroundNear` | 0.35 | Two-pixel footprint (world units) under which the grass texture starts; full at 0.55 of it. | |
+
+A rock layer is skipped once its biggest rock is under about a pixel
+across, and each rock fades in as its radius grows from about 1 px to
+about 3.3 px; `fc-height` skips the whole wrapper below the octave at which
+nothing can show (the shadow march, occlusion ring and the forest and
+erosion bakes use fewer octaves, and the river-bed bake and the `LookAt`
+aim call the plain terrain height, `fc-height-base`, so none of them pay
+for it or see a rock). With the default cap (`TerrOct` + `GroundOct` = 11
+octaves) the two-pixel footprint never gets below 0.044 units, so the
+finest roughness octave (0.042) and grass octave (0.022) only switch on if
+`GroundOct` is raised.
+
 ## Terrain from a map (`fc_map.ps`, with `MapOn`)
 
 A piece lays out its geography in map coordinates, which are the terrain's

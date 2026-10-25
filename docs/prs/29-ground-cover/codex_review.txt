@@ -1,0 +1,9 @@
+- **P2 — `GroundPatch=0` crashes:** `lib/fc_ground.ps:69` passes identical endpoints (`0.5, 0.5`) to `fc-smooth`, causing division by zero. Reproduced in pscat. Skip the patch ramp when `GroundPatch` is zero and use `GnP` directly.
+
+- **P2 — Rocks can be clipped at cell boundaries:** `lib/fc_ground.ps:80` reserves `1.35 × radius`, but elongation plus outline noise permits approximately `1.56 × radius`. Since line 63 evaluates only the current cell, crossing its boundary can abruptly remove a rock. A controlled probe with valid hash/noise outputs dropped from height `0.13065` to zero across `x=2.6`. Reserve the full maximum extent or evaluate neighboring cells.
+
+- **P2 — Empty cells cannot receive boulder sun shadows:** `lib/fc_ground.ps:186` tests `GnBh < GnR*0.05`. When the receiver’s cell has no rock, both values are zero, so nearby shadow probes never run. This clips shadows at occupied-cell boundaries. Allow the zero-height receiver case independently of `GnR`, then sample toward the sun.
+
+- **P2 — Finest detail is unreachable with defaults:** `lib/fc_ground.ps:124,214` derives filtering from capped octaves. With `TerrOct + GroundOct = 11`, the minimum footprint is `0.04439`: the `0.042` roughness octave and `0.022` grass octave never activate, and `0.06` grass never reaches full strength. Use the actual pixel footprint for ground filtering, or adjust the cap/scales consistently.
+
+- **Fine:** The height wrapper’s `4 1 roll`, saturation operand order, and grass stack handling check out. Empty-layer resets and subsequent guards prevent stale rock globals from being consumed; I found no scratch-name clobber in the inspected call paths. Defaults are ordered correctly, including the gallery opt-ins. With `GroundOn=false` and default settings, the original terrain calculations remain equivalent, the ground file is not loaded, and no random draws are added.

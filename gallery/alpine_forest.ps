@@ -11,6 +11,7 @@
 
 /Seed where { pop } { /Seed 5 def } ifelse
 /AA where { pop } { /AA true def } ifelse          % antialias depth edges (before fc_render.ps loads)
+/GroundOn where { pop } { /GroundOn true def } ifelse   % rocks, rough ground and grass close up (#29)
 /Pitch where { pop } { /Pitch 3 def } ifelse
 /Yaw where { pop } { /Yaw -27 def } ifelse         % toward the massif
 /SunDir where { pop } { /SunDir [ 0.55 0.50 0.45 ] def } ifelse    % from the right, a little ahead
