@@ -374,10 +374,10 @@ footer a { color: inherit; }
 </header>
 
 <figure class="hero">
-  <img src="../gallery/previews/golden_coast-1280x800.png" width="1280" height="800" alt="Golden coast: the showcase landscape, rendered at 1280 by 800 pixels.">
+  <img src="../gallery/previews/golden_coast-1280x800.png" width="1280" height="800" alt="A cliffed coast at golden hour seen from low over the water: the sun low at the edge of a sea stack, its glitter path on the swell, cliffs with conifers receding to a far headland, and three cloud layers.">
   <figcaption>
-    <span><em>Golden coast</em>, the showcase piece. Every pixel is computed by a PostScript program, ray-marched in pscat.</span>
-    <span class="file">gallery/previews/golden_coast-1280x800.png</span>
+    <span><em>Golden coast</em>, the showcase piece. Golden hour on a cliffed coast: the low sun sits at a sea stack's edge with its glitter path on the swell, Sitka spruce and cedar stand on the cliffs, and three cloud layers fill the sky. Every pixel comes from a PostScript program, ray-marched in pscat. The full render took about 60 core-minutes in three bands with the bake cache. Blind pairwise judging chose this framing over nine others.</span>
+    <span class="file"><a href="https://github.com/ArtColony/fractal_clouds/blob/main/gallery/golden_coast.ps">gallery/golden_coast.ps</a> &middot; 1280&times;800</span>
   </figcaption>
 </figure>
 
@@ -518,6 +518,25 @@ scripts/fetch_fc.sh --check    # in CI</code></pre>
         <figure>
           <img src="../docs/prs/21-terraces/round_3/on.png" width="576" height="300" loading="lazy" alt="The same view with geometric terraces cut into steep outcrops.">
           <figcaption>Terraces on (round 3)</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="item has-fig">
+      <div>
+        <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/69">PR #69</a> &middot; issue #29 <span class="mark done">closed</span></p>
+        <h3>Foreground ground cover</h3>
+        <p><code>GroundOn</code> loads <code>lib/fc_ground.ps</code>, which adds detail only where the pixels are fine enough to show it. Near ground gets five more octaves of roughness and partly buried boulders, both in the geometry. Shading adds pebbles on bare ground, dark shrubs on green ground, and a clumpy grass texture with dry patches.</p>
+        <p>It won blind pairwise on the <em>Alpine forest</em> meadow in round 1, realism and aesthetics in both orders, and won again on the whole <em>Mountains</em> frame. Five gallery pieces now turn it on. It costs 18% on <em>Mountains</em> at 640&times;400 and 32% on the meadow crop, which is all near ground.</p>
+      </div>
+      <div class="pair">
+        <figure>
+          <img src="../docs/prs/29-ground-cover/round_1/off.png" width="486" height="208" loading="lazy" alt="The alpine forest meadow crop with smooth ground.">
+          <figcaption>Ground cover off</figcaption>
+        </figure>
+        <figure>
+          <img src="../docs/prs/29-ground-cover/round_1/on.png" width="486" height="208" loading="lazy" alt="The same meadow with rough ground, boulders, stones and grass texture.">
+          <figcaption>Ground cover on</figcaption>
         </figure>
       </div>
     </div>
@@ -919,36 +938,43 @@ scripts/fetch_fc.sh --check    # in CI</code></pre>
   <p class="kicker">03</p>
   <h2>Gallery</h2>
   <div class="prose">
-    <p>Every piece in <code>gallery/</code> is marked <code>% Status: draft</code>. The previews were rendered when each piece was made, and several predate later look changes, as noted.</p>
+    <p>Every piece in <code>gallery/</code> is marked <code>% Status: draft</code>. The previews were refreshed at the end of the epic, so they show the current libraries.</p>
   </div>
 
   <div class="gallery" style="margin-top:24px">
     <figure class="big">
-      <img src="../gallery/previews/mountains-1280x800.png" width="1280" height="800" loading="lazy" alt="Ridged fractal mountains with snow under a layer of cumulus.">
+      <img src="../gallery/previews/golden_coast-1280x800.png" width="1280" height="800" loading="lazy" alt="The golden coast: sea stacks against a low sun over the swell, with cliffs receding.">
       <figcaption>
-        <span class="name">Fractal mountains <span class="mark part">draft</span></span>
-        <span class="meta">gallery/mountains.ps &middot; 1280&times;800 &middot; rendered 21 Oct, before the analytic sky (#22)</span>
+        <span class="name">Golden coast <span class="mark part">draft</span></span>
+        <span class="meta">gallery/golden_coast.ps &middot; 1280&times;800 &middot; PR #75</span>
       </figcaption>
     </figure>
-    <figure class="big">
-      <img src="../gallery/previews/alpine_forest-1280x800.png" width="1280" height="800" loading="lazy" alt="A spruce forest on a valley floor under the massif.">
+    <figure>
+      <img src="../gallery/previews/mountains-640x400.png" width="640" height="400" loading="lazy" alt="Ridged fractal mountains with snow under a layer of cumulus.">
+      <figcaption>
+        <span class="name">Fractal mountains <span class="mark part">draft</span></span>
+        <span class="meta">gallery/mountains.ps &middot; 640&times;400</span>
+      </figcaption>
+    </figure>
+    <figure>
+      <img src="../gallery/previews/alpine_forest-640x400.png" width="640" height="400" loading="lazy" alt="A conifer forest on a valley floor under the massif.">
       <figcaption>
         <span class="name">Alpine forest <span class="mark part">draft</span></span>
-        <span class="meta">gallery/alpine_forest.ps &middot; 1280&times;800 &middot; rendered 21 Oct, before the sky (#22) and the tree work (#25, #53)</span>
+        <span class="meta">gallery/alpine_forest.ps &middot; 640&times;400</span>
       </figcaption>
     </figure>
     <figure>
       <img src="../gallery/previews/tropical_island-640x400.png" width="640" height="400" loading="lazy" alt="A white beach with palms on a slope, turquoise sea and trade-wind cumulus.">
       <figcaption>
         <span class="name">Tropical island <span class="mark part">draft</span></span>
-        <span class="meta">gallery/tropical_island.ps &middot; 640&times;400 &middot; before PR #68's review fixes and the cloud jitter (#27)</span>
+        <span class="meta">gallery/tropical_island.ps &middot; 640&times;400 &middot; PR #68</span>
       </figcaption>
     </figure>
     <figure>
       <img src="../gallery/previews/pnw_coast-640x400.png" width="640" height="400" loading="lazy" alt="A cove between forested cliff headlands with sea stacks and fog under low overcast.">
       <figcaption>
         <span class="name">Pacific Northwest coast <span class="mark part">draft</span></span>
-        <span class="meta">gallery/pnw_coast.ps &middot; 640&times;400 &middot; before PR #68's review fixes and the cloud jitter (#27)</span>
+        <span class="meta">gallery/pnw_coast.ps &middot; 640&times;400 &middot; PR #68</span>
       </figcaption>
     </figure>
     <figure>
@@ -962,14 +988,14 @@ scripts/fetch_fc.sh --check    # in CI</code></pre>
       <img src="../gallery/previews/evening_lake-320x200.png" width="320" height="200" loading="lazy" alt="A lake under a low evening sun with the range reflected in it.">
       <figcaption>
         <span class="name">Evening lake <span class="mark part">draft</span></span>
-        <span class="meta">gallery/evening_lake.ps &middot; 320&times;200 &middot; rendered 22 Oct, before library water (#28)</span>
+        <span class="meta">gallery/evening_lake.ps &middot; 320&times;200</span>
       </figcaption>
     </figure>
     <figure>
-      <img src="../docs/techniques/charted_view2.png" width="320" height="200" loading="lazy" alt="The charted range seen across its valley from the eastern hills.">
+      <img src="../gallery/previews/charted_range-320x200.png" width="320" height="200" loading="lazy" alt="A mapped range with two peaks behind a lake, seen from the lake's south shore.">
       <figcaption>
         <span class="name">Charted range <span class="mark part">draft</span></span>
-        <span class="meta">gallery/charted_range.ps &middot; 320&times;200 &middot; no gallery preview; view 2 from docs/techniques/</span>
+        <span class="meta">gallery/charted_range.ps &middot; 320&times;200 &middot; PR #50</span>
       </figcaption>
     </figure>
   </div>
@@ -998,11 +1024,10 @@ scripts/fetch_fc.sh --check    # in CI</code></pre>
 
   <h4>Where the epic stands</h4>
   <ul class="status-list">
-    <li><span class="who"><span class="mark done">closed</span></span><span>21 issues finished by merged PRs: #13, #14, #15, #17, #18, #19, #20, #22, #23, #24, #25, #27, #28, #31, #32, #33, #38, #39, #40, #49, #53. Pixel regression (#35) came first, before the features.</span></li>
+    <li><span class="who"><span class="mark done">closed</span></span><span>22 issues finished by merged PRs: #13, #14, #15, #17, #18, #19, #20, #22, #23, #24, #25, #27, #28, #29, #31, #32, #33, #38, #39, #40, #49, #53. Pixel regression (#35) came first, before the features. The showcase piece, <em>Golden coast</em>, is PR #75.</span></li>
     <li><span class="who"><a href="https://github.com/ArtColony/fractal_clouds/issues/34">#34</a></span><span><span class="mark part">open</span> Releases and pinning are merged (PR #61). It closes once the techniques page is published.</span></li>
     <li><span class="who"><a href="https://github.com/ArtColony/fractal_clouds/issues/21">#21</a></span><span><span class="mark part">open</span> Fractured rock. Strata (PR #63) and terraces (PR #67) are merged opt-in, but both lost blind pairwise. Whether pairwise is the right bar for this issue is an owner call.</span></li>
     <li><span class="who"><a href="https://github.com/ArtColony/fractal_clouds/issues/30">#30</a></span><span><span class="mark part">open</span> Erosion. Thermal erosion and the far map are merged opt-in (PR #62), but talus reads clearly only from above, and the far map fills basins without cutting channels.</span></li>
-    <li><span class="who"><a href="https://github.com/ArtColony/fractal_clouds/issues/29">#29</a></span><span><span class="mark open">in progress</span> Foreground ground cover: boulders, rough near ground, stones, shrubs and grass (PR #69).</span></li>
     <li><span class="who"><a href="https://github.com/ArtColony/fractal_clouds/issues/26">#26</a></span><span><span class="mark open">in progress</span> A forest that knows about snow, and snow as geometry.</span></li>
     <li><span class="who"><a href="https://github.com/ArtColony/fractal_clouds/issues/16">#16</a>, <a href="https://github.com/ArtColony/fractal_clouds/issues/3">#3</a></span><span><span class="mark open">open</span> Native pscat operators and GPU research. Not started; both wait on pscat (below).</span></li>
   </ul>
@@ -1011,12 +1036,15 @@ scripts/fetch_fc.sh --check    # in CI</code></pre>
     <div>
       <h4>Known look issues</h4>
       <ul class="list">
+        <li><strong>Golden coast:</strong> the water shows regular ripple banding, and the sea stacks look boxy (PR #75).</li>
+        <li><strong>Wet sand</strong> mirrors the sky onto cliff and stack walls, which then glow even with the sun behind them. <em>Golden coast</em> works around it with <code>WetSand 0</code> (PR #75).</li>
+        <li><strong>Narrow map stacks</strong> break the march: a <code>/stack</code> narrower than about 0.8 of its height shows a floating cap and notched edges (PR #75).</li>
         <li><strong>Twilight</strong> comes out dim purple-grey; real civil twilight is a deep blue that the cheap multiple-scattering pass doesn't give (PR #48).</li>
         <li><strong>The sea toward a low sun</strong> reads cream, because it reflects the horizon. Surf crests can look painted on from a low camera (PR #54).</li>
-        <li><strong>Tropical frame:</strong> no lagoon or reef line reads from the camera, the palm trunk's curve doesn't show at preview size, frond edges have specks, far palms show as green boxes, and the foreground sand is empty (PR #68).</li>
+        <li><strong>Tropical frame</strong> needs a reframe: its lagoon and reef are out of frame. The palm trunk's curve doesn't show at preview size, frond edges have specks, far palms show as green boxes, and the foreground sand is empty (PR #68).</li>
         <li><strong>PNW frame:</strong> the forest edge against the meadow is abrupt, the fog still has a hard edge in places, and the cobble and driftwood appear only in the second view (PR #68).</li>
         <li><strong>Pine tiers</strong> can read as topiary in crowns over about 40 px wide (PR #73).</li>
-        <li><strong>The storm</strong> has no lightning or shelf cloud and can't share heights with another cloud layer (PR #57).</li>
+        <li><strong>The storm's</strong> rain curtain doesn't read at small sizes. It has no lightning or shelf cloud and can't share heights with another cloud layer (PR #57).</li>
         <li><strong>Coasts</strong> have no arches or undercuts, since the terrain is a heightfield; <code>/Mesa</code> has no flat summits (PRs #55, #56).</li>
         <li><strong>Speed:</strong> <code>fc-height</code> is still about 60 to 67% of a forest render after PR #60. Cutting it means moving hit points, which the exact-only rule ruled out.</li>
       </ul>
