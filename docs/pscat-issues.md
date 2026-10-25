@@ -359,3 +359,36 @@ against a git ref with `--ref`.
 **Possible request:** if cross-platform reproducibility matters to pscat,
 bundle one libm (for example a port of musl's or of CORE-MATH) instead of
 using the platform's.
+
+## 14. No masked images (`ImageType 3`) and no `nulldevice`
+
+- **Kind:** bug (missing operators)
+- **Status:** open
+- **Found:** 2026-10-24
+
+Found while adding render passes (#33), pscat 0.6.2. An `image` with an
+`ImageType 3` dictionary (a picture with a stencil mask, PostScript Level 3)
+fails with `typecheck`, and `nulldevice` (Level 1) is `undefined`.
+Ghostscript runs both. Repro:
+
+```postscript
+{ << /ImageType 3 /InterleaveType 3
+   /DataDict << /ImageType 1 /Width 2 /Height 1 /BitsPerComponent 8 /Decode [0 1 0 1 0 1] /ImageMatrix [2 0 0 -1 0 1] /DataSource <ff000000ff00> >>
+   /MaskDict << /ImageType 1 /Width 2 /Height 1 /BitsPerComponent 1 /Decode [1 0] /ImageMatrix [2 0 0 -1 0 1] /DataSource <80> >> >>
+/DeviceRGB setcolorspace 100 100 scale image } stopped { (ImageType 3 failed\n) } { (ImageType 3 ok\n) } ifelse print
+{ gsave nulldevice 0 0 10 10 rectfill grestore } stopped { (nulldevice failed\n) } { (nulldevice ok\n) } ifelse print
+```
+
+`pscat --headless` prints `failed` twice; `gs -sDEVICE=nullpage` prints `ok`
+twice. (`(name) (w) file` is refused too, with `invalidfileaccess`; that
+looks deliberate.)
+
+**Effect here:** a landscape can't carry its mask as the picture's alpha
+within PostScript. `lib/fc_passes.ps` clips instead (`fc-sky-clip`,
+`fc-land-clip`: the mask's runs as `rectclip` rectangles, hard-edged), and
+renders without painting through an empty clip (`0 0 0 0 rectclip`), which
+pscat honours while still running the image's data procedure. A soft alpha is
+the `--pass mask` PNG.
+
+**Possible request:** `ImageType 3` (at least `InterleaveType 3` with a 1-bit
+mask) and `nulldevice`.

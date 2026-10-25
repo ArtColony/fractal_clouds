@@ -81,7 +81,8 @@
 
 /FmShowpage where { pop } { /FmShowpage /showpage load def } ifelse   % once, if loaded twice
 /showpage {
-    FrameGrid { /FrPw where { pop FrPw FrPh fc-frame-overlay } if } if
+    % over the frame where fc-render placed it (FrMtx: #33)
+    FrameGrid { /FrPw where { pop gsave FrMtx setmatrix FrPw FrPh fc-frame-overlay grestore } if } if
     FrameLabel null ne { fc-frame-label } if
     FmShowpage
 } def

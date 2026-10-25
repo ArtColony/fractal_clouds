@@ -293,6 +293,81 @@ Two quick looks before paying for detail, both through `scripts/render.sh`
 `render.sh` loads it ahead of the piece only for these passes. Its procedure
 `pw ph fc-frame-overlay` draws the grid and horizon on a `pw`×`ph` frame.
 
+## Render passes and placement (`lib/fc_passes.ps`, with `Pass` or `PassKeep`)
+
+For a landscape used as part of a larger work (#33). `fc_landscape.ps` loads
+`lib/fc_passes.ps` last when `Pass` isn't `/beauty` or `PassKeep` names a
+pass; with neither, nothing changes. A pass is written as is: no colour grade,
+no tone curve.
+
+```sh
+scripts/render.sh --pass mask gallery/foo.ps        # renders/foo-mask.png
+scripts/render.sh --pass matte -D PassMat=/snow gallery/foo.ps   # renders/foo-matte.png
+scripts/render.sh -D "Scene=(scenes/evening_lake.ps)" --pass depth scenes/scene.ps
+DPI=288 scripts/render_bands.sh gallery/foo.ps -- --pass mask  # bands: renders/foo-mask.png
+```
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `Pass` | /beauty | What the image shows. `/mask`: coverage, white on the landscape and black on open sky; clouds over the sky count by their opacity (1 − `Tr`) unless `MaskClouds` is false; antialiased edges come out soft, an alpha. `/depth`: 1 − t/`DepthFar`, clamped (white near, black at `DepthFar` and on the sky; t is the hit distance, `LnT`; not `FcKey`, which water scales for the antialiasing). `/material`: one flat colour per material (table below), the one with the largest share of the pixel; `AA` is turned off, so every pixel is exactly one of the eight colours. `/matte`: the share of the pixel that `PassMat` covers, 0–1, soft where materials blend. `/mask` and `/depth` march the hit (and the clouds, for the mask) without shading anything, so they cost a fraction of the picture. | /mask, /depth, /material, /matte |
+| `PassMat` | /snow | The material `/matte` shows: `/sky /cloud /rock /snow /forest /water /sand /grass`. | /snow |
+| `PassKeep` | [] | Passes to record while the image renders, any of `/beauty /mask /depth /material`, to draw again with `fc-pass-draw` and to clip with (below). With `Crop`, the kept rows and columns outside the crop stay zero: sky in the mask and IDs, black in the beauty and depth. One byte a pixel (three for the beauty); the centre sample, so the kept mask, depth and IDs aren't antialiased (the kept beauty is, when `Pass` is `/beauty`: it copies the finished rows). | [/beauty /mask /depth /material] |
+| `MaskClouds` | true | Clouds over the sky count in the mask (and so in `fc-sky-clip`). false: the mask is the ground alone. | false |
+| `DepthFar` | null | The distance at which `/depth` reaches black; null: `TMax`. | 500 |
+
+The materials, and their colours in `/material` (sRGB):
+
+| ID | Name | Colour | What |
+|---|---|---|---|
+| 0 | sky | 0 0 0 | rays that hit nothing |
+| 1 | cloud | 255 255 255 | the clouds in front of whatever is behind, by their opacity |
+| 2 | rock | 214 39 40 | bare ground: rock, scree, strata |
+| 3 | snow | 102 224 255 | `fc_terrain`'s snow (`Ksnow`) |
+| 4 | forest | 44 160 44 | `fc_terrain`'s painted forest (`Kfor`), `fc_trees`' trees (`FsMat` 1), and its far canopy (`Ftc`) and needle-litter forest floor (`Ftn`) painted on the ground |
+| 5 | water | 31 79 216 | lakes, rivers and the sea (`fc_water`'s `AqWet`) |
+| 6 | sand | 242 200 75 | `fc_coast`'s beaches, `fc_ocean`'s sand |
+| 7 | grass | 166 216 84 | `fc_trees`' grass and meadow below the treeline (`Ftg`) |
+
+A pixel's shares come from what the hit and the shading left behind: no hit is
+sky; a water hit is water; a tree is forest; ground is sand S (`fc_coast`'s
+`XcMw`, `fc_ocean`'s `OcSd`), then, top down as `fc_trees` paints them, the
+needle-litter forest floor (`Ftn`; read as the hook leaves it, so roughly) and
+the far canopy (`Ftc`), both forest, and grass (`Ftg`), then of the rest R:
+snow R·`Ksnow`, painted forest R(1 − `Ksnow`)·`Kfor`, and rock what is left. These are zeroed before each pixel, so a piece's own
+surface hook that sets none of them reads as rock. Each is scaled by the clouds'
+transmittance `Tr`, and the cloud gets 1 − `Tr`. Shore stones, wet sand and
+ledge snow count as the ground under them.
+
+**Placement.** `fc-render` (and so `fc-landscape`) fills `pw`×`ph` units of
+the *current* user space at one sample per device pixel (along each axis), so translate and
+scale first to put a landscape in a rectangle of a larger page:
+`gsave 36 84 translate 1.125 dup scale 320 200 fc-landscape grestore`. The
+detail follows the placed size. `Crop`, `PixSeed` and `Res` count in the
+frame, as before, and the framing overlay (`--frame`) is drawn over the frame
+where it was placed. `scripts/render_bands.sh` assumes the frame fills the
+page (it cuts by the `%%BoundingBox` height), so for bands render the
+landscape and its passes as pieces of their own, full frame. A pass after
+`--` (`--pass mask` or `-D Pass=/mask`) goes to every band and names the
+bands and the stitched image `<name>-mask.png`, in `OUT` if it is set.
+`render.sh --pass` rejects an unknown pass name.
+
+**One render, several passes.** With `PassKeep`, a page can render once and
+use the passes as it likes (`docs/examples/framed_print.ps`):
+
+| Procedure | Stack | What it does |
+|---|---|---|
+| `fc-landscape-keep` | `pw ph → –` | `fc-landscape` through an empty clip: render and record, paint nothing. |
+| `fc-pass-draw` | `name → –` | Paint a kept pass (`/beauty /mask /depth /material`) over `0 0 pw ph` of the current user space. |
+| `fc-sky-clip` | `– → –` | Intersect the clip with the kept mask's sky (mask below 0.5), in the same space. Art drawn after it sits behind the mountains. |
+| `fc-land-clip` | `– → –` | ... or with the landscape. A beauty drawn through it leaves the sky to what was drawn before, or transparent with `render.sh --transparent`. |
+| `fc-render-row` | `row → –` | (`fc_render.ps`) Called with each finished row string (row `FrJ`, from column `FrI0`) before it is drawn; does nothing unless `fc_passes` is loaded. |
+
+The clips are hard-edged, one landscape pixel per step. pscat has no
+`ImageType 3` (masked images) and no `nulldevice`, so the mask can't be an
+alpha channel of the picture within PostScript: for soft compositing, render
+`--pass mask` as its own PNG. A piece that redefines `fc-pixel` itself
+bypasses the passes; one that redefines the hooks keeps them.
+
 ## Profiling (`lib/fc_bench.ps`, with `Profile`)
 
 `scripts/render.sh -D Profile=true gallery/mountains.ps` (usually with a small
@@ -866,7 +941,7 @@ These are procedures, not settings. Redefine them **after** loading
 | `fc-forest-dens` | `x z h ny curv → density height-scale` | `fc_trees`' rules. Wrap it to keep trees off some ground, as `fc_water` does. Redefine it before `fc-landscape-setup`. |
 | `fc-terrain-material` | reads and changes `Alb KlMul KskyMul KbMul` | Defined by `fc_trees` (forest floor), and chained onto by `fc_coast` (beaches) and `fc_water` (shores). With none of them it doesn't exist, and a piece can define it to paint the ground. |
 | `fc-terrain-base` | `x z → lift mask pin` | Defined by `fc_map.ps` (`MapOn`); otherwise absent and the noise massif is used. Map coordinates in; the lift in world units, the massif mask 0–1 and the pin 0–1 out. A piece can define its own (an analytic island, say) before `fc-landscape-setup`. |
-| `fc-pixel` | `u v → r g b` | `fc-landscape-pixel`. Replace it entirely for a different scene. |
+| `fc-pixel` | `u v → r g b` | `fc-landscape-pixel` (wrapped by `fc_passes.ps` when a pass is asked for). Replace it entirely for a different scene. |
 
 While a hook runs, `Mx My Mz` is the pixel's unit ray, from `(0, CamY, 0)`.
 `PixAng` is the angle one pixel covers, so `t PixAng mul` is a pixel's

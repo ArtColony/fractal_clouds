@@ -19,6 +19,12 @@
 #   scripts/render.sh --sweep-seed 1:9 ...   # pscat's own seed sweep: every srand call
 #                                        # gets the value (the noises, trees, erosion,
 #                                        # jitter); sweep Seed for frames a piece can name
+#   scripts/render.sh --pass mask gallery/foo.ps
+#                                        # a render pass instead of the picture (Pass,
+#                                        # lib/fc_passes.ps): mask, depth, material or
+#                                        # matte; writes renders/foo-mask.png
+#   scripts/render.sh --transparent ...  # pscat --transparent: what the page leaves
+#                                        # unpainted comes out as PNG alpha
 #   --grid 3x3                           # the contact sheet's columns x rows
 #                                        # (a -D of the swept name is defined after
 #                                        # pscat's sweep value, so it overrides the
@@ -71,16 +77,20 @@ frame=0
 sweep=()      # extra pscat arguments for a sweep
 sweepname=""
 grid=()
+pass=""
+transparent=()
 while [ $# -gt 0 ]; do
   case "$1" in
     --frame) frame=1; shift ;;
-    --sweep|--sweep-seed|--grid|-D)
+    --transparent) transparent=(--transparent); shift ;;
+    --sweep|--sweep-seed|--grid|--pass|-D)
       [ $# -ge 2 ] || { echo "render: $1 needs a value" >&2; exit 2; }
       case "$1" in
         -D) defs="$defs /${2%%=*} ${2#*=} def" ;;
         --sweep) sweep=(--sweep "$2"); sweepname="${2%%=*}" ;;
         --sweep-seed) sweep=(--sweep-seed "$2"); sweepname="" ;;
         --grid) grid=(--grid "$2") ;;
+        --pass) pass="$2" ;;
       esac
       shift 2 ;;
     -D*) d="${1#-D}"; defs="$defs /${d%%=*} ${d#*=} def"; shift ;;
@@ -106,6 +116,14 @@ if [ "$frame" = 1 ]; then
 fi
 if [ -n "$pre" ]; then
   defs="$pre (lib/fc_frame.ps) run$defs"
+fi
+case "$pass" in
+  ""|mask|depth|material|matte) ;;
+  *) echo "render: unknown pass '$pass' (mask, depth, material or matte)" >&2; exit 2 ;;
+esac
+if [ -n "$pass" ]; then
+  defs="$defs /Pass /$pass def"
+  suffix="$suffix-$pass"
 fi
 
 if [ $# -gt 0 ]; then
@@ -140,7 +158,7 @@ for ps in "${pieces[@]}"; do
     lint=(--lint)
     outargs=(--png "$out/$name.png")
   fi
-  if ! printf '%s (%s) run\n' "$defs" "$ps" | /usr/bin/time -p pscat --page "$page" --dpi "$dpi" ${lint[@]+"${lint[@]}"} "${outargs[@]}" "$src" >"$log" 2>&1; then
+  if ! printf '%s (%s) run\n' "$defs" "$ps" | /usr/bin/time -p pscat --page "$page" --dpi "$dpi" ${transparent[@]+"${transparent[@]}"} ${lint[@]+"${lint[@]}"} "${outargs[@]}" "$src" >"$log" 2>&1; then
     status=error
     failed=1
   fi

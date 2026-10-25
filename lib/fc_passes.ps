@@ -1,0 +1,287 @@
+%!PS-Adobe-3.0
+% fc_passes.ps -- render passes, for landscapes used inside larger works
+% (fractal_clouds#33). fc_landscape.ps loads this file last when Pass is not
+% /beauty or PassKeep names a pass, so a piece needs no line of its own.
+%
+% Pass picks what the page's image shows; every pass but the beauty is
+% written as is, without the colour grade or fc-tone:
+%
+%   /beauty    the picture, as without this file (loaded for PassKeep)
+%   /mask      coverage: 1 (white) where the landscape is, 0 (black) on open
+%              sky; clouds over the sky count by their opacity, 1 - Tr, unless
+%              MaskClouds is false. Antialiased edges come out soft (an alpha)
+%   /depth     1 - t / DepthFar, clamped: white near, black at DepthFar and
+%              on the sky (t, the hit distance, is what FcKey holds)
+%   /material  a flat colour per material, from the palette below (the
+%              material with the largest share of the pixel; AA is turned
+%              off, so every pixel is exactly one of the eight colours)
+%   /matte     one material's share of the pixel, 0..1 (PassMat names it):
+%              soft where materials blend (snow over rock, a cloud's edge)
+%
+%   ID  name     colour (sRGB)        what
+%   0   sky      0 0 0     black      rays that hit nothing
+%   1   cloud    255 255 255 white    the clouds in front, by their opacity
+%   2   rock     214 39 40  red       bare ground: rock, scree, strata
+%   3   snow     102 224 255 cyan     fc_terrain's snow (Ksnow)
+%   4   forest   44 160 44  green     fc_terrain's painted forest (Kfor) and
+%                                     fc_trees' trees (FsMat 1), far canopy
+%                                     (Ftc) and forest floor (Ftn)
+%   5   water    31 79 216  blue      lakes, rivers, the sea (fc_water's AqWet)
+%   6   sand     242 200 75 yellow    fc_coast's beaches, fc_ocean's sand
+%   7   grass    166 216 84 lime      fc_trees' grass and meadow (Ftg)
+%
+% A pixel's shares, read from what the shading left behind: no hit is sky;
+% else water if fc_water hit water, else forest if fc_trees hit a tree,
+% else the ground, top down as the hooks paint it: sand S (fc_coast's
+% XcMw, fc_ocean's OcSd); forest for fc_trees' needle litter (Ftn, as it
+% ends up: roughly) and far canopy (Ftc); grass (Ftg); then of the rest R,
+% snow R Ksnow, forest R (1 - Ksnow) Kfor, rock what is left. Each is
+% scaled by the clouds' transmittance Tr, and the cloud gets 1 - Tr.
+%
+% Settings:
+%   Pass        /beauty  what the image shows (above)
+%   PassMat     /snow    the material /matte shows (a name from the table)
+%   PassKeep    []       passes to record while the image renders, any of
+%                        /beauty /mask /depth /material, for fc-pass-draw
+%                        and the clips below (one byte a pixel, three for
+%                        the beauty; the centre sample, so no AA, except
+%                        the beauty when Pass is /beauty: its finished rows)
+%   MaskClouds  true     clouds over the sky count in the mask
+%   DepthFar    null     the distance /depth reaches black at; null: TMax
+%
+% With PassKeep, one march gives a page the picture and its passes:
+%
+%   pw ph fc-landscape-keep -   render and record, but paint nothing (the
+%                               image goes through an empty clip)
+%   /name fc-pass-draw -        paint a kept pass over 0 0 pw ph of the
+%                               current user space (as fc-landscape would)
+%   fc-sky-clip -               intersect the clip with the kept mask's sky
+%   fc-land-clip -              ... or with the landscape (mask >= 0.5)
+%
+% so art drawn after `fc-sky-clip` sits behind the mountains, and a beauty
+% drawn after `fc-land-clip` leaves the sky to what was drawn before (or to
+% a transparent page: pscat --transparent). The clips are hard-edged, one
+% landscape pixel per step.
+%
+% /mask and /depth march the hit only (and the clouds, for the mask): no
+% shading, so they cost a fraction of the beauty. A piece that redefines
+% /fc-pixel itself bypasses this file; one that redefines the hooks
+% (fc-landscape-hit, -surface, -sky) keeps working. With Crop, the kept
+% passes outside the crop stay zero: sky in the mask and IDs, black in the
+% beauty and depth.
+%
+% Names: this file keeps its temporaries under Ps*.
+
+% (Pass and PassKeep default in fc_landscape.ps, which decides to load this)
+/PassMat /snow fc-default
+/MaskClouds true fc-default
+/DepthFar null fc-default
+
+/PsNames [ /sky /cloud /rock /snow /forest /water /sand /grass ] def
+/PsPal <000000 ffffff d62728 66e0ff 2ca02c 1f4fd8 f2c84b a6d854> def
+/PsW 8 array def
+
+/PsMatI -1 def
+0 1 7 { dup PsNames exch get PassMat eq { /PsMatI exch def } { pop } ifelse } for
+Pass /matte eq PsMatI 0 lt and {
+    (fc_passes: PassMat must be one of sky cloud rock snow forest water sand grass; showing rock\n) print
+    /PsMatI 2 def
+} if
+[ /beauty /mask /depth /material /matte ] { Pass eq } forall or or or or not {
+    (fc_passes: unknown Pass ) print Pass 20 string cvs print (; showing the beauty\n) print
+    /Pass /beauty store
+} if
+Pass /material eq { /AA false store } if          % an average of IDs is no ID
+
+/PsFar DepthFar null eq { TMax } { DepthFar } ifelse def
+
+% --- what the pixel hit ---------------------------------------------------------
+% - -> -: PsW gets the eight shares, after fc-landscape-pixel (FcKey, Tr,
+% and whatever the hit and surface set)
+/fc-pass-weights {
+    0 1 7 { PsW exch 0 put } for
+    FcKey 0 lt { PsW 0 Tr put } {
+        /AqWet where { pop AqWet } { false } ifelse { PsW 5 Tr put } {
+            TreesOn { FsMat 1 eq } { false } ifelse { PsW 4 Tr put } {
+                % top down, as the hooks paint them: sand, fc_trees' needle
+                % litter, far canopy and grass, then snow over the painted
+                % forest over rock (fc_terrain)
+                /PsS 1 1 XcMw 0 fc-max sub 1 OcSd 0 fc-max sub mul sub def
+                /PsR 1 PsS sub def
+                /PsC PsR Ftn 2.5 mul 0 fc-max 1 fc-min mul def   % litter
+                /PsR PsR PsC sub def
+                PsR Ftc 0 fc-max 1 fc-min mul PsC add /PsC exch def   % + canopy
+                /PsR 1 PsS sub PsC sub def
+                /PsG PsR Ftg 0 fc-max 1 fc-min mul def          % grass
+                /PsR PsR PsG sub def
+                /PsSn Ksnow PsR mul def
+                /PsFo Kfor 1 Ksnow sub mul PsR mul PsC add def
+                PsW 7 PsG Tr mul put
+                PsW 6 PsS Tr mul put
+                PsW 3 PsSn Tr mul put
+                PsW 4 PsFo Tr mul put
+                PsW 2 PsR PsSn sub Kfor 1 Ksnow sub mul PsR mul sub 0 fc-max Tr mul put
+            } ifelse
+        } ifelse
+    } ifelse
+    PsW 1 1 Tr sub put
+} bind def
+
+% - -> id: the material with the largest share
+/fc-pass-id {
+    /PsId 0 def /PsBest -1 def
+    0 1 7 { /PsK exch def
+        PsW PsK get PsBest gt { /PsBest PsW PsK get def /PsId PsK def } if
+    } for
+    PsId
+} bind def
+
+/fc-pass-depth {                                 % - -> 0..1
+    FcKey 0 lt { 0 } { 1 PsT PsFar div sub 0 fc-max 1 fc-min } ifelse
+} bind def
+
+% --- the pixel ------------------------------------------------------------------
+% the cheap one, for /mask and /depth: the hit (and the clouds), no shading
+/fc-pass-fast {                                  % u v -> r g b
+    /FcKey -1 def                                % fc_render resets it for the centre sample only
+    fc-ray /Mz exch def /My exch def /Mx exch def
+    Mx Mz fc-haze-colour
+    fc-landscape-hit dup 0 gt { dup /PsT exch def /FcKey exch def } { pop } ifelse
+    Pass /mask eq {
+        FcKey 0 lt { MaskClouds { /LnT TMax store TMax fc-clouds 1 Tr sub } { 0 } ifelse } { 1 } ifelse
+    } { fc-pass-depth } ifelse
+    dup dup
+} bind def
+
+% the full one: the picture, then the shares, the record and the pass
+/fc-pass-pixel {                                 % u v -> r g b
+    /PsV exch def /PsU exch def
+    /FcKey -1 def
+    % what the shading leaves behind is read afterwards; zero it first, as
+    % not every surface sets it (fc_coast's and fc_ocean's sand, fc_trees'
+    % far canopy, and fc_terrain's snow and forest, for a piece's own surface)
+    /XcMw 0 store /OcSd 0 store /Ftc 0 store /Ftg 0 store /Ftn 0 store
+    /Ksnow 0 store /Kfor 0 store
+    PsU PsV fc-landscape-pixel
+    /PsT LnT def                                 % the hit distance (FcKey may be scaled)
+    fc-pass-weights
+    PsKeepOn { PsU FrU eq PsV FrV eq and { fc-pass-record } if } if
+    Pass /beauty ne {
+        PsKeepD /beauty known PsU FrU eq PsV FrV eq and and { fc-pass-keep-rgb } if
+        pop pop pop
+        Pass /mask eq { MaskClouds { 1 PsW 0 get sub } { FcKey 0 lt { 0 } { 1 } ifelse } ifelse dup dup } if
+        Pass /depth eq { fc-pass-depth dup dup } if
+        Pass /matte eq { PsW PsMatI get dup dup } if
+        Pass /material eq { fc-pass-id 3 mul /PsK exch def
+            PsPal PsK get 255 div PsPal PsK 1 add get 255 div PsPal PsK 2 add get 255 div } if
+    } if
+} bind def
+
+% --- recording --------------------------------------------------------------------
+/PsKeepOn PassKeep length 0 gt def
+/PsKeepD 4 dict def
+/PsFresh true def
+
+/fc-pass-alloc {                                 % - -> -: rows for this render
+    PassKeep { /PsK exch def
+        PsKeepD PsK [ IH { IW PsK /beauty eq { 3 mul } if string } repeat ] put
+    } forall
+    /PsFresh false def
+} bind def
+
+/fc-pass-record {                                % - -> -: this pixel (FrI, FrJ)
+    PsFresh { fc-pass-alloc } if
+    PsKeepD /mask known {
+        PsKeepD /mask get FrJ get FrI
+        MaskClouds { 1 PsW 0 get sub } { FcKey 0 lt { 0 } { 1 } ifelse } ifelse fc-byte put
+    } if
+    PsKeepD /depth known { PsKeepD /depth get FrJ get FrI fc-pass-depth fc-byte put } if
+    PsKeepD /material known { PsKeepD /material get FrJ get FrI fc-pass-id put } if
+} bind def
+
+% r g b -> r g b: the picture's centre sample, when the image shows a pass
+/fc-pass-keep-rgb {
+    PsFresh { fc-pass-alloc } if
+    PsKeepD /beauty get FrJ get
+    /PsKr exch def
+    3 copy fc-byte PsKr FrI 3 mul 2 add 3 -1 roll put
+    fc-byte PsKr FrI 3 mul 1 add 3 -1 roll put
+    fc-byte PsKr FrI 3 mul 3 -1 roll put
+} bind def
+
+% fc_render.ps hands over every finished row (the antialiased picture)
+/fc-render-row {                                 % row -> -
+    PsKeepD /beauty known Pass /beauty eq and {
+        PsFresh { fc-pass-alloc } if
+        PsKeepD /beauty get FrJ get FrI0 3 mul 3 -1 roll putinterval
+    } { pop } ifelse
+} bind def
+
+/PsRender0 /fc-render load def
+/fc-render { /PsFresh true def PsRender0 } bind def
+
+Pass /mask eq Pass /depth eq or PsKeepOn not and
+    { /fc-pixel { fc-pass-fast } bind def }
+    { /fc-pixel { fc-pass-pixel } bind def } ifelse
+
+% --- using the kept passes ----------------------------------------------------------
+/fc-landscape-keep {                             % pw ph -> -
+    PsKeepOn not { (fc_passes: fc-landscape-keep with nothing in PassKeep\n) print } if
+    gsave newpath 0 0 0 0 rectclip fc-landscape grestore
+} bind def
+
+/fc-pass-rows {                                  % name -> rows | null
+    PsKeepD 1 index known { PsKeepD exch get } {
+        (fc_passes: ) print 20 string cvs print ( was not kept (PassKeep)\n) print null
+    } ifelse
+} bind def
+
+/fc-pass-draw {                                  % name -> -
+    dup /PsDn exch def fc-pass-rows dup null eq { pop } {
+        /PsDa exch def /PsDj 0 def
+        gsave
+        FrPw FrPh scale
+        /PsDm [ IW 0 0 IH neg 0 IH ] def
+        PsDn /beauty eq {
+            IW IH 8 PsDm { PsDa PsDj get /PsDj PsDj 1 add def } false 3 colorimage
+        } {
+            PsDn /material eq {
+                [ /Indexed /DeviceRGB 7 PsPal ] setcolorspace
+                << /ImageType 1 /Width IW /Height IH /BitsPerComponent 8 /Decode [ 0 255 ]
+                   /ImageMatrix PsDm /DataSource { PsDa PsDj get /PsDj PsDj 1 add def } >> image
+            } {
+                IW IH 8 PsDm { PsDa PsDj get /PsDj PsDj 1 add def } image
+            } ifelse
+        } ifelse
+        grestore
+    } ifelse
+} bind def
+
+% land -> -: clip to the runs of kept-mask pixels that are (land true) or
+% aren't (false) at least half covered
+/fc-pass-clip {
+    /PsCl exch def
+    /mask fc-pass-rows dup null eq { pop } {
+        /PsCa exch def
+        /PsSx FrPw IW div def /PsSy FrPh IH div def
+        [
+            0 1 IH 1 sub { /PsCj exch def
+                /PsCr PsCa PsCj get def /PsC0 -1 def
+                0 1 IW { /PsCi exch def
+                    PsCi IW lt { PsCr PsCi get 128 ge PsCl eq } { false } ifelse {
+                        PsC0 0 lt { /PsC0 PsCi def } if
+                    } {
+                        PsC0 0 ge {
+                            PsC0 PsSx mul  IH PsCj sub 1 sub PsSy mul
+                            PsCi PsC0 sub PsSx mul  PsSy
+                            /PsC0 -1 def
+                        } if
+                    } ifelse
+                } for
+            } for
+        ]
+        dup length 0 eq { pop 0 0 0 0 } if rectclip
+    } ifelse
+} bind def
+/fc-sky-clip { false fc-pass-clip } bind def
+/fc-land-clip { true fc-pass-clip } bind def
