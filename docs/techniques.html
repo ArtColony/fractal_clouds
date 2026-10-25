@@ -863,10 +863,8 @@ showpage</code></pre>
 <ul>
   <li><strong>Snow is mostly a colour:</strong> by default it doesn't fill channels, and the forest map doesn't know where it lies. <code>SnowFill</code> and <code>FsSnow</code> (#26) fix both, but they're opt-in. The fill only knows erosion's channels, not the slope or the shader's fine-scale snow test, so it can whiten steep couloirs. There are no cornices yet.</li>
   <li><strong>Rock still reads as folded rather than fractured</strong> at a distance: the strongest remaining critique of the mountains.</li>
-  <li><strong>No trunks.</strong> They're hidden in dense spruce but would show at a forest edge seen close.</li>
   <li><strong>Maps cover only part of the world.</strong> Erosion covers about the first 1150 units of the view and the forest map 700; beyond them the terrain is purely procedural and the forest a painted texture.</li>
   <li><strong>The coast is a heightfield:</strong> no arches, no undercut notches, no overhanging cliffs (#39).</li>
-  <li><strong>Faint grain inside clouds</strong> from the jittered march steps.</li>
   <li><strong>Cost:</strong> close crowns take about 5 ms per pixel. A print-size render is an overnight job unless split across cores.</li>
 </ul>
 
