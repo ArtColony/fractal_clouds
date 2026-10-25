@@ -11,8 +11,10 @@
 %   -D Plan=true  the map from above, the camera and its target marked
 % Framing: scripts/frame.sh -D Res=0.25 -D ErN=256 -D ErDrops=20000 gallery/golden_coast.ps
 % Preview: DPI=72 scripts/render.sh gallery/golden_coast.ps   (320x200, about 5 min)
-% Full size (1280x800): DPI=288 scripts/render_bands.sh gallery/golden_coast.ps --auto 3 -- -D ErN=1024 -D ErDrops=240000
-%   about 65-75 min of one core (probe: 63 min of rows plus 1.3 min of bakes)
+% Full size (gallery/previews/golden_coast-1280x800.png), three bands, one core each:
+%   DPI=288 scripts/render_bands.sh gallery/golden_coast.ps --auto 3 -- -D ErN=1024 -D ErDrops=240000
+%   probe 150 s (bakes 89 s, cached for the bands); bands 23.9, 11.5, 22.0 min CPU
+%   (Apple silicon, Mac): about 60 min of one core in all
 
 /Plan where { pop } { /Plan false def } ifelse
 /Seed where { pop } { /Seed 7 def } ifelse
