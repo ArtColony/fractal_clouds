@@ -25,12 +25,21 @@ cd "$root"
 refs="tests/regress/linux"
 cheap="ErN=256;ErDrops=20000"
 # name|piece|defines (;-separated, on top of $cheap); every gallery piece at
-# Res 0.5, then the full-detail crops
+# Res 0.5 (or its own Res below, for the slow ones), then the full-detail crops
+res_for() {
+  case "$1" in
+    tropical_island|pnw_coast) echo 0.25 ;;
+    *) echo 0.5 ;;
+  esac
+}
 cases() {
   for p in gallery/*.ps; do
-    echo "$(basename "$p" .ps)|$p|Res=0.5"
+    n="$(basename "$p" .ps)"
+    echo "$n|$p|Res=$(res_for "$n")"
   done
   echo "alpine_forest_crop|gallery/alpine_forest.ps|Crop=[0.35 0.72 0.5 0.86]"
+  echo "tropical_island_crop|gallery/tropical_island.ps|Crop=[0.82 0.1 0.94 0.3]"
+  echo "pnw_coast_crop|gallery/pnw_coast.ps|View=2;Crop=[0.15 0.62 0.4 0.82]"
 }
 
 mode=stored ref="" docker=0 only=()

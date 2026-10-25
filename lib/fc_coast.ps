@@ -212,8 +212,16 @@
 % coves and lies along the shore, thinning out to sea and inland:
 % CoastFog [ add reach ] adds `add` at the coastline, fading to 0 at `reach`.
 /fc-coast-fog {
-    pop exch pop TerrOZ add exch TerrOX add exch fc-coast-dist pop abs
+    pop /XfY exch def
+    TerrOZ add /XfZ exch def TerrOX add /XfX exch def
+    XfX XfZ fc-coast-dist pop abs
+    % the reach wanders (two octaves), so the bank's edge breaks into lobes
+    XfX 0.016 mul 3.7 add XfZ 0.016 mul 8.1 add fc-noise2 0.5 sub
+    XfX 0.05 mul 1.3 add XfZ 0.05 mul 6.2 add fc-noise2 0.5 sub 0.5 mul add
+    CoastFog 1 get 1.2 mul mul add
     0 CoastFog 1 get 3 -1 roll fc-smooth 1 exch sub CoastFog 0 get mul
+    % and, with a third number, it thins out toward that height (a soft top)
+    CoastFog length 2 gt { MapSea CoastFog 2 get XfY fc-smooth 1 exch sub mul } if
 } bind def
 
 % --- beaches ---------------------------------------------------------------------

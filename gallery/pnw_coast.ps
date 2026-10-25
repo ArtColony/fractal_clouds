@@ -8,7 +8,10 @@
 % drifting through the spruce and cedar on the cliff tops.
 %   -D View=2     on the beach among the driftwood
 %   -D Plan=true  the map from above, the camera marked
-% Preview: DPI=36 scripts/render.sh gallery/pnw_coast.ps
+% Framing: DPI=36 scripts/render.sh gallery/pnw_coast.ps
+% Preview (gallery/previews/pnw_coast-640x400.png), three bands, one core each:
+%   DPI=144 scripts/render_bands.sh gallery/pnw_coast.ps 0.5 0.7 -- -D ErN=512 -D ErDrops=80000
+%   bands 1119 s, 1233 s, 1075 s (Apple silicon, Mac); 320x200 at DPI 72 about 12 min
 
 /Plan where { pop } { /Plan false def } ifelse
 /Seed where { pop } { /Seed 31 def } ifelse

@@ -7,7 +7,10 @@
 % inside the fringing reef, surf breaking on the reef, and a second island
 % across the strait under trade-wind cumulus.
 %   -D Plan=true  the map from above, the camera marked
-% Preview: DPI=36 scripts/render.sh gallery/tropical_island.ps
+% Framing: DPI=36 scripts/render.sh gallery/tropical_island.ps
+% Preview (gallery/previews/tropical_island-640x400.png), three bands, one core each:
+%   DPI=144 scripts/render_bands.sh gallery/tropical_island.ps 0.45 0.62 -- -D ErN=512 -D ErDrops=80000
+%   bands 1524 s, 2050 s, 1334 s (Apple silicon, Mac); 320x200 at DPI 72 about 13 min
 
 /Plan where { pop } { /Plan false def } ifelse
 /Seed where { pop } { /Seed 23 def } ifelse

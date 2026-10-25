@@ -861,15 +861,19 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
 % A probe inside a crown's solid (not in the gap under a lifted one) cuts
 % the light.
 % With palms (#40) the probes are closer, and a probe within FsVisTol of a
-% crown's solid counts: a palm's crown is a thin layer the probes would
-% mostly step over.
+% crown's solid counts (FsVisTol is set per probe there, from the probes'
+% spacing, and the shade doesn't compound): a palm's crown is a thin layer
+% the probes would mostly step over.
 /FsVisS FsPalmOn { [ 0.2 0.4 0.62 0.85 1.1 1.35 1.6 1.9 2.2 2.55 2.9 3.4 ] } { [ 0.12 0.35 0.7 1.2 1.9 2.9 ] } ifelse def
 /FsVisTol FsPalmOn { 0.1 } { 0 } ifelse def
 /fc-tree-sunvis {
     /Fvz exch def /Fvy exch def /Fvx exch def
-    /Fvv 1 def
+    /Fvv 1 def /Fvsp 0 def
     FsVisS {
         /Fvs exch def
+        % (palms) the tolerance spans the gap to the previous probe, so a
+        % thin crown layer is caught by some probe wherever it crosses
+        FsPalmOn { /FsVisTol Fvs Fvsp sub 0.6 mul SunDir 1 get abs mul 0.1 fc-max def /Fvsp Fvs def } if
         /Fvpx Fvx SunDir 0 get Fvs mul add def
         /Fvpy Fvy SunDir 1 get Fvs mul add def
         /Fvpz Fvz SunDir 2 get Fvs mul add def
@@ -880,7 +884,11 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
             % (or well under it anywhere)
             % (#17: no tree there reaches above FsHMax FcHmulMax Fvhs)
             FcY Fvhs FcTopMax mul gt not {
-                Fvpx Fvpz Fvd Fvhs fc-crowns FcY gt FcY 0 le and FcIn FsVisTol lt or { /Fvv Fvv 0.3 mul def } if
+                Fvpx Fvpz Fvd Fvhs fc-crowns FcY gt FcY 0 le and FcIn FsVisTol lt or {
+                    % (palms: one layer of fronds, so probes catching the
+                    % same layer don't darken it twice)
+                    FsPalmOn { /Fvv Fvv 0.3 fc-min def } { /Fvv Fvv 0.3 mul def } ifelse
+                } if
             } if
         } if
     } forall
@@ -1154,6 +1162,14 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
                 Kx Kz fc-forest-map pop Ftw mul Ftn fc-max /Ftn exch def
                 /KskyMul KskyMul 1 Ftn 0.85 mul sub mul def
                 /KbMul KbMul 1 Ftn sub mul def
+                /FsO Kt fc-terrain-oct def
+                /KlMul KlMul Kx Kh 0.05 add Kz fc-tree-sunvis mul def
+            } if
+        } if
+        % (#40) palms lean out over bare sand: there their shade goes by the
+        % march's dilated density (fc-forest-mapt), not the stand's edge
+        FsPalmOn Ftd 0.001 le and {
+            Kx Kz fc-forest-mapt pop 0.001 gt { Kt fc-forest-w 0 gt } { false } ifelse {
                 /FsO Kt fc-terrain-oct def
                 /KlMul KlMul Kx Kh 0.05 add Kz fc-tree-sunvis mul def
             } if

@@ -671,11 +671,11 @@ sea (their load is lost).
 | `CoastDrift` | 0 | Driftwood along the top of the beach, 0–1 (#40): logs 0.8–1.8 units long and 0.1–0.2 across, lying at any angle, a third sunk in the sand, one candidate per 2.5-unit cell kept by noise (half of them at 1) (more with a higher value; the random stream is untouched). A heightfield bump, so near detail only (more than five terrain octaves), on low shores only (cliffedness under 0.5). | 1 (`/PNWCoast`) |
 | `CoastDriftBand` | [8 24] | `lo hi`: the band of (wobbled) distance from the water the logs lie in: the high-tide line at the back of the beach. | |
 | `CoastDriftCol` | [0.60 0.57 0.52] | Bleached wood, sRGB, darker along the grain. | |
-| `CoastFog` | [0.25 40] | `add reach` for `fc-coast-fog` (below). | |
+| `CoastFog` | [0.25 40] | `add reach` for `fc-coast-fog` (below), and optionally a third number, `top`: the added fog thins out from `MapSea` up to that height. | [0.25 40 20] (`/PNWCoast`) |
 
 `x y z oct fc-coast-fog dd` is a cloud layer's `Shape` (see Cloud layers):
 it adds `add` to the layer's density at the coastline (by `fc-coast-dist`,
-over land or water), fading to nothing `reach` away, so fog lies along the
+over land or water), fading to nothing `reach` away (a reach that wanders by two noise octaves, ±0.9 `reach`, so the bank's edge breaks into lobes), so fog lies along the
 shore and fills coves (all of a cove is near some shore) while the open sea
 and the land inland stay clearer. `/PNWCoast` uses it on a low `/Stratus`.
 
