@@ -64,10 +64,12 @@
         GnI GnJ GnK fc-ground-hash /GnQ exch def
         GnQ 255 and 255 div GnP 2 mul lt {
         % rocks gather in patches, with open ground between
-        GnX 0.035 mul 17.3 add GnK add GnZ 0.035 mul 5.1 add fc-noise2 0.65 mul
-        GnX 0.13 mul 2.9 add GnZ 0.13 mul 11.7 add GnK add fc-noise2 0.35 mul add
-        0.5 GroundPatch 0.25 mul sub  0.5 GroundPatch 0.25 mul add  3 -1 roll fc-smooth
-        GroundPatch mul 1 GroundPatch sub 0.5 mul add 2 mul GnP mul
+        GroundPatch 0 gt {
+            GnX 0.035 mul 17.3 add GnK add GnZ 0.035 mul 5.1 add fc-noise2 0.65 mul
+            GnX 0.13 mul 2.9 add GnZ 0.13 mul 11.7 add GnK add fc-noise2 0.35 mul add
+            0.5 GroundPatch 0.25 mul sub  0.5 GroundPatch 0.25 mul add  3 -1 roll fc-smooth
+            GroundPatch mul 1 GroundPatch sub 0.5 mul add
+        } { 0.5 } ifelse 2 mul GnP mul
         GnQ 255 and 255 div gt {
             % many small rocks, few big ones
             /GnR GnQ -23 bitshift 255 and 255 div dup mul 0.65 mul 0.35 add GnS mul def
