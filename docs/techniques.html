@@ -262,6 +262,11 @@ height = TerrBase + TerrH · relief(mask) + lift</div>
 
 <p>Erosion is still baked per view, over what that camera sees, so the two views agree on every ridge and valley the map and the noise make but not on the finest drainage channels. Sharing one bake over the whole map is #18.</p>
 
+<p>A view on a map is named by two points (#23): <code>StandAt [x z]</code> moves the terrain under the camera (<code>TerrOX</code>, <code>TerrOZ</code>), and <code>LookAt [x z]</code> aims the centre of the frame at another. The yaw needs only the two points, so it is set as <code>fc_landscape.ps</code> loads, before the erosion and forest windows are laid along it; the pitch needs the camera's height and the ground at the target, so setup works it out after the bakes, then calls <code>fc-camera-update</code>. <code>LookTilt</code> adds to it, to move the target off the centre line. Nothing random is drawn, so the random stream is untouched. The framing pass (<code>scripts/frame.sh</code>) draws the eye level on a quick render: a level ray straight ahead lies at v = −tan(Pitch)/tan(HFov/2) in the renderer's image coordinates, the aim point at v = tan(−LookTilt)/tan(HFov/2).</p>
+
+<div class="formula">yaw   = atan2(x<sub>t</sub> − TerrOX, z<sub>t</sub> − TerrOZ)
+pitch = atan2(y<sub>t</sub> − CamY, distance) + LookTilt       y<sub>t</sub>: the ground at the target unless given</div>
+
 <h3 id="coast">The coast</h3>
 
 <p>A map can also have a sea (<code>MapSea</code>, #39). Low land needs painting without mountains, so a second grid, <code>MapLiftGrid</code>, paints the ground height itself (the mask grid only says where ridges grow), and two island presets join the features: a <code>/volcano</code> is a cone of lift with concave flanks, a little crater and a light ridged mask for gullies; an <code>/atoll</code> is a ring of low lift round a lagoon. Any of these raises <code>TerrTop</code>, the ceiling where the march gives up, over the tallest lift; older maps keep theirs, so their pixels don't change.</p>
