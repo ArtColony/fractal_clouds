@@ -156,7 +156,9 @@ for ps in "${pieces[@]}"; do
   # it: a hash of the source goes into its keys, so an edit to a library or
   # the piece never reads an old bake back
   pdefs="$defs"
-  if [[ "$defs" == *BakeCache* ]] || grep -q BakeCache "$ps"; then
+  # (not with --sweep-seed, which overrides the srand that puts the random
+  # stream back after a cache hit)
+  if [ "${sweep[0]:-}" != --sweep-seed ] && { [[ "$defs" == *BakeCache* ]] || grep -q BakeCache "$ps"; }; then
     mkdir -p renders/cache
     src_hash="$(cat lib/*.ps "$ps" .pscat-version | shasum | cut -c1-16)"
     pdefs="$defs /FcCacheSrc ($src_hash) def"
@@ -181,7 +183,7 @@ for ps in "${pieces[@]}"; do
   # take it out of the log
   if grep -q '^%%FcCacheBegin ' "$log"; then
     done_list="$(awk -v dir=renders/cache -v tag="$$" -v stripped="$log.strip" '
-      /^%%FcCacheBegin / { name = $2; tmp = dir "/" name ".ps.tmp." tag; inb = 1; printf "" > tmp; next }
+      /^%%FcCacheBegin / { name = $2; tmp = dir "/" name ".ps.tmp." tag "." NR; inb = 1; printf "" > tmp; next }
       /^%%FcCacheEnd / { if (inb) { close(tmp); print tmp " " dir "/" name ".ps" } inb = 0; next }
       /^%%FcCacheAbort/ { if (inb) close(tmp); inb = 0; next }
       inb && /^(%%\[|real |user |sys |pscat: )/ { close(tmp); inb = 0 }   # the run failed mid-block
@@ -189,7 +191,7 @@ for ps in "${pieces[@]}"; do
       { print > stripped }
     ' "$log")"
     while read -r t f; do if [ -n "$t" ]; then mv -f "$t" "$f"; fi; done <<< "$done_list"
-    rm -f renders/cache/*.ps.tmp."$$"
+    rm -f renders/cache/*.ps.tmp."$$".*
     mv -f "$log.strip" "$log"
   fi
   secs="$(awk '/^real/ {print $2}' "$log")"

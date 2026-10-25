@@ -401,20 +401,29 @@ DPI=288 scripts/render_bands.sh gallery/alpine_forest.ps -- -D ErN=1024   # on b
   temporary file and a rename (bands running in parallel never read half a
   file). `render.sh` also defines `FcCacheSrc`, a hash of `lib/*.ps`, the
   piece and `.pscat-version`; without it (bare `pscat`) nothing is cached.
-- **The key** is every setting and value in `userdict` when the bake starts
-  (not procedures, which the source hash covers, nor arrays over 64 entries,
-  which come from the source or from an earlier bake of the same entries),
-  the random stream's state, the bake's name and `FcCacheSrc`. Render-only
+- **The key** is everything a bake can read when it starts: every entry of
+  `userdict` (and of the current dictionary, if a piece has begun its own),
+  procedures included (operators by name), the random stream's state, the
+  bake's name and `FcCacheSrc`. Reals are hashed exactly, except inside
+  arrays of over 64 entries, where they count to 1e-9 (a character loop per
+  number would take seconds over a large map). An array or dict that an
+  earlier cached bake of the same run made (the erosion map, at the forest's
+  turn) counts as that bake's key instead of its contents. Render-only
   names are left out (`Crop`, `Res`, `PixSeed`, `RowTimes`, `AA`, `Pass`,
   `PassKeep`, `FrameGrid`, `FrameLabel`, `Profile`), so a probe, its bands, a
   crop and a preview at another `Res` all share a bake; so are the libraries'
-  `usertime` stamps (`EbT0`, `FsT0` ...). A setting the key misses can only
-  cause a miss, never a wrong picture, unless a bake reads it (add a
-  render-only one to `BakeCacheSkip`).
+  `usertime` stamps (`EbT0`, `FsT0` ...). A setting the key should leave out
+  only causes a miss; add render-only ones of a piece's own to
+  `BakeCacheSkip`.
 - **A hit leaves exactly the state a bake would**: every name the bake
   defined or changed, temporaries included, and the random stream (`srand`
   to the state the bake left), so later draws and the next bake's key are
-  the same either way.
+  the same either way. A bake that changes an existing array or dict in
+  place, takes a name away, or leaves one array in two places inside what
+  it made can't be written that way, so it isn't cached (the log says
+  `can't keep <name>`); the erosion, river and forest bakes do none of these.
+  `render.sh --sweep-seed` turns the cache off, since pscat's seed sweep
+  overrides the `srand` that puts the stream back.
 - **Disk:** about 20 MB per million reals (the erosion map at `ErN` 1024 is
   one, plus `ErFlow` with `Rivers`); the forest map at `FsN` 384 is about
   8 MB. Nothing is ever evicted: `rm -rf renders/cache` when it grows.
