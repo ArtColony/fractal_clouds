@@ -1,0 +1,325 @@
+%!PS-Adobe-3.0
+% fc_cache.ps -- keep the erosion and forest bakes on disk and read them
+% back when nothing they depend on has changed (fractal_clouds#18).
+%
+% Needs fc_render.ps (fc-default). fc_landscape.ps loads it and runs its
+% bakes through it:
+%
+%   (name) proc fc-cache-run -   run proc, a bake, through the cache: with
+%                                BakeCache off (the default) it just runs
+%                                proc; with it on, it reads the bake's
+%                                result back from renders/cache/ if a file
+%                                with the same key is there, and otherwise
+%                                runs proc and prints the result for
+%                                scripts/render.sh to file
+%
+% pscat 0.6.2 can't write files (docs/pscat-issues.md #15), so the cache is
+% written through stdout: a miss prints a block between %%FcCacheBegin and
+% %%FcCacheEnd lines, and render.sh cuts it out of the log into
+% renders/cache/<name>-<key>.ps, by a temporary file and a rename, so bands
+% rendering in parallel never see half a file. A cache file is PostScript:
+% each name the bake defined or changed, with its value at full precision
+% (pscat's cvs round-trips reals exactly), so a hit reads it back with
+% `run`, which at ErN 1024 takes about 0.2 s for a 20 MB file.
+%
+% The key is everything a bake can read, at the moment it starts:
+%   - every entry of userdict (and of the current dictionary, if a piece
+%     has begun its own), except procedures, arrays over 64 entries (both
+%     come from the source, below, or from earlier bakes, which come from
+%     the same entries), the names in KcSkip (render-only settings such as
+%     Crop, Res and PixSeed, so the bands of one frame and its probe share
+%     the bake) and usertime stamps (names like EbT0 or FsT1);
+%   - the random stream's state (rrand): a bake draws from it;
+%   - FcCacheSrc, a hash of the source (lib/*.ps, the piece and the pinned
+%     pscat version) that render.sh defines when the cache is on. Without
+%     it nothing is cached, since a changed procedure would go unnoticed.
+% A miss records every name whose value the bake changed (not eq before
+% and after, or of another type), temporaries included, and the stream's
+% state afterwards. A hit puts all of them back and srand's the stream to
+% that state, so what follows (the next bake's key, the render) sees
+% exactly what it would after a real bake, and the picture is the same
+% byte for byte. A bake that changes an array it didn't create in place
+% would be missed by that comparison; the erosion and forest bakes only
+% define new ones.
+%
+% Settings:
+%   BakeCache       false  read and write renders/cache/ (render.sh
+%                          -D BakeCache=true, or BAKE_CACHE=1; on by
+%                          default in render_bands.sh)
+%   BakeCacheSkip   []     more names to leave out of the key (settings
+%                          only the render reads)
+%   BakeCacheDebug  false  print every key entry's hash (%%FcKey lines), to
+%                          find what makes two runs miss
+%
+% Temporaries use the Kc prefix.
+
+/BakeCache false fc-default
+/BakeCacheSkip [] fc-default
+/BakeCacheDebug false fc-default
+
+% render-only names that don't reach the bakes, left out of the key
+/KcSkip 32 dict def
+[ /Crop /Res /PixSeed /RowTimes /AA /FrameGrid /FrameLabel /Pass /PassKeep
+  /Profile /BakeCache /BakeCacheSkip /BakeCacheDebug /FcCacheSrc /LnSetUp ]
+{ KcSkip exch true put } forall
+
+/KcP1 2147483629 def /KcP2 2147483587 def
+/KcBuf 256 string def
+
+% --- hashing -----------------------------------------------------------------
+% two 31-bit polynomial hashes side by side, h1 h2 on the operand stack (no
+% names, so a value can hash its parts recursively)
+/fc-cache-mix {                                  % h1 h2 v -> h1' h2'  (v an integer >= 0)
+    exch 137 mul 1 index add KcP2 mod
+    3 1 roll exch 131 mul add KcP1 mod exch
+} bind def
+/fc-cache-hs { { fc-cache-mix } forall } bind def          % h1 h2 string -> h1' h2'
+/fc-cache-ht { 0 get fc-cache-mix } bind def               % h1 h2 (t) -> h1' h2'
+/fc-cache-tag { exch 4 1 roll fc-cache-ht 3 -1 roll } bind def   % h1 h2 v (t) -> h1' h2' v
+
+/KcHv <<
+    /integertype { (i) fc-cache-tag KcBuf cvs fc-cache-hs }
+    /realtype    { (r) fc-cache-tag KcBuf cvs fc-cache-hs }
+    /booleantype { { (T) } { (F) } ifelse fc-cache-ht }
+    /nulltype    { pop (N) fc-cache-ht }
+    /nametype    { dup xcheck { (x) } { (n) } ifelse fc-cache-tag KcBuf cvs fc-cache-hs }
+    /stringtype  { (s) fc-cache-tag 3 1 roll 2 index length fc-cache-mix 3 -1 roll fc-cache-hs }
+    /arraytype   {
+        % procedures come from the source (FcCacheSrc); a long array from the
+        % source or from an earlier bake (that is, from the other entries)
+        dup xcheck { pop (p) fc-cache-ht } {
+            dup length 64 gt { (A) fc-cache-tag length fc-cache-mix } {
+                (a) fc-cache-tag 3 1 roll 2 index length fc-cache-mix 3 -1 roll
+                { fc-cache-hv } forall
+            } ifelse
+        } ifelse }
+    /dicttype    { fc-cache-hd }
+>> def
+KcHv /packedarraytype KcHv /arraytype get put
+/fc-cache-hv {                                   % h1 h2 value -> h1' h2'
+    KcHv 1 index type 2 copy known { get exec } {
+        pop pop type KcBuf cvs (o) fc-cache-tag fc-cache-hs   % operators, files...: their type
+    } ifelse
+} bind def
+
+% a dict: the sum of its entries' hashes, so the order forall visits them in
+% doesn't matter; three levels deep at most, and not fonts or the system dicts
+/KcDepth 0 def
+/fc-cache-hd {                                   % h1 h2 dict -> h1' h2'
+    dup /FontType known 1 index userdict eq or 1 index systemdict eq or KcDepth 3 ge or {
+        (D) fc-cache-tag length fc-cache-mix
+    } {
+        /KcDepth KcDepth 1 add def
+        (d) fc-cache-tag
+        0 0 3 -1 roll { fc-cache-he fc-cache-add } forall    % h1 h2 s1 s2
+        4 2 roll 3 index fc-cache-mix 2 index fc-cache-mix 4 2 roll pop pop
+        /KcDepth KcDepth 1 sub def
+    } ifelse
+} bind def
+/fc-cache-he {                                   % k v -> e1 e2  (one entry)
+    exch 7 11 3 -1 roll fc-cache-hv (=) fc-cache-ht 3 -1 roll fc-cache-hv
+} bind def
+/fc-cache-add {                                  % s1 s2 e1 e2 -> s1' s2'
+    3 -1 roll add KcP2 mod 3 1 roll add KcP1 mod exch
+} bind def
+
+% does a top-level name stay out of the key (and out of what a bake records)?
+/fc-cache-skip? {                                % key -> bool
+    dup KcSkip exch known { pop true } {
+        false BakeCacheSkip { 2 index eq or } forall
+        { pop true } {
+            KcBuf cvs
+            % Kc: this file's own; Bn: fc_bench's counters
+            dup length 2 ge { dup 0 2 getinterval dup (Kc) eq exch (Bn) eq or } { false } ifelse
+            % usertime stamps: two letters, T, a digit (EbT0, FsT0, AqT0 ...)
+            1 index length 4 eq {
+                1 index 2 get 84 eq 2 index 3 get dup 48 ge exch 57 le and and or
+            } if
+            exch pop
+        } ifelse
+    } ifelse
+} bind def
+
+/fc-cache-hex8 {                                 % n -> (8 hex digits)
+    16 8 string cvrs (00000000) 8 string copy dup 3 -1 roll dup length 8 exch sub exch putinterval
+} bind def
+
+/fc-cache-key {                                  % (name) -> (key)
+    /KcNm exch def
+    0 0
+    [ userdict currentdict userdict eq { } { currentdict } ifelse ] {
+        { 1 index fc-cache-skip? { pop pop } {
+            BakeCacheDebug { (%%FcKey ) print 1 index KcBuf cvs print ( ) print } if
+            fc-cache-he
+            BakeCacheDebug { 1 index KcBuf cvs print ( ) print dup KcBuf cvs print (\n) print } if
+            fc-cache-add
+        } ifelse } forall
+    } forall
+    KcNm fc-cache-hs
+    rrand dup /KcR0 exch def fc-cache-mix
+    FcCacheSrc fc-cache-hs
+    exch fc-cache-hex8 exch fc-cache-hex8
+    16 string dup 0 4 -1 roll putinterval dup 8 4 -1 roll putinterval
+} bind def
+
+% --- writing ------------------------------------------------------------------
+% through a 64 KB buffer: print per number makes a system call each
+/KcOb 65536 string def /KcOp 0 def
+/fc-cache-flush { KcOb 0 KcOp getinterval print (\n) print /KcOp 0 def } bind def
+/fc-cache-emit {                                 % string -> -   (and a space)
+    dup length KcOp add 65534 gt { fc-cache-flush } if
+    dup length exch KcOb exch KcOp exch putinterval KcOp add
+    dup KcOb exch 32 put 1 add /KcOp exch def
+} bind def
+/fc-cache-emit2 { dup length KcOp add 65534 gt { fc-cache-flush } if   % string -> -  (no space)
+    dup length exch KcOb exch KcOp exch putinterval KcOp add /KcOp exch def } bind def
+
+% Where else the object is, among the values from before the bake (KcSnap,
+% which a cache file reaches as KcPre: the dictionary it is read into the
+% state of, which on a hit is the same as before the bake): a name whose
+% value is this very object, or, for a procedure a bake installs from a
+% literal inside another procedure (as fc_coast's material hook does), the
+% path to it inside one. Leaves the name, or null, and the path in KcPth
+% (KcPn indices, innermost first).
+/KcPth 8 array def /KcPn 0 def
+/fc-cache-alias {                                % obj -> name | null
+    /KcAo exch def /KcAn null def /KcPn 0 def
+    KcSnap {
+        dup type /KcAo load type eq { /KcAo load eq } { pop false } ifelse {
+            dup fc-cache-skip? { pop } { /KcAn exch def exit } ifelse
+        } { pop } ifelse
+    } forall
+    KcAn null eq /KcAo load xcheck and {
+        KcSnap {
+            dup type dup /arraytype eq exch /packedarraytype eq or 2 index fc-cache-skip? not and {
+                /KcPn 0 def 0 fc-cache-in { /KcAn exch def exit } { pop } ifelse
+            } { pop pop } ifelse
+        } forall
+    } if
+    KcAn
+} bind def
+
+% is KcAo inside arr (at most 6 levels down)? on true, KcPth holds the path
+/fc-cache-in {                                   % arr depth -> bool
+    1 add exch false exch                        % d false arr
+    0 1 2 index length 1 sub {                   % d false arr i
+        2 copy get                               % d false arr i e
+        dup /KcAo load eq 1 index type /KcAo load type eq and {
+            pop KcPth KcPn 3 -1 roll put /KcPn KcPn 1 add def
+            exch pop true exch exit
+        } {
+            dup type dup /arraytype eq exch /packedarraytype eq or 5 index 6 lt and {
+                4 index fc-cache-in {
+                    KcPth KcPn 3 -1 roll put /KcPn KcPn 1 add def
+                    exch pop true exch exit
+                } { pop } ifelse
+            } { pop pop } ifelse
+        } ifelse
+    } for
+    pop exch pop
+} bind def
+
+% write a name fc-cache-alias found, with its path
+/fc-cache-emit-alias {                           % name -> -
+    (KcPre) fc-cache-emit (/) fc-cache-emit2 KcBuf cvs fc-cache-emit (get) fc-cache-emit
+    KcPn 1 sub -1 0 { KcPth exch get KcBuf cvs fc-cache-emit (get) fc-cache-emit } for
+} bind def
+
+/fc-cache-ev {                                   % value -> -  (as PostScript text)
+    dup type
+    dup /integertype eq 1 index /realtype eq or 1 index /booleantype eq or {
+        pop KcBuf cvs fc-cache-emit } {
+    dup /nulltype eq { pop pop (null) fc-cache-emit } {
+    dup /nametype eq { pop dup xcheck { (/) fc-cache-emit2 KcBuf cvs fc-cache-emit2 ( cvx) fc-cache-emit }
+        { (/) fc-cache-emit2 KcBuf cvs fc-cache-emit } ifelse } {
+    dup /stringtype eq { pop (<) fc-cache-emit2
+        { 256 add 16 3 string cvrs 1 2 getinterval fc-cache-emit2 } forall (>) fc-cache-emit } {
+    dup /arraytype eq 1 index /packedarraytype eq or 1 index /dicttype eq or {
+        pop dup fc-cache-alias dup null ne {
+            exch pop fc-cache-emit-alias
+        } { pop
+            dup type /dicttype eq { (<<) fc-cache-emit { exch fc-cache-ev fc-cache-ev } forall (>>) fc-cache-emit } {
+            dup xcheck { pop /KcFail true def /KcFailN KcEn def (null) fc-cache-emit } {
+                ([) fc-cache-emit { fc-cache-ev } forall (]) fc-cache-emit
+            } ifelse } ifelse
+        } ifelse } {
+    pop pop /KcFail true def /KcFailN KcEn def (null) fc-cache-emit
+    } ifelse } ifelse } ifelse } ifelse } ifelse
+} bind def
+
+% --- the cache ---------------------------------------------------------------
+/fc-cache-run {                                  % (name) proc -> -
+    /KcPr exch def /KcName exch def
+    BakeCache /FcCacheSrc where { pop FcCacheSrc type /stringtype eq } { false } ifelse and not {
+        BakeCache { (fc-cache: no FcCacheSrc (render with scripts/render.sh); baking\n) print } if
+        KcPr
+    } {
+        /KcT0 realtime def
+        KcName fc-cache-key /KcKey exch def
+        /KcFile 128 string def
+        KcFile 0 (renders/cache/) putinterval
+        KcFile 14 KcName putinterval
+        KcFile 14 KcName length add (-) putinterval
+        KcFile 15 KcName length add KcKey putinterval
+        KcFile 31 KcName length add (.ps) putinterval
+        /KcFile KcFile 0 34 KcName length add getinterval def
+        % read it back, into a dict of its own first
+        /KcD 256 dict def /KcCds countdictstack def
+        /KcPre currentdict def
+        mark { KcD begin KcFile run end } stopped
+        countdictstack KcCds sub { end } repeat
+        cleartomark
+        KcD /KcOK known { KcD /KcKey get KcKey eq } { false } ifelse {
+            /KcDst currentdict def
+            KcD { 1 index fc-cache-skip? { pop pop } { KcDst 3 1 roll put } ifelse } forall
+            KcD /KcRand get srand
+            (fc-cache: ) print KcName print ( hit ) print KcKey print ( ms ) print
+            realtime KcT0 sub KcBuf cvs print (\n) print
+        } {
+            (fc-cache: ) print KcName print ( miss ) print KcKey print (\n) print
+            /KcSnap currentdict dup length 16 add dict copy def
+            KcPr
+            /KcT1 realtime def
+            % what the bake changed
+            /KcCh 256 dict def
+            currentdict { 1 index fc-cache-skip? { pop pop } {
+                KcSnap 2 index known {
+                    KcSnap 2 index get 2 copy eq 3 1 roll type exch type eq and
+                    { pop } { KcCh exch true put } ifelse
+                } { pop KcCh exch true put } ifelse
+            } ifelse } forall
+            /KcFail false def
+            (\n%%FcCacheBegin ) print KcName print (-) print KcKey print (\n) print
+            (%!PS-Adobe-3.0 fc_cache: the ) print KcName print ( bake \(fractal_clouds#18\)\n) print
+            (/KcKey \() print KcKey print (\) def\n) print
+            /KcDone 64 dict def
+            KcCh { pop
+                currentdict 1 index get fc-cache-alias-changed
+            } forall
+            (/KcRand ) print rrand KcBuf cvs print ( def\n) print
+            KcFail {
+                (\n%%FcCacheAbort\nfc-cache: ) print KcName print ( can't write ) print KcFailN KcBuf cvs print (; not cached\n) print
+            } {
+                (/KcOK true def\n%%FcCacheEnd ) print KcName print (-) print KcKey print (\n) print
+                (fc-cache: ) print KcName print ( written ms ) print realtime KcT1 sub KcBuf cvs print (\n) print
+            } ifelse
+            /KcCh null def /KcDone null def /KcSnap null def
+        } ifelse
+        /KcD null def
+    } ifelse
+} bind def
+
+% one changed entry: name value -> -
+/fc-cache-alias-changed {
+    exch /KcEn exch def /KcEv exch def
+    % the same object as a changed name already written: point at it
+    /KcEa null def
+    /KcEv load type dup /arraytype eq exch /dicttype eq or {
+        KcDone { /KcEv load eq { /KcEa exch def exit } { pop } ifelse } forall
+    } if
+    (/) fc-cache-emit2 KcEn KcBuf cvs fc-cache-emit
+    KcEa null ne { (/) fc-cache-emit2 KcEa KcBuf cvs fc-cache-emit2 ( load) fc-cache-emit }
+        { /KcEv load fc-cache-ev } ifelse
+    (def) fc-cache-emit fc-cache-flush
+    /KcEv load type dup /arraytype eq exch /dicttype eq or { KcDone KcEn /KcEv load put } if
+} bind def

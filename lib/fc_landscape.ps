@@ -45,6 +45,8 @@
 %                    higher; a map lake's level isn't used: give y)
 %   LookTilt  0      degrees added to the Pitch LookAt works out (positive
 %                    tilts the view up, lowering the target in the frame)
+%   BakeCache false  keep the erosion and forest bakes in renders/cache/ and
+%                    read them back (lib/fc_cache.ps)
 %   Pass      /beauty  /mask, /depth, /material or /matte: draw that render
 %                    pass instead of the picture (lib/fc_passes.ps)
 %   PassKeep  []     passes to record for drawing again (fc-pass-draw)
@@ -104,6 +106,7 @@ TreesOn { /TreeLine -1000 fc-default } if     % fc_trees paints the forest
 (lib/fc_terrain.ps) run
 (lib/fc_render.ps) run
 (lib/fc_erode.ps) run
+(lib/fc_cache.ps) run
 TreesOn { (lib/fc_trees.ps) run } if
 Profile { (lib/fc_bench.ps) run } if
 
@@ -116,9 +119,13 @@ Profile { (lib/fc_bench.ps) run } if
     WaterRise null ne { /WaterY 0 0 TerrOct fc-height-proc WaterRise add def } if
     TreesOn { Seed 303 add fc-trees-init } if
     Seed 202 add srand
-    Erode { fc-erode-bake } if
-    Rivers { Erode { fc-water-rivers } { (fc_landscape: Rivers needs Erode\n) print } ifelse } if
-    TreesOn { fc-forest-bake } if
+    % the bakes go through fc_cache.ps, which (with BakeCache on) reads
+    % them back from renders/cache/ when their inputs haven't changed;
+    % the rivers carve the erosion map, so they belong to its bake
+    Erode { (erode) { fc-erode-bake Rivers { fc-water-rivers } if } fc-cache-run } {
+        Rivers { (fc_landscape: Rivers needs Erode\n) print } if
+    } ifelse
+    TreesOn { (forest) { fc-forest-bake } fc-cache-run } if
     CamHeight null ne { /CamY CamHeight def } {
         0 0 TerrOct fc-height CamAbove add
         CamLift 0 gt { TerrTop CamLift mul exch fc-max } if

@@ -23,6 +23,9 @@
 #                                        # a render pass instead of the picture (Pass,
 #                                        # lib/fc_passes.ps): mask, depth, material or
 #                                        # matte; writes renders/foo-mask.png
+#   BAKE_CACHE=1 scripts/render.sh ...  # keep the erosion and forest bakes in
+#                                        # renders/cache/ and read them back next time
+#                                        # (-D BakeCache=true; lib/fc_cache.ps)
 #   scripts/render.sh --transparent ...  # pscat --transparent: what the page leaves
 #                                        # unpainted comes out as PNG alpha
 #   --grid 3x3                           # the contact sheet's columns x rows
@@ -125,6 +128,7 @@ if [ -n "$pass" ]; then
   defs="$defs /Pass /$pass def"
   suffix="$suffix-$pass"
 fi
+[ "${BAKE_CACHE:-0}" = 0 ] || defs="$defs /BakeCache true def"
 
 if [ $# -gt 0 ]; then
   pieces=("$@")
@@ -148,7 +152,16 @@ for ps in "${pieces[@]}"; do
   status=ok
   # /usr/bin/time -p writes "real N" to stderr on both macOS and Linux.
   # with defines, feed `defs (piece) run` on stdin so the piece sees them
-  if [ -n "$defs" ]; then src=-; else src="$ps"; fi
+  # the bake cache (lib/fc_cache.ps), when the defines or the piece mention
+  # it: a hash of the source goes into its keys, so an edit to a library or
+  # the piece never reads an old bake back
+  pdefs="$defs"
+  if [[ "$defs" == *BakeCache* ]] || grep -q BakeCache "$ps"; then
+    mkdir -p renders/cache
+    src_hash="$(cat lib/*.ps "$ps" .pscat-version | shasum | cut -c1-16)"
+    pdefs="$defs /FcCacheSrc ($src_hash) def"
+  fi
+  if [ -n "$pdefs" ]; then src=-; else src="$ps"; fi
   if [ ${#sweep[@]} -gt 0 ]; then
     # pscat writes the frames as $name-001.png ... and composites them;
     # it refuses --lint with a sweep, so a sweep isn't linted
@@ -158,9 +171,26 @@ for ps in "${pieces[@]}"; do
     lint=(--lint)
     outargs=(--png "$out/$name.png")
   fi
-  if ! printf '%s (%s) run\n' "$defs" "$ps" | /usr/bin/time -p pscat --page "$page" --dpi "$dpi" ${transparent[@]+"${transparent[@]}"} ${lint[@]+"${lint[@]}"} "${outargs[@]}" "$src" >"$log" 2>&1; then
+  if ! printf '%s (%s) run\n' "$pdefs" "$ps" | /usr/bin/time -p pscat --page "$page" --dpi "$dpi" ${transparent[@]+"${transparent[@]}"} ${lint[@]+"${lint[@]}"} "${outargs[@]}" "$src" >"$log" 2>&1; then
     status=error
     failed=1
+  fi
+  # a bake that missed the cache printed itself between %%FcCacheBegin and
+  # %%FcCacheEnd: file it in renders/cache/ (by a temporary file and a
+  # rename, so a band reading it in parallel never sees half of it) and
+  # take it out of the log
+  if grep -q '^%%FcCacheBegin ' "$log"; then
+    done_list="$(awk -v dir=renders/cache -v tag="$$" -v stripped="$log.strip" '
+      /^%%FcCacheBegin / { name = $2; tmp = dir "/" name ".ps.tmp." tag; inb = 1; printf "" > tmp; next }
+      /^%%FcCacheEnd / { if (inb) { close(tmp); print tmp " " dir "/" name ".ps" } inb = 0; next }
+      /^%%FcCacheAbort/ { if (inb) close(tmp); inb = 0; next }
+      inb && /^(%%\[|real |user |sys |pscat: )/ { close(tmp); inb = 0 }   # the run failed mid-block
+      inb { print > tmp; next }
+      { print > stripped }
+    ' "$log")"
+    while read -r t f; do if [ -n "$t" ]; then mv -f "$t" "$f"; fi; done <<< "$done_list"
+    rm -f renders/cache/*.ps.tmp."$$"
+    mv -f "$log.strip" "$log"
   fi
   secs="$(awk '/^real/ {print $2}' "$log")"
   [ ${#lint[@]} -eq 0 ] || grep -q 'pscat: lint: clean' "$log" || [ "$status" = error ] || status=lint

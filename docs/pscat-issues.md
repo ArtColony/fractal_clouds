@@ -267,6 +267,13 @@ array (path) writereals -
 (path) n readreals array
 ```
 
+**Workaround (2026-10-24, #18):** `lib/fc_cache.ps` prints a bake as
+PostScript text, which `scripts/render.sh` files in `renders/cache/` (entry
+15), and reads it back with `run`. That is exact (`cvs` gives the shortest
+round-trip digits) and fast enough: 0.17 s to read a million reals, 0.6 s
+to print them. Fixed-point hex (`readhexstring`; there is no
+`writehexstring`) would lose bits, so the cached picture wouldn't match.
+
 ## 10. Parallel rendering of independent image bands
 
 - **Kind:** feature request (performance)
@@ -392,3 +399,38 @@ the `--pass mask` PNG.
 
 **Possible request:** `ImageType 3` (at least `InterleaveType 3` with a 1-bit
 mask) and `nulldevice`.
+
+## 15. No way to write a file: `file` refuses every write, and the file operators are missing
+
+- **Kind:** missing feature (file output)
+- **Status:** open
+- **Found:** 2026-10-24, fractal_clouds#18 (caching the erosion and forest bakes)
+
+pscat 0.6.2 refuses to open any file for writing, whatever the path, even
+`%stdout`, and has none of the Level 2 operators that manage files:
+
+```postscript
+/try { dup print ( ) print { (w) file dup (hi\n) writestring closefile (ok\n) print } stopped { (fail\n) print } if } def
+(renders/x.txt) try (x.txt) try (/tmp/x.txt) try (%stdout) try
+[ /renamefile /deletefile /filenameforall /writehexstring /writeobject ]
+{ dup systemdict exch known { pop } { 20 string cvs print ( undefined\n) print } ifelse } forall
+```
+
+`pscat --headless` prints `fail` four times (`invalidfileaccess`) and lists all
+five operators as undefined. Ghostscript (`gs -dNOSAFER`) writes the files and
+has the operators. Entry 14 noted the refusal in passing; this is the full
+picture. Reading works: `(path) run`, `(path) (r) file`, `readstring`,
+`readhexstring` and `token`.
+
+**Effect here:** `lib/fc_cache.ps` (#18) can't write its cache. It prints the
+bake to stdout between `%%FcCacheBegin` and `%%FcCacheEnd` lines, and
+`scripts/render.sh` cuts that out of the log into `renders/cache/`, using a
+temporary file and `mv`, since the PostScript can't rename. Without a
+wrapper script, nothing is cached.
+
+**Possible request:** writing files in a directory the user allows (a
+`--allow-write DIR` option), with `renamefile` and `deletefile`; or the
+`writereals` of entry 9. As a workaround, text written with `print` is
+fast enough: pscat's `cvs` prints a real with its shortest round-trip
+digits, so a million reals print in 0.6 s (in 64 KB buffers; 2.5 s with a
+`print` per number) and `run` reads them back exactly in 0.17 s.
