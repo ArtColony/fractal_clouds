@@ -70,3 +70,14 @@
     } repeat
     exch pop div
 } bind def
+
+% /NativeNoise true: pscat's native operators (pscat#734), as in
+% fc_noise2.ps. fc-fbm3 becomes vfbm3 with the same gain and lacunarity
+% (its octave offsets are vfbm3's own), normalised to 0..1.
+/NativeNoise where { pop NativeNoise } { false } ifelse {
+    /fc-noise3 { vnoise3 0.5 mul 0.5 add } bind def
+    /fc-fbm3 {                                   % x y z oct -> v
+        cvi dup /Fo exch def 0.5 2.03 vfbm3
+        1 0.5 Fo exp sub 2 mul div 0.5 mul 0.5 add
+    } bind def
+} if

@@ -449,3 +449,32 @@ render these pieces.
 
 **Possible request:** async render jobs (start, poll with progress, fetch,
 cancel), or a documented way to raise the timeout for a local server.
+
+## 17. `--bands` on main: equal-row bands, and what doesn't combine with it
+
+- **Kind:** feedback on unreleased fixes (performance)
+- **Status:** reported on PSCatLabs/pscat#736 (2026-10-26); the follow-ups are
+  pscat#839 (`--version` has no commit), #840 (`--profile` with `--bands`),
+  #843 (`pscat-mcp` has no `--bands`) and #844 (a work queue of small bands)
+- **Found:** 2026-10-26, testing pscat main @ 56006db before 0.7.0
+
+With `lib/fc_render.ps` reading `/BandBBox`, `pscat --bands 10` renders
+`gallery/golden_coast.ps` (320x200, 72 dpi) byte-identical to a plain render.
+Its bands are equal row ranges, though, and this frame's cost sits in rows
+100-140, so wall time is set by one band. Times on an M4 (10 cores):
+
+| run | wall |
+|---|---:|
+| 0.6.2 | 230 s |
+| main, no changes (byte-identical to 0.6.2) | 237 s |
+| main `--bands 10` | 113 s |
+| main `--bands 10`, `/NativeNoise true` | 75 s |
+| `scripts/render_bands.sh --auto 10` (cost-balanced), same | 44 s |
+
+Repro: `PSCAT_ARGS="--bands 10" scripts/render.sh -D NativeNoise=true
+gallery/golden_coast.ps` against `scripts/render_bands.sh
+gallery/golden_coast.ps --auto 10 -- -D NativeNoise=true`. `--bands 20` and
+`--bands 40` are slower (117 s and 206 s). Also: `--lint`, `--profile` and
+`--allow-write` are each refused with `--bands`, and native `ridged2` has no
+form of `fc-ridged` (weighted octaves, rotation, a fractional last octave),
+so that loop stays in PostScript (6.0 µs a call, against 0.29 µs for `ridged2`).
