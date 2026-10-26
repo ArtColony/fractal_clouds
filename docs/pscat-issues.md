@@ -478,3 +478,9 @@ gallery/golden_coast.ps --auto 10 -- -D NativeNoise=true`. `--bands 20` and
 `--allow-write` are each refused with `--bands`, and native `ridged2` has no
 form of `fc-ridged` (weighted octaves, rotation, a fractional last octave),
 so that loop stays in PostScript (6.0 µs a call, against 0.29 µs for `ridged2`).
+
+That last point is not a request. The owner's rule is no domain-specific
+logic in the engine, so `fc-ridged` and `fc-eroded` stay as our own PostScript
+around the general primitives. The `ridgedmf2`/`erodedfbm2` operators pscat
+added in response (#845) were asked to be reverted before 0.7.0 (correction on
+pscat#736, 2026-10-26).
