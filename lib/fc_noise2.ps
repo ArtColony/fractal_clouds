@@ -151,3 +151,21 @@
     } loop
     E2sum E2norm div 0.5 mul 0.5 add
 } bind def
+
+% /NativeNoise true (default false; set it before loading) swaps in pscat's
+% native noise operators (pscat#734, pscat 0.7): vnoise2 for fc-noise2,
+% gnoise2 for fc-gnoise2, gnoise2d for fc-noise2d. Their lattice differs
+% (period 256, its own permutation table), so the picture changes, but it is
+% the same on every platform. The PostScript lattices are still filled, so
+% the rand stream after fc-noise2-init is where it always was.
+/NativeNoise where { pop } { /NativeNoise false def } ifelse
+NativeNoise {
+    /fc-noise2-init-ps /fc-noise2-init load def
+    /fc-noise2-init { dup noiseseed fc-noise2-init-ps } bind def
+    /fc-noise2 { vnoise2 0.5 mul 0.5 add } bind def           % -1..1 -> 0..1
+    /fc-gnoise2 { gnoise2 } bind def
+    % n dx dy -> about value noise's 0..1 range (gnoise2d is about +-0.6), gradient to match
+    /fc-noise2d {
+        gnoise2d 0.8 mul 3 1 roll 0.8 mul 3 1 roll 0.8 mul 0.5 add 3 1 roll
+    } bind def
+} if

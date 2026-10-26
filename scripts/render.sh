@@ -30,6 +30,7 @@
 #                                        # (-D BakeCache=true; lib/fc_cache.ps)
 #   scripts/render.sh --transparent ...  # pscat --transparent: what the page leaves
 #                                        # unpainted comes out as PNG alpha
+#   PSCAT_ARGS="--bands 8" scripts/render.sh ...   # extra pscat flags (not linted with --bands)
 #   --grid 3x3                           # the contact sheet's columns x rows
 #                                        # (a -D of the swept name is defined after
 #                                        # pscat's sweep value, so it overrides the
@@ -197,7 +198,12 @@ for ps in "${pieces[@]}"; do
     lint=(--lint)
     outargs=(--png "$out/$name.png")
   fi
-  if ! printf '%s (%s) run\n' "$pdefs" "$ps" | /usr/bin/time -p pscat --page "$page" --dpi "$dpi" ${transparent[@]+"${transparent[@]}"} ${lint[@]+"${lint[@]}"} "${outargs[@]}" "$src" >"$log" 2>&1; then
+  # PSCAT_ARGS: extra pscat flags (e.g. "--bands 8"); pscat refuses --lint
+  # with --bands, so a banded run isn't linted
+  extra=()
+  [ -z "${PSCAT_ARGS:-}" ] || read -r -a extra <<< "$PSCAT_ARGS"
+  [[ " ${PSCAT_ARGS:-} " != *" --bands "* ]] || lint=()
+  if ! printf '%s (%s) run\n' "$pdefs" "$ps" | /usr/bin/time -p pscat --page "$page" --dpi "$dpi" ${transparent[@]+"${transparent[@]}"} ${lint[@]+"${lint[@]}"} ${extra[@]+"${extra[@]}"} "${outargs[@]}" "$src" >"$log" 2>&1; then
     status=error
     failed=1
   fi
@@ -222,7 +228,7 @@ for ps in "${pieces[@]}"; do
   secs="$(awk '/^real/ {print $2}' "$log")"
   [ ${#lint[@]} -eq 0 ] || grep -q 'pscat: lint: clean' "$log" || [ "$status" = error ] || status=lint
 
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$name" "$have" "$dpi" "$page" "$secs" "$status" "${defs# }" >> "$out/timings.tsv"
+  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$(date +%Y-%m-%dT%H:%M:%S)" "$name" "$have" "$dpi" "$page" "$secs" "$status" "${defs# }${PSCAT_ARGS:+ [$PSCAT_ARGS]}" >> "$out/timings.tsv"
   printf '%-28s %8ss  %s\n' "$name" "$secs" "$status"
   [ "$status" = ok ] || { grep -v -E '^(real|user|sys) |^pscat: wrote ' "$log" || true; } | sed 's/^/    /' >&2
 done

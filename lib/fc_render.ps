@@ -97,6 +97,21 @@
     /Crop where { pop Crop aload pop } { 0 0 1 1 } ifelse
     IH mul round cvi IH fc-min /FrJ1 exch def  IW mul round cvi IW fc-min /FrI1 exch def
     IH mul round cvi 0 fc-max /FrJ0 exch def   IW mul round cvi 0 fc-max /FrI0 exch def
+    % pscat --bands N (pscat#736): each band is a whole run of the program,
+    % and pscat keeps only its own device rows, so render just the frame
+    % rows under /BandBBox (with a row to spare each side). PixSeed makes
+    % every pixel independent of the cut, so the bands stitch into the
+    % same image as a plain render
+    /BandBBox where { pop
+        /PixSeed true def
+        [ BandBBox 3 get BandBBox 1 get ]
+        { 0 exch matrix defaultmatrix transform itransform exch pop
+          FrPh exch sub FrPh div IH mul } forall   % frame rows of the band's top and bottom
+        2 copy fc-max ceiling cvi 1 add /FrBj1 exch def
+        fc-min floor cvi 1 sub /FrBj0 exch def
+        FrJ0 FrBj0 fc-max /FrJ0 exch def  FrJ1 FrBj1 fc-min /FrJ1 exch def
+        FrJ1 FrJ0 le { /FrJ1 FrJ0 1 add IH fc-min def /FrJ0 FrJ1 1 sub def } if
+    } if
     /FrCW FrI1 FrI0 sub 1 fc-max def /FrCH FrJ1 FrJ0 sub 1 fc-max def
     /FrRow FrCW 3 mul string def /FrJ FrJ0 def
     /FrI FrI0 def /FrU 0 def /FrV 0 def
