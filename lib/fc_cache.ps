@@ -64,9 +64,12 @@
 /BakeCacheDebug false fc-default
 
 % render-only names that don't reach the bakes, left out of the key
+% (pscat --bands defines BandIndex, BandCount and BandBBox per band: keyed,
+% every band but one would miss and bake again)
 /ZcSkip 32 dict def
 [ /Crop /Res /PixSeed /RowTimes /AA /FrameGrid /FrameLabel /Pass /PassKeep
-  /Profile /BakeCache /BakeCacheSkip /BakeCacheDebug /FcCacheSrc /LnSetUp ]
+  /Profile /BakeCache /BakeCacheSkip /BakeCacheDebug /FcCacheSrc /LnSetUp
+  /BandIndex /BandCount /BandBBox ]
 { ZcSkip exch true put } forall
 
 /ZcP1 2147483629 def /ZcP2 2147483587 def
