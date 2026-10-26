@@ -479,6 +479,14 @@ gallery/golden_coast.ps --auto 10 -- -D NativeNoise=true`. `--bands 20` and
 form of `fc-ridged` (weighted octaves, rotation, a fractional last octave),
 so that loop stays in PostScript (6.0 µs a call, against 0.29 µs for `ridged2`).
 
+**Correction (2026-10-26, later):** the gap against `render_bands.sh` was our
+own bug. `lib/fc_cache.ps` hashed pscat's per-band names (`BandIndex`,
+`BandCount`, `BandBBox`) into its key, so every band but one missed the
+bake cache and baked again. With them left out of the key (cache primed,
+native noise): plain 118 s; `--bands 10` 38 s on 56006db and 35 s on
+26d7c24 (pscat#844's work queue); `render_bands.sh --auto 10` 41 s. Every
+banded image is byte-identical to the plain render.
+
 That last point is not a request. The owner's rule is no domain-specific
 logic in the engine, so `fc-ridged` and `fc-eroded` stay as our own PostScript
 around the general primitives. The `ridgedmf2`/`erodedfbm2` operators pscat
