@@ -12,6 +12,10 @@
 % octave in, so detail can drop smoothly with distance.
 
 /FcN2 65 65 mul array def
+% Per cell, the values fc-noise2d needs, each computed the way it used to be
+% inline: a0, a1-a0, a2-a0, a0-a1-a2+a3. One get and aload replace a dozen
+% array reads per sample; the results are bit-identical.
+/FcN2d 65 65 mul array def
 
 /fc-noise2-init {                                % seed -> -
     srand
@@ -25,6 +29,12 @@
           FcN2 gy 65 mul gx add  FcN2 gy 63 and 65 mul gx 63 and add get put
         } if
       } for } for
+    0 1 4095 { /N2c exch def                     % cell b = yo*65 + xo
+      N2c 64 idiv 65 mul N2c 63 and add /N2c exch def
+      FcN2 N2c get /N2a0 exch def
+      FcN2d N2c [ N2a0  FcN2 N2c 1 add get N2a0 sub  FcN2 N2c 65 add get N2a0 sub
+                  N2a0 FcN2 N2c 1 add get sub FcN2 N2c 65 add get sub FcN2 N2c 66 add get add ] put
+    } for
     fc-gnoise2-init
 } bind def
 
@@ -47,6 +57,8 @@
 % closed contours around blobs instead.
 %   x y fc-gnoise2 n     n roughly -0.7..0.7
 /FcG2x 65 65 mul array def /FcG2y 65 65 mul array def
+% The four corner gradients of each cell as one array: gx gy of (0,0) (1,0) (0,1) (1,1).
+/FcG2c 65 65 mul array def
 /fc-gnoise2-init {                               % (after fc-noise2-init) -> -
     0 1 63 { /gy exch def
       0 1 63 { /gx exch def
@@ -61,66 +73,70 @@
           FcG2y gy 65 mul gx add  FcG2y gy 63 and 65 mul gx 63 and add get put
         } if
       } for } for
+    0 1 4095 { /N2c exch def
+      N2c 64 idiv 65 mul N2c 63 and add /N2c exch def
+      FcG2c N2c [ 0 1 65 66 ] { N2c add dup FcG2x exch get exch FcG2y exch get } forall 8 array astore put
+    } for
 } bind def
 
 /fc-gnoise2 {                                    % x y -> n
-    /G2y exch def /G2x exch def
-    /G2fx G2x floor def /G2fy G2y floor def
-    /G2u G2x G2fx sub def /G2v G2y G2fy sub def
-    /G2b G2fy cvi 63 and 65 mul G2fx cvi 63 and add def
-    /G2s G2u dup mul 3 G2u 2 mul sub mul def
-    /G2t G2v dup mul 3 G2v 2 mul sub mul def
-    FcG2x G2b get G2u mul FcG2y G2b get G2v mul add
-    FcG2x G2b 1 add get G2u 1 sub mul FcG2y G2b 1 add get G2v mul add
-    1 index sub G2s mul add
-    FcG2x G2b 65 add get G2u mul FcG2y G2b 65 add get G2v 1 sub mul add
-    FcG2x G2b 66 add get G2u 1 sub mul FcG2y G2b 66 add get G2v 1 sub mul add
-    1 index sub G2s mul add
-    1 index sub G2t mul add
+    dup floor dup 3 1 roll sub /G2v exch def
+    cvi 63 and 65 mul exch
+    dup floor dup 3 1 roll sub /G2u exch def
+    cvi 63 and add                               % b
+    /G2s G2u dup dup mul exch 2 mul 3 exch sub mul def
+    /G2t G2v dup dup mul exch 2 mul 3 exch sub mul def
+    FcG2c exch get aload pop                     % a0 b0 a1 b1 a2 b2 a3 b3 (gx gy per corner)
+    G2v 1 sub mul exch G2u 1 sub mul add         % ... a2 b2 g11
+    3 1 roll G2v 1 sub mul exch G2u mul add      % ... g11 g01
+    exch 1 index sub G2s mul add                 % a0 b0 a1 b1 bottom
+    3 1 roll G2v mul exch G2u 1 sub mul add      % a0 b0 bottom g10
+    4 2 roll G2v mul exch G2u mul add            % bottom g10 g00
+    exch 1 index sub G2s mul add                 % bottom top
+    exch 1 index sub G2t mul add
 } bind def
 
 % Musgrave-style ridged multifractal: each octave is 1 - |2n - 1|, squared,
 % and weighted by the previous octave, so detail piles up on the ridges and
 % valleys stay smooth.
 /fc-ridged {                                     % x y oct -> v
-    /R2o exch def /R2y exch def /R2x exch def
-    /R2sum 0 def /R2amp 0.5 def /R2w 1 def /R2norm 0 def
-    /R2k 0 def
-    {
-        R2k R2o ge { exit } if
+    /R2o exch def
+    0 1 0 0.5 6 4 roll                           % sum w norm amp x y, on the stack
+    0 1 R2o ceiling cvi 1 sub {
         % the last, fractional octave fades in
-        R2o R2k sub dup 1 gt { pop 1 } if /R2f exch def
-        R2x R2y fc-gnoise2 abs 1.6 mul 1 exch sub dup 0 lt { pop 0 } if dup mul
-        dup R2w mul R2amp mul R2f mul R2sum add /R2sum exch def
-        2 mul dup 1 gt { pop 1 } if /R2w exch def
-        R2amp R2f mul R2norm add /R2norm exch def
-        /R2amp R2amp 0.5 mul def
+        R2o exch sub dup 1 gt { pop 1 } if       % ... f
+        2 index 2 index fc-gnoise2 abs 1.6 mul 1 exch sub dup 0 lt { pop 0 } if dup mul
+        dup 7 index mul 5 index mul 2 index mul 8 index add       % sum'
+        exch 2 mul dup 1 gt { pop 1 } if                          % w'
+        5 index 3 index mul 7 index add                           % norm'
+        6 index 0.5 mul                                           % amp'
         % rotate ~37 degrees, scale 2, offset
-        R2x 1.6 mul R2y 1.2 mul sub 3.1 add
-        R2x 1.2 mul R2y 1.6 mul add 7.7 add
-        /R2y exch def /R2x exch def
-        /R2k R2k 1 add def
-    } loop
-    R2sum R2norm div
+        6 index 1.6 mul 6 index 1.2 mul sub 3.1 add
+        7 index 1.2 mul 7 index 1.6 mul add 7.7 add
+        13 6 roll pop pop pop pop pop pop pop    % drop the old state and f
+    } for
+    pop pop pop exch pop div
 } bind def
 
 % Value noise with its analytic gradient, for erosion-style fBm.
 %   x y fc-noise2d v dvdx dvdy      (v in 0..1)
 /fc-noise2d {
-    /D2y exch def /D2x exch def
-    /D2fx D2x floor def /D2fy D2y floor def
-    /D2u D2x D2fx sub def /D2v D2y D2fy sub def
-    /D2du D2u 1 D2u sub mul 6 mul def            % d smoothstep / du
-    /D2dv D2v 1 D2v sub mul 6 mul def
-    /D2u D2u dup mul 3 D2u 2 mul sub mul def
-    /D2v D2v dup mul 3 D2v 2 mul sub mul def
-    /D2b D2fy cvi 63 and 65 mul D2fx cvi 63 and add def
-    /D2a0 FcN2 D2b get def          /D2a1 FcN2 D2b 1 add get def
-    /D2a2 FcN2 D2b 65 add get def   /D2a3 FcN2 D2b 66 add get def
-    /D2k D2a0 D2a1 sub D2a2 sub D2a3 add def
-    D2a0  D2a1 D2a0 sub D2u mul add  D2a2 D2a0 sub D2v mul add  D2k D2u D2v mul mul add
-    D2a1 D2a0 sub D2k D2v mul add D2du mul
-    D2a2 D2a0 sub D2k D2u mul add D2dv mul
+    dup floor dup 3 1 roll sub
+    exch cvi 63 and 65 mul
+    3 -1 roll dup floor dup 3 1 roll sub
+    exch cvi 63 and 3 -1 roll add                % v u b
+    3 1 roll                                     % b v u
+    dup dup 1 exch sub mul 6 mul                 % b v u du     (d smoothstep / du)
+    2 index dup 1 exch sub mul 6 mul             % b v u du dv
+    2 index dup dup mul exch 2 mul 3 exch sub mul    % ... s    (smoothstep u)
+    4 index dup dup mul exch 2 mul 3 exch sub mul    % ... s t
+    FcN2d 7 index get aload pop                  % ... t a0 d1 d2 k
+    1 index 1 index 7 index mul add 7 index mul  % (d2 + k s) dv
+    3 index 2 index 7 index mul add 9 index mul  % (d1 + k t) du
+    5 index 5 index 9 index mul add              % a0 + d1 s
+    4 index 8 index mul add                      %    + d2 t
+    3 index 9 index 9 index mul mul add          %    + k s t
+    14 3 roll 11 { pop } repeat 3 1 roll exch
 } bind def
 
 % Erosion fBm: each octave is damped by the slope accumulated so far, so
@@ -128,17 +144,16 @@
 %   x y oct fc-eroded v   (roughly 0..1; fractional oct fades the last in)
 /fc-eroded {
     /E2o exch def /E2y exch def /E2x exch def
-    /E2sum 0 def /E2amp 0.5 def /E2gx 0 def /E2gy 0 def /E2k 0 def /E2norm 0 def
-    {
-        E2k E2o ge { exit } if
-        E2o E2k sub dup 1 gt { pop 1 } if /E2f exch def
-        E2x E2y fc-noise2d                       % v dx dy
+    /E2sum 0 def /E2amp 0.5 def /E2gx 0 def /E2gy 0 def /E2norm 0 def
+    0 1 E2o ceiling cvi 1 sub {
+        E2o exch sub dup 1 gt { pop 1 } if       % f
+        E2x E2y fc-noise2d                       % f v dx dy
         2 mul E2gy add /E2gy exch def
         2 mul E2gx add /E2gx exch def
         2 mul 1 sub                              % -1..1
         1 E2gx E2gx mul E2gy E2gy mul add 1 add div mul
-        E2amp mul E2f mul E2sum add /E2sum exch def
-        E2amp E2f mul E2norm add /E2norm exch def
+        E2amp mul 1 index mul E2sum add /E2sum exch def
+        E2amp mul E2norm add /E2norm exch def
         /E2amp E2amp 0.5 mul def
         % rotate ~37 degrees and double; rotate the gradient with the domain
         E2x 1.6 mul E2y 1.2 mul sub 3.1 add
@@ -147,8 +162,7 @@
         E2gx 0.8 mul E2gy 0.6 mul sub
         E2gx 0.6 mul E2gy 0.8 mul add
         /E2gy exch def /E2gx exch def
-        /E2k E2k 1 add def
-    } loop
+    } for
     E2sum E2norm div 0.5 mul 0.5 add
 } bind def
 
