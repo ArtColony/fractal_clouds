@@ -3,21 +3,39 @@
 # which is more pleasing? Runs both orders (A,B then B,A) at the same
 # reasoning effort, so position bias shows up as a split verdict.
 #
-#   scripts/codex_pairwise.sh OLD.png NEW.png [OUTDIR]
+#   scripts/codex_pairwise.sh [--subject TEXT] OLD.png NEW.png [OUTDIR]
+#   scripts/codex_pairwise.sh --subject "a rocky coast at sunset" old.png new.png
 #
-# The images are copied to neutral names, so file names don't leak which is
-# which. Prints each order's verdict mapped back to OLD/NEW.
+# --subject (or SUBJECT=...) says what the renders show, as the prompt's
+# "renders of TEXT"; the default is "a landscape under clouds". The images
+# are copied to neutral names, so file names don't leak which is which.
+# Prints each order's verdict mapped back to OLD/NEW. PAIRWISE_DRY=1 only
+# writes OUTDIR/prompt.txt and prints it, without running Codex.
 set -euo pipefail
-[ $# -ge 2 ] || { echo "usage: $0 OLD.png NEW.png [OUTDIR]" >&2; exit 2; }
+usage() { echo "usage: $0 [--subject TEXT] OLD.png NEW.png [OUTDIR]" >&2; exit 2; }
+subject="${SUBJECT:-a landscape under clouds}"
+pos=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --subject) [ $# -ge 2 ] || usage; subject="$2"; shift 2 ;;
+    --subject=*) subject="${1#--subject=}"; shift ;;
+    -*) usage ;;
+    *) pos+=("$1"); shift ;;
+  esac
+done
+set -- ${pos[@]+"${pos[@]}"}
+[ $# -ge 2 ] && [ $# -le 3 ] || usage
+[ -n "$subject" ] || { echo "$0: --subject is empty" >&2; exit 2; }
 old="$1"; new="$2"; out="${3:-$(mktemp -d "${TMPDIR:-/tmp}/fc.XXXXXX")}"
 mkdir -p "$out"
-cat > "$out/prompt.txt" <<'P'
-Two procedurally generated renders of a mountain landscape under clouds are attached: the first is image A, the second is image B. Judge them blind, on what you can see, as a landscape photographer would.
+cat > "$out/prompt.txt" <<P
+Two procedurally generated renders of ${subject} are attached: the first is image A, the second is image B. Judge them blind, on what you can see, as a landscape photographer would.
 
 Answer exactly in this format, one line each, then at most 5 short bullet points of reasons:
 REALISM: A or B (which looks more like a real photograph)
 AESTHETICS: A or B (which is the more pleasing image)
 P
+[ -z "${PAIRWISE_DRY:-}" ] || { cat "$out/prompt.txt"; exit 0; }
 run() { # first second label
   cp "$1" "$out/image_A.png"; cp "$2" "$out/image_B.png"
   codex exec --sandbox read-only --skip-git-repo-check -c model_reasoning_effort=high \
