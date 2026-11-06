@@ -528,3 +528,17 @@ elementwise arithmetic, comparison masks plus select, gather, reductions and
 `image` from buffers: NumPy-style, with no domain logic. Repro for the
 numbers: `realtime 4000000 { x y mul pop } repeat realtime exch sub` under
 `pscat --headless`, against the 0.6.2 and 0.7.0-rc.4 binaries.
+
+## 19. `--allow-write` is refused with `--bands`
+
+- **Kind:** feature request (CLI)
+- **Status:** filed PSCatLabs/pscat#1045
+- **Found:** 2026-11-06 (#16, the file-based bake cache)
+
+`pscat --bands N --allow-write DIR` exits with `--bands doesn't combine with
+--allow-write` (0.7.0-rc.4). So `lib/fc_cache.ps` writes its own cache files
+only on plain renders. Under `PSCAT_ARGS="--bands N"` it falls back to
+printing the bake on stdout for `scripts/render.sh` to file.
+(`render_bands.sh` runs separate processes, so it is unaffected.) Repro: a
+program that writes `(out/x) (w) file` in band 0, run with `--bands 2
+--allow-write out`.
