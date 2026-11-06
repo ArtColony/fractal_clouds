@@ -560,10 +560,10 @@ Each level's pixels are painted once, through a 1-bit mask, at that level's
   the session's permission settings, to be filed by hand)
 - **Found:** 2026-11-06, pscat 0.7.0-rc.4, while writing entry 19's repro
 
-When an operator raises an error, PLRM 3.11 has the interpreter put its
-operands back on the operand stack before it calls the error handler, so code
-after `stopped` sees the stack as it was. Ghostscript does. pscat drops some
-or all of them:
+When an operator raises an error, Ghostscript leaves its operands on the
+operand stack (as Adobe interpreters do; the PLRM's error-handling section
+describes it, though the section number isn't checked here), so code after
+`stopped` sees the stack as it was. pscat drops some or all of them:
 
 ```postscript
 { 1 (a) add } stopped pop count 10 string cvs print (\n) print clear
