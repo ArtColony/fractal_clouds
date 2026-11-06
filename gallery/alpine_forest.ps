@@ -24,6 +24,8 @@
 /TreesOn where { pop } { /TreesOn true def } ifelse   % the forest (lib/fc_trees.ps)
 /CamAbove where { pop } { /CamAbove 8 def } ifelse  % camera height above the ground below it
 /SnowLine where { pop } { /SnowLine 27 def } ifelse  % early summer
+/RockTint where { pop } { /RockTint 1 def } ifelse      % iron-stained, lichen and cooler high rock (#99)
+/RockStreak where { pop } { /RockStreak 1 def } ifelse  % dark water streaks down the faces (#99)
 
 (lib/fc_landscape.ps) run
 320 200 fc-landscape
