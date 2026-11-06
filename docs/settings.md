@@ -322,9 +322,10 @@ DPI=288 scripts/render_bands.sh gallery/foo.ps -- --pass mask  # bands: renders/
 |---|---|---|---|
 | `Pass` | /beauty | What the image shows. `/mask`: coverage, white on the landscape and black on open sky; clouds over the sky count by their opacity (1 − `Tr`) unless `MaskClouds` is false; antialiased edges come out soft, an alpha. `/depth`: 1 − t/`DepthFar`, clamped (white near, black at `DepthFar` and on the sky; t is the hit distance, `LnT`; not `FcKey`, which water scales for the antialiasing). `/material`: one flat colour per material (table below), the one with the largest share of the pixel; `AA` is turned off, so every pixel is exactly one of the eight colours. `/matte`: the share of the pixel that `PassMat` covers, 0–1, soft where materials blend. `/mask` and `/depth` march the hit (and the clouds, for the mask) without shading anything, so they cost a fraction of the picture. | /mask, /depth, /material, /matte |
 | `PassMat` | /snow | The material `/matte` shows: `/sky /cloud /rock /snow /forest /water /sand /grass`. | /snow |
-| `PassKeep` | [] | Passes to record while the image renders, any of `/beauty /mask /depth /material`, to draw again with `fc-pass-draw` and to clip with (below). With `Crop`, the kept rows and columns outside the crop stay zero: sky in the mask and IDs, black in the beauty and depth. One byte a pixel (three for the beauty); the centre sample, so the kept mask, depth and IDs aren't antialiased (the kept beauty is, when `Pass` is `/beauty`: it copies the finished rows). | [/beauty /mask /depth /material] |
-| `MaskClouds` | true | Clouds over the sky count in the mask (and so in `fc-sky-clip`). false: the mask is the ground alone. | false |
+| `PassKeep` | [] | Passes to record while the image renders, any of `/beauty /mask /depth /material`, to draw again with `fc-pass-draw` and to clip with (below). With `Crop`, the kept rows and columns outside the crop stay zero: sky in the mask and IDs, black in the beauty and depth. One byte a pixel (three for the beauty); the centre sample, so the kept depth and IDs aren't antialiased (the kept beauty is, when `Pass` is `/beauty`: it copies the finished rows; so is the kept mask with `PassSoft`, which averages every sample). | [/beauty /mask /depth /material] |
+| `MaskClouds` | true | Clouds over the sky count in the mask (and so in `fc-sky-clip`, `fc-behind` and `fc-land-draw`). false: the mask is the ground alone. | false |
 | `DepthFar` | null | The distance at which `/depth` reaches black; null: `TMax`. | 500 |
+| `PassSoft` | true | With `PassKeep`, keep what `fc-land-draw` and `fc-behind` need for a soft edge: the kept mask becomes the antialiased coverage (every sample, not the centre one), and two more rows per pixel are kept, the landscape's own colour and what is behind it, both straight (not premultiplied). Needs pscat 0.7 (`ImageType 3` and `setalpha` on images); an interpreter without them prints a note and uses the hard clips. false: the hard clips, exactly as before. | false |
 
 The materials, and their colours in `/material` (sRGB):
 
@@ -367,17 +368,27 @@ use the passes as it likes (`docs/examples/framed_print.ps`):
 
 | Procedure | Stack | What it does |
 |---|---|---|
-| `fc-landscape-keep` | `pw ph → –` | `fc-landscape` through an empty clip: render and record, paint nothing. |
+| `fc-landscape-keep` | `pw ph → –` | `fc-landscape` on the `nulldevice` (an empty clip on an older pscat, or in a `--bands` band): render and record, paint nothing. |
 | `fc-pass-draw` | `name → –` | Paint a kept pass (`/beauty /mask /depth /material`) over `0 0 pw ph` of the current user space. |
-| `fc-sky-clip` | `– → –` | Intersect the clip with the kept mask's sky (mask below 0.5), in the same space. Art drawn after it sits behind the mountains. |
+| `fc-behind` | `proc → –` | The picture with `proc`'s art behind the landscape: the sky (what is behind the landscape), the art, then the landscape over it with a soft edge. Where there is no art, this gives back the picture (within 2/255). Without `PassSoft`: the beauty, then the art through `fc-sky-clip`. |
+| `fc-land-draw` | `– → –` | The landscape alone over what is on the page, its edge soft (and, with `MaskClouds`, its clouds over the sky by their opacity). Over a transparent page (`render.sh --transparent`) it is the landscape with a soft alpha. Without `PassSoft`: the beauty through `fc-land-clip`. |
+| `fc-sky-draw` | `– → –` | What is behind the landscape, opaque over the frame (the first step of `fc-behind`). Without `PassSoft`: the beauty. |
+| `fc-sky-clip` | `– → –` | Intersect the clip with the kept mask's sky (mask below 0.5), in the same space. Art drawn after it sits behind the mountains, with a hard edge. |
 | `fc-land-clip` | `– → –` | ... or with the landscape. A beauty drawn through it leaves the sky to what was drawn before, or transparent with `render.sh --transparent`. |
 | `fc-render-row` | `row → –` | (`fc_render.ps`) Called with each finished row string (row `FrJ`, from column `FrI0`) before it is drawn; does nothing unless `fc_passes` is loaded. |
 
-The clips are hard-edged, one landscape pixel per step. pscat has no
-`ImageType 3` (masked images) and no `nulldevice`, so the mask can't be an
-alpha channel of the picture within PostScript: for soft compositing, render
-`--pass mask` as its own PNG. A piece that redefines `fc-pixel` itself
-bypasses the passes; one that redefines the hooks keeps them.
+The clips are hard-edged, one landscape pixel per step: a clip can't be
+partial. `fc-behind` and `fc-land-draw` are the soft-edged ones (#87).
+pscat's masked images (`ImageType 3`) take only 1-bit masks, so the
+landscape is painted in layers: the coverage is cut into 64 levels, and the
+pixels at each level are painted once, through a 1-bit mask, at that level's
+alpha (`setalpha`, times the alpha already in force). Each pixel is painted
+once at its own alpha, so the layers don't stack. The colour painted is the
+landscape's own, with none of the sky it was antialiased with (fg, kept
+straight), so no sky-coloured fringe shows against the art. It costs one
+pass over the kept mask and one image per level used: about a quarter of a
+second for a 720 × 450 frame. A piece that redefines `fc-pixel` itself bypasses the passes; one that
+redefines the hooks keeps them.
 
 ## Bake cache (`lib/fc_cache.ps`, with `BakeCache`)
 

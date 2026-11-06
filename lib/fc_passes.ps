@@ -48,20 +48,36 @@
 %                        the beauty when Pass is /beauty: its finished rows)
 %   MaskClouds  true     clouds over the sky count in the mask
 %   DepthFar    null     the distance /depth reaches black at; null: TMax
+%   PassSoft    true     with PassKeep, keep what fc-behind and fc-land-draw
+%                        need for a soft edge: the mask from every sample
+%                        (antialiased), and the landscape's own colour and
+%                        what is behind it (three bytes a pixel each). Needs
+%                        pscat 0.7 (ImageType 3, setalpha on images); without
+%                        them, or false, the hard clips, as before #87
 %
 % With PassKeep, one march gives a page the picture and its passes:
 %
-%   pw ph fc-landscape-keep -   render and record, but paint nothing (the
-%                               image goes through an empty clip)
+%   pw ph fc-landscape-keep -   render and record, but paint nothing (on
+%                               the nulldevice; an empty clip on an older
+%                               pscat or in a --bands band)
 %   /name fc-pass-draw -        paint a kept pass over 0 0 pw ph of the
 %                               current user space (as fc-landscape would)
+%   proc fc-behind -            the picture with proc's art behind the
+%                               landscape: the sky, the art, then the
+%                               landscape over it, soft-edged
+%   fc-land-draw -              the landscape alone over what is on the
+%                               page, soft-edged (an alpha on --transparent)
+%   fc-sky-draw -               what is behind the landscape, opaque
 %   fc-sky-clip -               intersect the clip with the kept mask's sky
 %   fc-land-clip -              ... or with the landscape (mask >= 0.5)
 %
-% so art drawn after `fc-sky-clip` sits behind the mountains, and a beauty
-% drawn after `fc-land-clip` leaves the sky to what was drawn before (or to
-% a transparent page: pscat --transparent). The clips are hard-edged, one
-% landscape pixel per step.
+% fc-behind and fc-land-draw paint the landscape's own colour (straight, so
+% no sky-coloured fringe) at its coverage, in layers through 1-bit masks
+% (below). Without PassSoft they fall back to the clips: art drawn after
+% `fc-sky-clip` sits behind the mountains, and a beauty drawn after
+% `fc-land-clip` leaves the sky to what was drawn before (or to a
+% transparent page: pscat --transparent), hard-edged, one landscape pixel
+% per step.
 %
 % /mask and /depth march the hit only (and the clouds, for the mask): no
 % shading, so they cost a fraction of the beauty. A piece that redefines
