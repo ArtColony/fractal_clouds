@@ -34,6 +34,8 @@
 /VirgaLen 26 fc-default              % how far they hang
 /StormRain 84 fc-default             % rain shafts this far below the base (the layer's Rain)
 /StormRainDens 0.3 fc-default       % their density, as a fraction of the cloud's
+/StormRainSlant 0 fc-default         % the rain is blown downwind this much per unit it falls
+/StormRainFine 0 fc-default          % > 0: fine streaks in the shafts, this strong (0..1)
 /AnvilEdge 4 fc-default              % the anvil's envelope gain, relative to the tower's
 /StormShade 0.25 fc-default          % optical depth per unit length of envelope toward the sun
 /StormShadeN 5 fc-default /StormShadeStep 16 fc-default    % its steps
@@ -42,6 +44,20 @@
                                      % StormGloomR, toward StormGloomCol (wraps fc-landscape-grade)
 /StormGloomR 2 fc-default            % that column's radius, in StormR
 /StormGloomCol [ 0.10 0.11 0.13 ] fc-colour
+/StormAmbOcc 0.1 fc-default          % the sky light a sample loses to the cloud above it: this
+                                     % share of the optical depth StormAmbStep straight up
+/StormAmbStep 5 fc-default
+/StormBaseDark 0.3 fc-default        % the sky light at the base, as a share of the light
+                                     % StormBaseDarkH * (StormTop - StormBase) up the tower
+/StormBaseDarkH 0.5 fc-default
+/StormSkyDim 0.6 fc-default          % the sky the storm hides from the ground round it, at
+                                     % most (under it); wraps fc-cloud-sky, so it acts only
+                                     % where CloudSkyDim > 0
+/StormSkyR 3 fc-default              % how far that reaches: half as much this far from the
+                                     % tower's axis or the anvil's middle, in StormR
+/StormHazeDark 0.85 fc-default       % > 0: the haze in the storm's shadow loses this share of
+                                     % its light (the direct sun's); wraps fc-haze
+/StormHazeR 1.4 fc-default           % the shadow's radius, in StormR (a soft edge inside it)
 /StormLayer << >> fc-default         % overrides for the storm layer's keys (docs/settings.md)
 
 % --- derived ------------------------------------------------------------------
@@ -113,13 +129,34 @@
     StormShadeStep mul StormShade mul
 } bind def
 
+% the sky light at a sample (the layer's AmbShade): one density probe
+% StormAmbStep straight up, so the undersides of the billows, the base and
+% the underside of the anvil lose the sky above them, times a ramp from
+% StormBaseDark at the base up the tower
+/fc-storm-amb {                                  % x y z -> 0..1
+    /SaZ exch def /SaY exch def /SaX exch def
+    SaX SaY StormAmbStep add SaZ ClSOct fc-layer-density
+    ClSig mul StormAmbStep mul StormAmbOcc mul neg 2.71828 exch exp
+    StormBase StormBase StH StormBaseDarkH mul add SaY fc-smooth
+    1 StormBaseDark sub mul StormBaseDark add mul
+} bind def
+
 % the rain under the base (the layer's RainMask): fades out toward the edge
-% of the tower's foot, in broad shafts streaked by a finer noise
+% of the tower's foot, in broad shafts streaked by a finer noise. The mask
+% is read where the rain left the base: StormRainSlant downwind per unit
+% fallen (from the sample's height, ClRainY), so the shafts lean
 /fc-storm-rainmask {                             % x z -> 0..1
     /SrZ exch def /SrX exch def
+    StormRainSlant 0 ne {
+        StormBase ClRainY sub 0 fc-max StormRainSlant mul /SrD exch def
+        /SrX SrX StWc SrD mul sub def /SrZ SrZ StWs SrD mul sub def
+    } if
     0 0.6 SrX StormBase 10 add SrZ fc-storm-env fc-smooth
     0.3 0.7 SrX 0.05 mul 17.3 add SrZ 0.05 mul 4.1 add fc-noise2 fc-smooth mul
     SrX 0.25 mul 2.9 add SrZ 0.25 mul 11.7 add fc-noise2 0.7 mul 0.3 add mul
+    StormRainFine 0 gt {
+        SrX 0.8 mul 5.3 add SrZ 0.8 mul 1.9 add fc-noise2 0.5 sub 2 mul StormRainFine mul 1 add 0 fc-max mul
+    } if
 } bind def
 
 % --- the layer ------------------------------------------------------------------
@@ -147,10 +184,11 @@
        /Profile [ 1000 1000 ] /ProfAmp 0     % the Shape makes the outline
        /Noise /Billow /Scale 0.05 /Stretch [ 1 0.8 1 ] /Threshold 0.36
        /CoverAmp 0 /Gain 12 /Sigma 0.12
-       /DensOct 5 /ShadOct 3 /ShadStep 9 /Steps 110
+       /DensOct 5 /ShadOct 3 /ShadStep 3 /Steps 110
        /AmbTop [ 0.40 0.44 0.53 ] /AmbBot [ 0.06 0.065 0.08 ]
        /Rain StormRain /RainDens StormRainDens /RainMask { fc-storm-rainmask }
        /Shape { fc-storm-shape } /LightDepth { fc-storm-depth }
+       /AmbShade { fc-storm-amb }
        /Bounds fc-storm-bounds /Probes 3
     >>
     StormLayer { 2 index 3 1 roll put } forall
@@ -193,4 +231,96 @@
 StormGloom 0 gt {
     /FsGradeOrig /fc-landscape-grade load def
     /fc-landscape-grade { fc-storm-gloom FsGradeOrig } def
+} if
+
+% --- the sky the storm hides ----------------------------------------------------
+% fc-cloud-sky probes straight up, so only the ground right under the storm
+% lost its sky light; but a storm this size hides a broad part of the sky
+% from the ground for miles round it. The ground loses up to StormSkyDim of
+% its sky light, falling off as h^2 / (h^2 + d^2) with the plan distance d
+% to the nearer of the tower's axis and the anvil's middle, h StormSkyR
+% StormR (fc_terrain applies it through CloudSkyDim).
+StormSkyDim 0 gt {
+    /SsSkyOrig /fc-cloud-sky load def
+    /SsH StormSkyR StormR mul dup mul def
+    % the anvil's middle, half way out downwind
+    /SsAx StCx StTopU AnvilR 0.5 mul add StWc mul add def
+    /SsAz StCz StTopU AnvilR 0.5 mul add StWs mul add def
+    /fc-cloud-sky {                              % x y z -> T
+        3 copy SsSkyOrig /SsT exch def
+        /SsZ exch def pop /SsX exch def
+        SsX StCx sub dup mul SsZ StCz sub dup mul add
+        SsX SsAx sub dup mul SsZ SsAz sub dup mul add fc-min
+        SsH add SsH exch div StormSkyDim mul 1 exch sub SsT mul
+    } def
+} if
+
+% --- the haze in the storm's shadow ----------------------------------------------
+% The air between us and a storm with the sun behind it lies in the storm's
+% shadow, so its haze gets only sky light: dark. The closed-form haze lights
+% all of it, so at a few hundred units the tower and the ground under it
+% came out as an evenly lit grey (#101). The shadow is taken as an oblique
+% cylinder: points whose line toward the sun crosses the height half way up
+% the tower within StormHazeR * StormR of the tower's axis, below StormTop.
+% For each ray (cached) the part inside it is found in closed form; fc-haze
+% then takes StormHazeDark of the in-scatter that falls there (by the haze's
+% own transmittance, as fc_shafts does) out of what it adds. The weight
+% fades to 0 as the ray only grazes the cylinder, so there is no hard edge.
+StormHazeDark 0 gt {
+    /ShHazeOrig /fc-haze load def
+    /ShYm StormBase StormTop add 2 div def
+    /ShCx StCx StormLean ShYm StormBase sub mul StWc mul add def
+    /ShCz StCz StormLean ShYm StormBase sub mul StWs mul add def
+    /ShR StormHazeR StormR mul def
+    /ShMx 1e9 def /ShMy 0 def /ShMz 0 def /ShCam 0 def
+    % the ray's segment in the shadow: ShT0 ShT1 (ShT1 <= ShT0 when none), ShW
+    /fc-storm-haze-ray {                         % - -> -
+        /ShMx Mx def /ShMy My def /ShMz Mz def /ShCam CamY def
+        /ShT0 0 def /ShT1 -1 def /ShW 0 def
+        SunDir 1 get 0.01 gt {
+            /ShS ShYm CamY sub SunDir 1 get div def
+            % q(t) = A + B t, the ray's point carried along the sun to ShYm
+            /ShAx SunDir 0 get ShS mul ShCx sub def
+            /ShAz SunDir 2 get ShS mul ShCz sub def
+            /ShBx Mx SunDir 0 get My mul SunDir 1 get div sub def
+            /ShBz Mz SunDir 2 get My mul SunDir 1 get div sub def
+            /ShBB ShBx dup mul ShBz dup mul add def
+            ShBB 1e-12 gt {
+                /ShAB ShAx ShBx mul ShAz ShBz mul add def
+                /ShTc ShAB neg ShBB div def      % closest approach
+                /ShD2 ShAx ShBx ShTc mul add dup mul ShAz ShBz ShTc mul add dup mul add def
+                ShD2 ShR dup mul lt {
+                    /ShH ShR dup mul ShD2 sub ShBB div sqrt def
+                    /ShT0 ShTc ShH sub 0 fc-max def
+                    /ShT1 ShTc ShH add def
+                    % below StormTop only
+                    My 1e-6 gt { /ShT1 ShT1 StormTop CamY sub My div fc-min def } if
+                    My -1e-6 lt { /ShT0 ShT0 StormTop CamY sub My div fc-max def } if
+                    /ShW 1 0.4 1 ShD2 sqrt ShR div fc-smooth sub def
+                } if
+            } if
+        } if
+    } bind def
+    % the haze's optical depth from the camera to t along the ray (as fc-haze)
+    /fc-storm-haze-od {                          % t -> od
+        /ShTt exch def
+        2.71828 CamY HazeH div neg exp
+        My ShTt mul HazeH div dup abs 0.0001 lt { pop ShTt mul } {
+            dup neg 2.71828 exch exp 1 exch sub exch div ShTt mul mul
+        } ifelse HazeDist div
+    } bind def
+    /fc-haze {                                   % r g b t -> r g b
+        dup /ShT exch def ShHazeOrig
+        Mx ShMx ne My ShMy ne or Mz ShMz ne or CamY ShCam ne or { fc-storm-haze-ray } if
+        ShT1 ShT0 gt ShW 0 gt and ShT ShT0 gt and {
+            % the in-scatter between ShT0 and min(ShT1, t), as fc-haze adds it
+            /ShE ShT1 ShT fc-min def
+            ShT0 fc-storm-haze-od neg 2.71828 exch exp
+            ShE fc-storm-haze-od neg 2.71828 exch exp sub
+            StormHazeDark mul ShW mul /ShK exch def
+            HazeCol 2 get ShK mul sub 3 1 roll
+            HazeCol 1 get ShK mul sub 3 1 roll
+            HazeCol 0 get ShK mul sub 3 1 roll
+        } if
+    } def
 } if
