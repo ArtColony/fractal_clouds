@@ -1028,9 +1028,13 @@ depth along the ray. With `Ocean` false nothing here loads.
 
 | Setting | Default | What it does | Used |
 |---|---|---|---|
-| `SwellAmp` | 0.10 | Slope of the main swell component (four directional sine waves, slopes 1, 0.75, 0.6, 0.45 of it). Each fades out as its wavelength nears three pixels, and the slope it loses tilts the normal toward the camera, as the ripples' does, so far water doesn't sparkle. | 0.10 |
-| `SwellLen` | 12 | Longest swell wavelength, world units (120 m); the others are 0.63, 0.41 and 0.27 of it. | 12 |
-| `SwellSpread` | 30 | Degrees the components' headings spread around `WindDir`. | 30 |
+| `SwellAmp` | 0.10 | Swell slope: the components' slopes are scaled so their summed variance is that of four waves of slopes 1, 0.75, 0.6 and 0.45 of it (the swell before #77). Each component fades out as its wavelength nears three pixels, and the slope it loses tilts the normal toward the camera, as the ripples' does, so far water doesn't sparkle. | 0.10 |
+| `SwellLen` | 12 | Longest swell wavelength, world units (120 m). | 12 |
+| `SwellWaves` | 16 | Number of directional sine waves in the swell. Many waves spread in heading make a short-crested sea; a few long-crested ones print evenly spaced stripes at a low sun (#77). | 16 |
+| `SwellRatio` | 0.83 | Each component's wavelength over the previous one's (jittered so none are near harmonics). | 0.83 |
+| `SwellSpread` | 40 | Degrees the longest components' headings spread around `WindDir`, crowded toward it. | 40 |
+| `SwellFan` | 2 | The shortest components' headings spread this many times `SwellSpread` (short waves are less aligned with the wind). | 2 |
+| `SwellTilt` | 0.5 | Slope falls as wavelength^`SwellTilt`: 0 all components equally steep, higher lets the long swell dominate. | 0.5 |
 | `SwellShoal` | 0.8 | Extra steepness where the water is shallower than `3 SurfDepth`. | 0.8 |
 | `SeaShallow` | [0.10 0.70 0.66] | The water's own colour over shallows (turquoise), sRGB. Lit by `SkyAmb` and, more over a shallow bed, the sun. | default |
 | `SeaDeep` | [0.03 0.11 0.13] | ... and over deep water (dark blue-green). | default |

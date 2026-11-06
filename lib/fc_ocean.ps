@@ -29,13 +29,13 @@
 %
 % Names: this file keeps its temporaries under Oc*.
 
-/SwellAmp 0.10 fc-default            % swell slope (the steepest component's)
+/SwellAmp 0.10 fc-default            % swell slope: rms as the old four waves of slopes 1, 0.75, 0.6, 0.45 of it
 /SwellLen 12 fc-default              % longest swell wavelength, world units
-/SwellSpread 60 fc-default           % degrees the longest components' headings spread around WindDir
+/SwellSpread 40 fc-default           % degrees the longest components' headings spread around WindDir
 /SwellWaves 16 fc-default            % number of swell components
 /SwellRatio 0.83 fc-default          % each component's wavelength over the previous one's
-/SwellFan 1.5 fc-default             % the shortest components spread this many times SwellSpread
-/SwellTilt 0 fc-default              % slope ~ wavelength^SwellTilt: 0 all equal, higher favours the long
+/SwellFan 2 fc-default               % the shortest components spread this many times SwellSpread
+/SwellTilt 0.5 fc-default            % slope ~ wavelength^SwellTilt: 0 all equal, higher favours the long
 /SwellShoal 0.8 fc-default           % extra steepness in the surf zone
 /SeaShallow [ 0.10 0.70 0.66 ] fc-colour   % the water's own colour over shallows, sRGB
 /SeaDeep [ 0.03 0.11 0.13 ] fc-colour      % ... and over deep water
