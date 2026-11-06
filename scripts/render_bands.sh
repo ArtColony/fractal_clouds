@@ -84,7 +84,7 @@ set -- ${args[@]+"${args[@]}"}
 dpi="${DPI:-72}"
 page_h="$(awk '/^%%BoundingBox:/ {print $5; exit}' "$piece")"
 page_h="${page_h:-792}"
-tmp="$(mktemp -d)"
+tmp="$(mktemp -d "${TMPDIR:-/tmp}/fc.XXXXXX")"
 trap 'rm -rf "$tmp"' EXIT
 wrap=()
 [ -z "${BAND_WRAP:-}" ] || read -r -a wrap <<< "$BAND_WRAP"

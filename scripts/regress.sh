@@ -64,7 +64,7 @@ if [ "$docker" = 1 ]; then
   cache="${XDG_CACHE_HOME:-$HOME/.cache}/fractal_clouds"
   if [ ! -x "$cache/$t/pscat" ]; then
     mkdir -p "$cache"
-    dl="$(mktemp -d)"
+    dl="$(mktemp -d "${TMPDIR:-/tmp}/fc.XXXXXX")"
     gh release download "v$v" -R PSCatLabs/pscat -p "$t.tar.gz" -p SHA256SUMS -D "$dl"
     (cd "$dl" && shasum -a 256 -c SHA256SUMS --ignore-missing)
     tar xzf "$dl/$t.tar.gz" -C "$cache"
@@ -99,7 +99,7 @@ out="$root/renders/regress"
 rm -rf "$out/new" "$out/old" "$out/diff"
 mkdir -p "$out/new"
 
-tmp="$(mktemp -d)"
+tmp="$(mktemp -d "${TMPDIR:-/tmp}/fc.XXXXXX")"
 cleanup() {
   [ -d "$tmp/ref" ] && git -C "$root" worktree remove --force "$tmp/ref" >/dev/null 2>&1
   rm -rf "$tmp"

@@ -9,7 +9,7 @@
 # which. Prints each order's verdict mapped back to OLD/NEW.
 set -euo pipefail
 [ $# -ge 2 ] || { echo "usage: $0 OLD.png NEW.png [OUTDIR]" >&2; exit 2; }
-old="$1"; new="$2"; out="${3:-$(mktemp -d)}"
+old="$1"; new="$2"; out="${3:-$(mktemp -d "${TMPDIR:-/tmp}/fc.XXXXXX")}"
 mkdir -p "$out"
 cat > "$out/prompt.txt" <<'P'
 Two procedurally generated renders of a mountain landscape under clouds are attached: the first is image A, the second is image B. Judge them blind, on what you can see, as a landscape photographer would.

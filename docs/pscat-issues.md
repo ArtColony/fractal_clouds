@@ -15,7 +15,7 @@ Status values: `open` (not filed yet), `filed #N`, `wontfile` (with the reason).
 ## 1. Skills say the LaserWriter 35 fonts "always resolve", but they need the texgyre pack
 
 - **Kind:** skill docs
-- **Status:** filed PSCatLabs/pscat#727
+- **Status:** filed PSCatLabs/pscat#727; fixed in 0.7.0-rc.4 (closed upstream)
 - **Where:** `plugin/skills/pscat/SKILL.md` line 129 (Fonts), `plugin/skills/psart/SKILL.md` line 102 (Type is material)
 - **Found:** 2026-10-21
 
@@ -39,7 +39,7 @@ that the rest of the LaserWriter 35 come from `pscat fonts install`
 ## 2. Skills say unknown font names "substitute Helvetica", but pack fonts error out
 
 - **Kind:** skill docs (possibly a behaviour question)
-- **Status:** filed PSCatLabs/pscat#728
+- **Status:** filed PSCatLabs/pscat#728; fixed in 0.7.0-rc.4 (closed upstream)
 - **Where:** `plugin/skills/pscat/SKILL.md` (Fonts: "Unknown names substitute Helvetica rather than erroring"), `plugin/skills/psart/SKILL.md` ("an unknown name silently becomes Helvetica")
 - **Found:** 2026-10-21
 
@@ -61,7 +61,7 @@ deciding whether a pack font should fall back the way an unknown name does
 ## 3. psart's "A sketch to start from" fails on a bare install
 
 - **Kind:** skill docs
-- **Status:** filed PSCatLabs/pscat#729
+- **Status:** filed PSCatLabs/pscat#729; fixed in 0.7.0-rc.4 (closed upstream)
 - **Where:** `plugin/skills/psart/SKILL.md`, the final code block
 - **Found:** 2026-10-21
 
@@ -77,7 +77,7 @@ bare bundle with no font catalog.
 ## 4. `/Interpolate true` on images is ignored
 
 - **Kind:** pscat divergence from Ghostscript (PLRM allows ignoring it; it's a hint)
-- **Status:** filed PSCatLabs/pscat#730
+- **Status:** filed PSCatLabs/pscat#730; fixed in 0.7.0-rc.4 (closed upstream)
 - **Where:** `image` / `colorimage` with an image dictionary, PNG output
 - **Found:** 2026-10-21, fractal_clouds#1 spike
 
@@ -107,7 +107,7 @@ document that it's ignored.
 ## 5. Many low-alpha layers stall: `setalpha` blending loses precision in 8 bits
 
 - **Kind:** pscat rendering precision
-- **Status:** filed PSCatLabs/pscat#731
+- **Status:** filed PSCatLabs/pscat#731; part 1 (f32 compositing, #852) is in 0.7.0-rc.4, issue still open
 - **Where:** `setalpha` fills, PNG output
 - **Found:** 2026-10-21, fractal_clouds#1 spike (splat renderer)
 
@@ -159,7 +159,7 @@ all stack hundreds of faint layers.
 ## 6. `cvs` writes reals at full precision, so strings sized for Ghostscript overflow
 
 - **Kind:** pscat divergence from Ghostscript (the PLRM leaves the digit count to the implementation)
-- **Status:** filed PSCatLabs/pscat#732
+- **Status:** filed PSCatLabs/pscat#732; fixed in 0.7.0-rc.4 (closed upstream)
 - **Where:** `cvs` (and so `=`/`==`, which print the same text) on reals
 - **Found:** 2026-10-21, fractal_clouds#1 (debug printing in the trees work)
 
@@ -184,7 +184,7 @@ at least list the difference in the pscat skill's pitfalls.
 ## 7. Level 2 binary object operators are missing (`writeobject`, `printobject`, `setobjectformat`)
 
 - **Kind:** missing PLRM Level 2 operators
-- **Status:** filed PSCatLabs/pscat#733
+- **Status:** filed PSCatLabs/pscat#733; still open upstream at 0.7.0-rc.4
 - **Where:** `systemdict`
 - **Found:** 2026-10-22, while looking for a fast way to save baked maps (fractal_clouds erosion and forest maps)
 
@@ -213,7 +213,7 @@ are from pscat 0.6.2 on an Apple-silicon Mac.
 ## 8. Native noise operators
 
 - **Kind:** feature request (performance)
-- **Status:** filed PSCatLabs/pscat#734
+- **Status:** filed PSCatLabs/pscat#734; fixed in 0.7.0-rc.4 (closed upstream)
 - **Found:** 2026-10-22, fractal_clouds#1 and #11
 
 Noise is the inner loop of every procedural texture and terrain, and in
@@ -250,7 +250,7 @@ not a measurement.
 ## 9. Fast save and load of numeric arrays
 
 - **Kind:** feature request (performance)
-- **Status:** filed PSCatLabs/pscat#735
+- **Status:** filed PSCatLabs/pscat#735; fixed in 0.7.0-rc.4 (closed upstream)
 - **Found:** 2026-10-22
 
 fractal_clouds bakes maps before rendering: erosion on a 1024² grid (about
@@ -277,7 +277,7 @@ to print them. Fixed-point hex (`readhexstring`; there is no
 ## 10. Parallel rendering of independent image bands
 
 - **Kind:** feature request (performance)
-- **Status:** filed PSCatLabs/pscat#736
+- **Status:** filed PSCatLabs/pscat#736; fixed in 0.7.0-rc.4 (closed upstream)
 - **Found:** 2026-10-22
 
 pscat runs on one core. fractal_clouds' `scripts/render_bands.sh` starts
@@ -294,7 +294,7 @@ with `/BandIndex` and `/BandCount` defined, has each render only its rows
 ## 11. A profiler
 
 - **Kind:** feature request (tooling)
-- **Status:** filed PSCatLabs/pscat#737
+- **Status:** filed PSCatLabs/pscat#737; fixed in 0.7.0-rc.4 (closed upstream)
 - **Found:** 2026-10-22
 
 Finding where render time went meant hand-written call counters in
@@ -309,7 +309,7 @@ milliseconds, about 0.8 µs of overhead per wrapped call.
 ## 12. Research: a GPU path for pure numeric procedures
 
 - **Kind:** research idea
-- **Status:** filed PSCatLabs/pscat#742 (as a compiled kernel subset, CPU first, GPU as a preview backend)
+- **Status:** filed PSCatLabs/pscat#742; still open upstream at 0.7.0-rc.4 (as a compiled kernel subset, CPU first, GPU as a preview backend)
 - **Found:** 2026-10-22
 
 The per-pixel procedures in a ray marcher are pure arithmetic over a few
@@ -328,7 +328,7 @@ Worth investigating after those two.
 ## 13. Seeded renders differ between macOS and Linux
 
 - **Kind:** reproducibility caveat (not a correctness bug)
-- **Status:** filed PSCatLabs/pscat#738
+- **Status:** filed PSCatLabs/pscat#738; fixed in 0.7.0-rc.4 (closed upstream)
 - **Environment:** pscat 0.6.2: `aarch64-apple-darwin` on macOS 15 against
   `aarch64-unknown-linux-musl` and `x86_64-unknown-linux-musl` in Alpine 3.20
   containers
@@ -370,7 +370,7 @@ using the platform's.
 ## 14. No masked images (`ImageType 3`) and no `nulldevice`
 
 - **Kind:** bug (missing operators)
-- **Status:** filed PSCatLabs/pscat#739
+- **Status:** filed PSCatLabs/pscat#739; fixed in 0.7.0-rc.4 (closed upstream)
 - **Found:** 2026-10-24
 
 Found while adding render passes (#33), pscat 0.6.2. An `image` with an
@@ -403,7 +403,7 @@ mask) and `nulldevice`.
 ## 15. No way to write a file: `file` refuses every write, and the file operators are missing
 
 - **Kind:** missing feature (file output)
-- **Status:** filed PSCatLabs/pscat#740
+- **Status:** filed PSCatLabs/pscat#740; fixed in 0.7.0-rc.4 (closed upstream)
 - **Found:** 2026-10-24, fractal_clouds#18 (caching the erosion and forest bakes)
 
 pscat 0.6.2 refuses to open any file for writing, whatever the path, even
@@ -438,7 +438,7 @@ digits, so a million reals print in 0.6 s (in 64 KB buffers; 2.5 s with a
 ## 16. The MCP render tool stops every call at 60 s
 
 - **Kind:** feature request (agents and MCP)
-- **Status:** filed PSCatLabs/pscat#741
+- **Status:** filed PSCatLabs/pscat#741; fixed in 0.7.0-rc.4 (closed upstream)
 - **Found:** 2026-10-24
 
 The pscat MCP server limits each `render_postscript` call to 60 s (the server
@@ -492,3 +492,17 @@ logic in the engine, so `fc-ridged` and `fc-eroded` stay as our own PostScript
 around the general primitives. The `ridgedmf2`/`erodedfbm2` operators pscat
 added in response (#845) were asked to be reverted before 0.7.0 (correction on
 pscat#736, 2026-10-26).
+
+## 18. Array-at-a-time numeric operators
+
+- **Kind:** feature request (performance, generic)
+- **Status:** filed PSCatLabs/pscat#1044
+- **Found:** 2026-11-01 (local #96); re-measured 2026-11-06 on 0.7.0-rc.4
+
+Per-token dispatch dominates per-pixel PostScript. 0.7.0-rc.4 cut it by
+about a third (name lookup, `index`, `def`, `mul`), but a token still costs
+10–20 ns whatever it does. The request is a packed f64 buffer type with
+elementwise arithmetic, comparison masks plus select, gather, reductions and
+`image` from buffers: NumPy-style, with no domain logic. Repro for the
+numbers: `realtime 4000000 { x y mul pop } repeat realtime exch sub` under
+`pscat --headless`, against the 0.6.2 and 0.7.0-rc.4 binaries.
