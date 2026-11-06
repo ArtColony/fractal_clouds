@@ -68,7 +68,7 @@
 % every band but one would miss and bake again)
 /ZcSkip 32 dict def
 [ /Crop /Res /PixSeed /RowTimes /AA /FrameGrid /FrameLabel /Pass /PassKeep
-  /Profile /BakeCache /BakeCacheSkip /BakeCacheDebug /FcCacheSrc /LnSetUp
+  /Profile /BakeCache /BakeCacheSkip /BakeCacheDebug /FcCacheSrc /FcCacheTag /LnSetUp
   /BandIndex /BandCount /BandBBox ]
 { ZcSkip exch true put } forall
 
@@ -204,9 +204,13 @@ ZcHv /packedarraytype ZcHv /arraytype get put
 } bind def
 
 % --- writing ------------------------------------------------------------------
+% to ZcF, the cache file being written, or to stdout when ZcF is null
+/ZcF null def
+/fc-cache-put { ZcF null eq { print } { ZcF exch writestring } ifelse } bind def   % string -> -
 % through a 64 KB buffer: print per number makes a system call each
 /ZcOb 65536 string def /ZcOp 0 def
-/fc-cache-flush { ZcOb 0 ZcOp getinterval print (\n) print /ZcOp 0 def } bind def
+/fc-cache-flush0 { ZcOb 0 ZcOp getinterval fc-cache-put /ZcOp 0 def } bind def   % no line break
+/fc-cache-flush { fc-cache-flush0 (\n) fc-cache-put } bind def
 % fc-cache-emit ends a token and flushes after one once the buffer is past
 % 60000; fc-cache-emit2 writes part of a token (a name's slash, a hex
 % string's digits) and flushes only if it would overflow, which only a hex
@@ -271,6 +275,12 @@ ZcHv /packedarraytype ZcHv /arraytype get put
     ZcPn 1 sub -1 0 { ZcPth exch get ZcBuf cvs fc-cache-emit (get) fc-cache-emit } for
 } bind def
 
+% is every element a real? (an integer would come back from readreals as
+% a real, and the picture could change)
+/fc-cache-reals? {                               % array -> bool
+    true exch { type /realtype ne { pop false exit } if } forall
+} bind def
+
 /fc-cache-ev {                                   % value -> -  (as PostScript text)
     dup type
     dup /integertype eq 1 index /realtype eq or 1 index /booleantype eq or {
@@ -287,11 +297,47 @@ ZcHv /packedarraytype ZcHv /arraytype get put
             ZcSeen 1 index known { /ZcFail true def /ZcFailN ZcEn def } { ZcSeen 1 index true put } ifelse
             dup type /dicttype eq { (<<) fc-cache-emit { exch fc-cache-ev fc-cache-ev } forall (>>) fc-cache-emit } {
             dup xcheck { pop /ZcFail true def /ZcFailN ZcEn def (null) fc-cache-emit } {
-                ([) fc-cache-emit { fc-cache-ev } forall (]) fc-cache-emit
+                ZcF null ne 1 index length 256 ge and { dup fc-cache-reals? } { false } ifelse {
+                    % to a file, a long array of reals goes in binary, which
+                    % the reader's currentfile readreals takes from just
+                    % after the token's one space
+                    (currentfile) fc-cache-emit dup length ZcBuf cvs fc-cache-emit
+                    (readreals) fc-cache-emit fc-cache-flush0 ZcF writereals
+                    (\n) fc-cache-emit2
+                } {
+                    ([) fc-cache-emit { fc-cache-ev } forall (]) fc-cache-emit
+                } ifelse
             } ifelse } ifelse
         } ifelse } {
     pop pop /ZcFail true def /ZcFailN ZcEn def (null) fc-cache-emit
     } ifelse } ifelse } ifelse } ifelse } ifelse
+} bind def
+
+% the cache file's contents, after the bake (ZcCh, ZcKey and ZcName set)
+/fc-cache-body {                                 % - -> -
+    (%!PS-Adobe-3.0 fc_cache: the ) fc-cache-put ZcName fc-cache-put
+    ( bake \(fractal_clouds#18\)\n) fc-cache-put
+    (/ZcKey \() fc-cache-put ZcKey fc-cache-put (\) def\n) fc-cache-put
+    /ZcDone 64 dict def /ZcSeen 1024 dict def
+    ZcCh { pop
+        currentdict 1 index get fc-cache-alias-changed
+    } forall
+    (/ZcRand ) fc-cache-put rrand ZcBuf cvs fc-cache-put ( def\n) fc-cache-put
+} bind def
+
+% open ZcTmp, <cache file>.tmp.<FcCacheTag>.w, for writing: ZcF is the file,
+% or null if pscat may not write there (no --allow-write renders/cache, as
+% with --bands, or pscat 0.6)
+/fc-cache-open {                                 % - -> -
+    /FcCacheTag where { pop FcCacheTag dup type /stringtype ne { ZcBuf cvs } if }
+        { realtime ZcBuf cvs } ifelse
+    dup length ZcFile length add 7 add string    % tag s
+    dup 0 ZcFile putinterval
+    dup ZcFile length (.tmp.) putinterval
+    dup ZcFile length 5 add 3 index putinterval
+    dup dup length 2 sub (.w) putinterval
+    exch pop /ZcTmp exch def
+    mark { ZcTmp (w) file } stopped { cleartomark /ZcF null def } { /ZcF exch def pop } ifelse
 } bind def
 
 % --- the cache ---------------------------------------------------------------
@@ -307,6 +353,7 @@ ZcHv /packedarraytype ZcHv /arraytype get put
     /ZcPr exch def /ZcName exch def
         /ZcT0 realtime def
         ZcName fc-cache-key /ZcKey exch def
+        /ZcTk realtime ZcT0 sub def
         /ZcFile 128 string def
         ZcFile 0 (renders/cache/) putinterval
         ZcFile 14 ZcName putinterval
@@ -325,9 +372,9 @@ ZcHv /packedarraytype ZcHv /arraytype get put
             ZcD { 1 index fc-cache-skip? { pop pop } { 2 copy fc-cache-made ZcDst 3 1 roll put } ifelse } forall
             ZcD /ZcRand get srand
             (fc-cache: ) print ZcName print ( hit ) print ZcKey print ( ms ) print
-            realtime ZcT0 sub ZcBuf cvs print (\n) print
+            realtime ZcT0 sub ZcBuf cvs print ( \(key ) print ZcTk ZcBuf cvs print (\)\n) print
         } {
-            (fc-cache: ) print ZcName print ( miss ) print ZcKey print (\n) print
+            (fc-cache: ) print ZcName print ( miss ) print ZcKey print ( \(key ms ) print ZcTk ZcBuf cvs print (\)\n) print
             /ZcSnap currentdict dup length 16 add dict copy def
             ZcPr
             /ZcT1 realtime def
@@ -349,21 +396,44 @@ ZcHv /packedarraytype ZcHv /arraytype get put
             } ifelse } forall
             ZcSnap { pop dup fc-cache-skip? { pop } { dup where { pop pop }
                 { /ZcFailN exch def /ZcFail true def } ifelse } ifelse } forall
-            (\n%%FcCacheBegin ) print ZcName print (-) print ZcKey print (\n) print
-            (%!PS-Adobe-3.0 fc_cache: the ) print ZcName print ( bake \(fractal_clouds#18\)\n) print
-            (/ZcKey \() print ZcKey print (\) def\n) print
-            /ZcDone 64 dict def /ZcSeen 1024 dict def
-            ZcCh { pop
-                currentdict 1 index get fc-cache-alias-changed
-            } forall
-            (/ZcRand ) print rrand ZcBuf cvs print ( def\n) print
-            ZcFail {
-                (\n%%FcCacheAbort\nfc-cache: ) print ZcName print ( can't keep ) print ZcFailN ZcBuf cvs print (; not cached\n) print
+            % to a file of its own if pscat may write renders/cache/
+            % (--allow-write), else through stdout for render.sh to file
+            ZcFail { /ZcF null def } { fc-cache-open } ifelse
+            ZcF null eq {
+                (\n%%FcCacheBegin ) print ZcName print (-) print ZcKey print (\n) print
+                fc-cache-body
             } {
-                (/ZcOK true def\n%%FcCacheEnd ) print ZcName print (-) print ZcKey print (\n) print
-                (fc-cache: ) print ZcName print ( written ms ) print realtime ZcT1 sub ZcBuf cvs print (\n) print
+                % a write that fails (the disk, --max-write-bytes) only
+                % costs the cache, not the render
+                /ZcCds countdictstack def
+                mark { fc-cache-body } stopped {
+                    cleartomark countdictstack ZcCds sub { end } repeat
+                    ZcFail not { /ZcFail true def /ZcFailN $error /errorname get def } if
+                } { cleartomark } ifelse
+            } ifelse
+            ZcFail not ZcF null ne and {
+                (/ZcOK true def\n) fc-cache-put
+                % close, then rename: a band reading in parallel sees the
+                % whole file or none
+                mark { ZcF closefile ZcTmp ZcFile renamefile } stopped {
+                    cleartomark /ZcFail true def /ZcFailN $error /errorname get def
+                } { cleartomark } ifelse
+            } if
+            ZcFail {
+                ZcF null eq { (\n%%FcCacheAbort\n) print } {
+                    mark { ZcF closefile } stopped cleartomark
+                    mark { ZcTmp deletefile } stopped cleartomark
+                } ifelse
+                (fc-cache: ) print ZcName print ( can't keep ) print ZcFailN ZcBuf cvs print (; not cached\n) print
+            } {
+                ZcF null eq {
+                    (/ZcOK true def\n%%FcCacheEnd ) print ZcName print (-) print ZcKey print (\n) print
+                } if
+                (fc-cache: ) print ZcName print ( written ms ) print realtime ZcT1 sub ZcBuf cvs print
+                ZcF null eq { ( \(stdout\)\n) } { ( \(file\)\n) } ifelse print
             } ifelse
             ZcFail not { ZcCh { pop dup load fc-cache-made } forall } if
+            /ZcF null def
             /ZcCh null def /ZcDone null def /ZcSnap null def /ZcSeen null def /ZcEh null def
         } ifelse
         /ZcD null def
