@@ -52,11 +52,11 @@ GroundOn { /GroundOct 3 fc-default /TerrNormMin 0.03 fc-default } if
 % sun-facing slabs, cooler grey up high), and steep faces carry dark water
 % streaks down the fall line, heavier in gullies. 0 turns each off.
 /RockTint 0 fc-default               % 0..1: how far rock moves toward the tints below
-/RockWarm [ 0.47 0.39 0.31 ] fc-colour     % iron-stained rock
+/RockWarm [ 0.46 0.37 0.29 ] fc-colour     % iron-stained rock
 /RockLichen [ 0.41 0.43 0.35 ] fc-colour   % lichen on sun-facing slabs
-/RockCool [ 0.47 0.48 0.50 ] fc-colour     % rock near and above the snowline
+/RockCool [ 0.44 0.45 0.47 ] fc-colour     % rock near and above the snowline
 /RockStreak 0 fc-default             % 0..1: dark water streaks on steep rock
-/RockStreakW 5 fc-default            % streak spacing across the face, world units
+/RockStreakW 3 fc-default            % streak spacing across the face, world units
 /SkyAmb [ 0.58 0.66 0.80 ] fc-colour
 /Bounce [ 0.40 0.36 0.30 ] fc-colour         % light off the ground below
 /PixAng 0.0035 fc-default
@@ -481,26 +481,27 @@ SnowFill 0 gt {
 % Iron staining in broad patches, fading out up high; lichen on gentler,
 % sun-facing slabs; cooler grey rock from a little below the snowline up.
 /fc-terrain-tint {
-    /Krhi SnowLine 12 sub SnowLine 4 add Kh fc-smooth def
+    /Krhi SnowLine 4 sub SnowLine 10 add Kh fc-smooth def
     % iron staining: a broad noise, its edges broken by Kv2
     RockWarm
-    Kx 0.03 mul 21.7 add Kz 0.03 mul 4.1 add fc-noise2 Kv2 0.5 sub 0.3 mul add
-    0.45 0.72 3 -1 roll fc-smooth  1 Krhi 0.7 mul sub mul  RockTint mul 0.9 mul
+    Kx 0.025 mul 21.7 add Kz 0.025 mul 4.1 add fc-noise2 Kv2 0.5 sub 0.3 mul add
+    0.4 0.7 3 -1 roll fc-smooth  1 Krhi 0.5 mul sub mul  RockTint mul
     mix3v
     % lichen: sun-facing, not too steep, in patches
     RockLichen
     Nx SunDir 0 get mul Ny SunDir 1 get mul add Nz SunDir 2 get mul add 0.35 0.75 3 -1 roll fc-smooth
     0.5 0.8 Ny fc-smooth mul
     0.4 0.65 Kx 0.06 mul 7.7 add Kz 0.06 mul 15.2 add fc-noise2 fc-smooth mul
-    1 Krhi 0.8 mul sub mul  RockTint mul 0.7 mul
+    1 Krhi 0.8 mul sub mul  RockTint mul 0.8 mul
     mix3v
     % cooler, plainer rock up high
-    RockCool Krhi RockTint mul 0.7 mul mix3v
+    RockCool Krhi RockTint mul 0.8 mul mix3v
 } bind def
 
 % Water streaks (#99), called from fc-terrain-shade on steep ground: rock
 % colour -> rock colour. A noise stretched down the fall line (across the
-% face every RockStreakW, along it every 16 units of height) darkens rock
+% face every RockStreakW, along it every 33 units of height, plus an
+% octave three times finer across) darkens rock
 % in streaks, more in hollows; where streaks would be under a few pixels
 % wide only their mean darkening is kept. The noise is taken on two fixed
 % vertical planes, x-y and z-y, blended by the normal (triplanar style).
@@ -509,13 +510,15 @@ SnowFill 0 gt {
     % two fixed planes, blended by which way the face turns (a coordinate
     % across the face built from the normal would swim as the normal does)
     /Krwz Nz dup mul def /Krwx Nx dup mul def
-    Kx RockStreakW div  Kh 0.06 mul Kv 2 mul add  fc-noise2 Krwz mul
-    Kz RockStreakW div 17.3 add  Kh 0.06 mul Kv 2 mul add 5.1 add  fc-noise2 Krwx mul add
+    /Kru Kx RockStreakW div def /Krv Kz RockStreakW div 17.3 add def
+    /Krh Kh 0.03 mul Kv 2 mul add def
+    Kru Krh fc-noise2 0.65 mul  Kru 3 mul 5.7 add Krh 2 mul fc-noise2 0.35 mul add  Krwz mul
+    Krv Krh 5.1 add fc-noise2 0.65 mul  Krv 3 mul Krh 2 mul 9.3 add fc-noise2 0.35 mul add  Krwx mul add
     Krwz Krwx add 0.0001 fc-max div
-    0.5 0.75 3 -1 roll fc-smooth
+    0.5 0.7 3 -1 roll fc-smooth
     2 5 RockStreakW Kt PixAng mul 0.000001 fc-max div fc-smooth  % streaks resolved?
     exch 0.25 sub mul 0.25 add
-    0.6 mul  0 3 Kcav fc-smooth 0.4 mul add                     % gullies stay wet
+    0.6 mul  0 3 Kcav fc-smooth 0.3 mul add                     % gullies stay wet
     Krst mul RockStreak mul /Krd exch def
     [ exch dup 0 get 1 Krd 0.9 mul sub mul exch dup 1 get 1 Krd sub mul exch 2 get 1 Krd 1.1 mul sub 0 fc-max mul ]
 } bind def
