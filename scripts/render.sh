@@ -25,6 +25,8 @@
 #                                        # matte; writes renders/foo-mask.png
 #   BAKE_CACHE=1 scripts/render.sh ...  # keep the erosion and forest bakes in
 #                                        # renders/cache/ and read them back next time
+#                                        # (pscat --allow-write renders/cache; with
+#                                        # --bands, through the log instead)
 #                                        # (oldest files deleted past BAKE_CACHE_MAX_MB,
 #                                        # default 2048)
 #                                        # (-D BakeCache=true; lib/fc_cache.ps)
@@ -183,10 +185,20 @@ for ps in "${pieces[@]}"; do
   pdefs="$defs"
   # (not with --sweep-seed, which overrides the srand that puts the random
   # stream back after a cache hit)
+  # A bake that misses writes its own file, renders/cache/<bake>-<key>.ps,
+  # under a temporary name with FcCacheTag in it and then renamefile's it, so
+  # a band reading it in parallel sees all of it or none: pscat needs
+  # --allow-write renders/cache for that. pscat refuses --allow-write with
+  # --bands, so a --bands run prints the bake to stdout instead, between
+  # %%FcCacheBegin and %%FcCacheEnd lines, and the awk below files it.
+  cache=0
+  write=()
   if [ "${sweep[0]:-}" != --sweep-seed ] && { [[ "$defs" == *BakeCache* ]] || grep -q BakeCache "$ps"; }; then
+    cache=1
     mkdir -p renders/cache
     src_hash="$({ cat lib/*.ps "$ps" .pscat-version; echo "pscat $have"; } | hash_text)"
-    pdefs="$defs /FcCacheSrc ($src_hash) def"
+    pdefs="$defs /FcCacheSrc ($src_hash) def /FcCacheTag ($$) def"
+    [[ " ${PSCAT_ARGS:-} " == *" --bands "* ]] || write=(--allow-write renders/cache)
   fi
   if [ -n "$pdefs" ]; then src=-; else src="$ps"; fi
   if [ ${#sweep[@]} -gt 0 ]; then
@@ -203,14 +215,14 @@ for ps in "${pieces[@]}"; do
   extra=()
   [ -z "${PSCAT_ARGS:-}" ] || read -r -a extra <<< "$PSCAT_ARGS"
   [[ " ${PSCAT_ARGS:-} " != *" --bands "* ]] || lint=()
-  if ! printf '%s (%s) run\n' "$pdefs" "$ps" | /usr/bin/time -p pscat --page "$page" --dpi "$dpi" ${transparent[@]+"${transparent[@]}"} ${lint[@]+"${lint[@]}"} ${extra[@]+"${extra[@]}"} "${outargs[@]}" "$src" >"$log" 2>&1; then
+  if ! printf '%s (%s) run\n' "$pdefs" "$ps" | /usr/bin/time -p pscat --page "$page" --dpi "$dpi" ${transparent[@]+"${transparent[@]}"} ${lint[@]+"${lint[@]}"} ${write[@]+"${write[@]}"} ${extra[@]+"${extra[@]}"} "${outargs[@]}" "$src" >"$log" 2>&1; then
     status=error
     failed=1
   fi
-  # a bake that missed the cache printed itself between %%FcCacheBegin and
-  # %%FcCacheEnd: file it in renders/cache/ (by a temporary file and a
-  # rename, so a band reading it in parallel never sees half of it) and
-  # take it out of the log
+  # a bake that missed the cache and couldn't write its file (--bands)
+  # printed itself between %%FcCacheBegin and %%FcCacheEnd: file it in
+  # renders/cache/ (by a temporary file and a rename, so a band reading it
+  # in parallel never sees half of it) and take it out of the log
   if grep -q '^%%FcCacheBegin ' "$log"; then
     done_list="$(awk -v dir=renders/cache -v tag="$$" -v stripped="$log.strip" '
       /^%%FcCacheBegin / { name = $2; tmp = dir "/" name ".ps.tmp." tag "." NR; inb = 1; printf "" > tmp; next }
@@ -221,8 +233,12 @@ for ps in "${pieces[@]}"; do
       { print > stripped }
     ' "$log")"
     while read -r t f; do if [ -n "$t" ]; then mv -f "$t" "$f"; fi; done <<< "$done_list"
-    rm -f renders/cache/*.ps.tmp."$$".*
     mv -f "$log.strip" "$log"
+  fi
+  if [ "$cache" = 1 ]; then
+    # a run that died while writing leaves its temporary file (the awk's,
+    # or fc_cache's <file>.tmp.$$.w)
+    rm -f renders/cache/*.ps.tmp."$$".*
     prune_cache
   fi
   secs="$(awk '/^real/ {print $2}' "$log")"
