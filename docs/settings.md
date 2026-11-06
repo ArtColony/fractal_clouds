@@ -632,6 +632,9 @@ single layer, `CloudLayers` null, keeps its old cut-off).
 | `Sigma` | 0.09 | Extinction, like `Sigma`. |
 | `DensOct`, `ShadOct`, `ShadStep` | 5, 3, 3.2 | Octaves and sun probes, like the settings. |
 | `Steps` | 96 | Most samples per ray through this layer, like `CloudSteps`. A thin layer needs fewer. |
+| `StepGrow` | 0.012 | Each march step is the band's span along the ray over `Steps`, plus `StepGrow` times the distance. Far off the steps are long (10 units at 800), and the per-pixel jitter of the first step then moves a cloud's edge by up to a step from pixel to pixel: distant cumulus come out speckled and smeared at full detail, whatever the `Gain` (#80). 0.003 cleans them up for about 5% more render time on a cumulus sky. |
+| `Floor` | 0 | Noise units added to the density wherever the cloud is (before `Gain`): a step at the edge instead of a ramp from zero, so cumulus get a crisp outline rather than a fuzz many pixels wide (raising `Gain` darkens the inside more than it sharpens the edge). 0.05 to 0.08; use with `Refine` and a small `StepGrow`, or the sharp edge dithers. |
+| `Refine` | 0 | Bisections where the march steps from clear air into cloud: the first sample moves to the edge, so the edge sits where the density puts it, not where the pixel's jitter put the step. 4 is plenty; costs that many density samples per entry. |
 | `AmbTop`, `AmbBot` | as the settings | Ambient at the top and bottom (sRGB). |
 | `Rain` | 0 | If above 0, rain shafts reach this far below the base: the cloud a quarter of the way up the band, in vertical columns that thin toward the ground. Extends the march. |
 | `RainDens` | 0.15 | Their density, as a fraction of the cloud's. |

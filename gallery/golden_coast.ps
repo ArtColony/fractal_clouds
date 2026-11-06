@@ -80,7 +80,10 @@
 /ToneHue where { pop } { /ToneHue 1 def } ifelse
 /HazeDist where { pop } { /HazeDist 1000 def } ifelse
 /CloudLayers where { pop } { /CloudLayers [
-    << /Type /Cumulus /Lo 60 /Hi 84 /Threshold 0.62 /CoverAmp 0.8 /Scale 0.03 >>
+    % crisp edges (#80): finer steps far off, a density step at the edge, and
+    % the edge found by bisection, so the jitter doesn't dither it
+    << /Type /Cumulus /Lo 60 /Hi 84 /Threshold 0.62 /CoverAmp 0.8 /Scale 0.03
+       /StepGrow 0.003 /Floor 0.08 /Refine 4 >>
     << /Type /Altocumulus /Threshold 0.74 >>
     /Cirrus
 ] def } ifelse
