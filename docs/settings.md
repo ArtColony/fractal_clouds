@@ -812,7 +812,7 @@ valleys, then lakes, whatever their order in the list):
 | `[ /volcano height radius x z ]` | An island preset (#39): a cone of lift with concave flanks (`(1 − d/radius)^1.5`) toward a summit about `height` high, a small crater at the top, and `MapVolcMask` of ridged mask on the flanks for gullies. Applied with the peaks; lift only ever rises. Add `CoastReef` for a fringing reef. |
 | `[ /atoll height radius width x z ]` | An island preset: a ring of low land `height` high (world `y`), `radius` from `x z`, falling off over `width` either side; the lagoon inside stays sea. With `CoastWobble` the ring breaks into islets where it dips under the water. |
 | `[ /cliff height spread x0 z0 x1 z1 … ]` | With `MapSea`: along the polyline (falling off over `spread`), the sea has cut the land back to where it stands `height` above the water, so the coast there is a cliff about that high (shorter where the land isn't that high). |
-| `[ /stack height radius x z ]` | A sea stack: a steep column `radius` wide with its top at `height` (world `y`), drawn per point by `fc_coast.ps` (too narrow for the table). |
+| `[ /stack height radius x z ]` | A sea stack: a steep column `radius` wide with its top at most `height` (world `y`), drawn per point by `fc_coast.ps` (too narrow for the table). The top is eroded: it slumps toward the rim, leans one way and is cut into knobs and gullies, by up to about half the `radius` (and at most a third of the stack's height above `MapSea`). The march slows near it, so a narrow stack keeps its outline (#78). |
 
 Heights have two ceilings. A peak or ridge asks for a mask of at most 1,
 so heights above about `lift + TerrBase + 1.02 TerrH` (47 with the
@@ -1098,6 +1098,7 @@ These are procedures, not settings. Redefine them **after** loading
 | `fc-forest-dens` | `x z h ny curv → density height-scale` | `fc_trees`' rules. Wrap it to keep trees off some ground, as `fc_water` does. Redefine it before `fc-landscape-setup`. |
 | `fc-terrain-material` | reads and changes `Alb KlMul KskyMul KbMul` | Defined by `fc_trees` (forest floor), and chained onto by `fc_coast` (beaches) and `fc_water` (shores). With none of them it doesn't exist, and a piece can define it to paint the ground. |
 | `fc-terrain-base` | `x z → lift mask pin` | Defined by `fc_map.ps` (`MapOn`); otherwise absent and the noise massif is used. Map coordinates in; the lift in world units, the massif mask 0–1 and the pin 0–1 out. A piece can define its own (an analytic island, say) before `fc-landscape-setup`. |
+| `fc-terrain-step` | `t s → s′` | The march's next step `s` from `t` along the ray, in `fc-terrain-hit` and `fc-forest-hit`, just after the height at `t`. The default keeps `s`; `fc_coast` shortens it near stacks, whose walls are too steep for the march's own step (#78). Must not lengthen it. |
 | `fc-pixel` | `u v → r g b` | `fc-landscape-pixel` (wrapped by `fc_passes.ps` when a pass is asked for). Replace it entirely for a different scene. |
 
 While a hook runs, `Mx My Mz` is the pixel's unit ray, from `(0, CamY, 0)`.
