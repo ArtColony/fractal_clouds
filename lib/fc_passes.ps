@@ -253,10 +253,13 @@ Pass /material eq { /AA false store } if          % an average of IDs is no ID
 % (bg). Both are straight, not premultiplied: an edge pixel's fg is the
 % mountain's colour alone, with none of the sky it was averaged with, so
 % fg at alpha w over new art leaves no sky-coloured fringe, and fg at w
-% over bg gives back the picture. On the sky the clouds' straight colour
-% is their light over their opacity, Cr / (1 - Tr), and the sky behind
-% them is LnR LnG LnB, each graded and toned as the picture is.
-/PsAf [ 0 0 0 ] def /PsAb [ 0 0 0 ] def
+% over bg gives back the picture. On the sky with clouds, bg is the sky
+% behind them (LnR LnG LnB, graded and toned as the picture is) and the
+% clouds are the rest of the toned picture c: fg = (c - Tr bg) / (1 - Tr),
+% unpremultiplied in the picture's own (toned) space, so that w fg +
+% (1 - w) bg is c again; the tone curve isn't linear, so splitting before
+% it would darken the clouds.
+/PsAf [ 0 0 0 ] def /PsAb [ 0 0 0 ] def /PsBc [ 0 0 0 ] def
 /PsAn 0 def /PsAw 0 def /PsAs 0 def
 /fc-pass-add-f {                                 % r g b w -> -: add w x rgb to fg
     /PsCk exch def /PsAw PsAw PsCk add def
@@ -279,9 +282,15 @@ Pass /material eq { /AA false store } if          % an average of IDs is no ID
     /PsAn PsAn 1 add def
     FcKey 0 ge { 3 copy 1 fc-pass-add-f } {
         MaskClouds 1 Tr sub 1e-4 gt and {
-            /PsCw 1 Tr sub def
-            Cr PsCw div Cg PsCw div Cb PsCw div fc-landscape-grade fc-tone PsCw fc-pass-add-f
-            LnR LnG LnB fc-landscape-grade fc-tone Tr fc-pass-add-b
+            % the sky behind the clouds b, toned; the clouds then hold
+            % what is left of the toned picture c: c - Tr b, over 1 - Tr
+            LnR LnG LnB fc-landscape-grade fc-tone
+            PsBc 2 3 -1 roll put PsBc 1 3 -1 roll put PsBc 0 3 -1 roll put
+            PsBc aload pop Tr fc-pass-add-b
+            /PsAw PsAw 1 Tr sub add def
+            3 copy 2 -1 0 { /PsCq exch def
+                PsBc PsCq get Tr mul sub PsAf PsCq get add PsAf PsCq 3 -1 roll put
+            } for
         } { 3 copy 1 fc-pass-add-b } ifelse
     } ifelse
     PsKeepD /mask get FrJ get FrI PsAw PsAn div fc-byte put
