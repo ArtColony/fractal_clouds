@@ -1,0 +1,6 @@
+REALISM: B
+AESTHETICS: B
+- B’s darker foreground gives the forest more convincing depth.
+- Tree silhouettes feel slightly less uniform in B.
+- B’s stronger tonal separation better balances the forest and distant mountains.
+- Both retain visibly geometric trees; the differences are subtle.

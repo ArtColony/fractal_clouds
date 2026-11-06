@@ -1,0 +1,6 @@
+REALISM: B
+AESTHETICS: B
+
+- B’s denser forest reads more convincingly as a continuous canopy.
+- Overlapping trees make individual geometric shapes less conspicuous.
+- B’s fuller foreground gives the mountain panorama a stronger visual anchor.
