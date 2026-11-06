@@ -605,3 +605,17 @@ describes it, though the section number isn't checked here), so code after
 **Effect here:** none in the library. A probe that guards `stopped` with
 `mark ... cleartomark` (as `lib/fc_passes.ps` does) works either way.
 Code that counts on the operands being left would see a shorter stack.
+
+## 22. `version`, `product`, `revision` and `serialnumber` are undefined
+
+- **Kind:** missing standard operators
+- **Status:** filed PSCatLabs/pscat#1048
+- **Found:** 2026-11-06, pscat 0.7.0-rc.4 (#87)
+
+Only `languagelevel` exists (it returns 2). Ghostscript gives `(3010)`,
+`(GPL Ghostscript)`, `10071` and `3`. Repro: `pscat -e '{ version } stopped
+{ (undefined) } if print'`.
+
+**Effect here:** `lib/fc_passes.ps` can't tell whether `setalpha` applies to
+images (pscat#830), because PostScript can't read pixels back to probe it.
+So soft compositing just documents that it needs pscat 0.7.0-rc.4 or later.
