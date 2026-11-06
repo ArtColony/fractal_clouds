@@ -96,7 +96,9 @@
 
 /fc-coast {                                      % h -> h (Hmx Hmz Ho)
     XcMatOn not { fc-coast-material-install } if
+    XcMsY null eq { /XcMsY -1e9 MapStacks { 1 get 1 add fc-max } forall def } if
     /XcH exch def
+    /XcSt 1e9 def /XcStY -1e9 def                % no noise stack near (fc-terrain-step)
     /XcX Hmx def /XcZ Hmz def
     XcX XcZ fc-map-coast-at
     % far inland and above the beach, even before the wobble: nothing to do
@@ -138,9 +140,17 @@
         CoastFlat 1 CoastBeachW 0.5 mul CoastBeachW XcD fc-smooth sub mul sub
         CoastFlat 0.7 mul 0.2 add fc-coast-smax XcB add /XcH exch def
         % stacks off cliffed shores
-        CoastStacks 0 gt XcK 0.3 gt and XcD 0 lt and XcD CoastStackOut neg gt and {
+        CoastStacks 0 gt XcK 0.3 gt and XcD CoastStackOut neg gt and XcD 0 lt and {
             Hmx CoastStackScale mul 9.7 add Hmz CoastStackScale mul 3.1 add fc-noise2 /XcN exch def
             /XcT 0.93 CoastStacks 0.08 mul sub def
+            % for the march (#78): outside a stack, how far its wall can be
+            % (the noise seldom climbs faster than 1.5 per lattice unit), and the tallest
+            % a stack here can stand; on one, the top is gentle and the
+            % march's own step will do
+            XcN XcT lt {
+                /XcSt XcT XcN sub CoastStackScale 1.5 mul div def
+                /XcStY XcC MapSea sub CoastStackH mul 1.1 mul MapSea add def
+            } if
             XcN XcT gt {
                 XcT XcT 0.02 add XcN fc-smooth
                 CoastStackOut neg CoastStackOut -0.75 mul XcD fc-smooth mul
@@ -166,16 +176,61 @@
         XcH
     } ifelse
     % the map's own stacks
+    /XcMs 1e9 def
     MapStacks { /XcSf exch def
         Hmx XcSf 3 get sub dup mul Hmz XcSf 4 get sub dup mul add sqrt /XcSd exch def
+        % for the march (#78): the clearance to the ring of the wall (0.6
+        % to 1.3 radius), a twentieth of the radius in it; none over the top
+        XcSd XcSf 2 get 0.6 mul gt {
+            XcSd XcSf 2 get 1.3 mul sub XcSf 2 get 0.05 mul fc-max
+            dup XcMs lt { /XcMs exch def } { pop } ifelse
+        } if
         XcSd XcSf 2 get 1.5 mul lt {
-            /XcH exch def
-            Hmx 0.3 mul 5.1 add Hmz 0.3 mul 8.3 add fc-noise2 0.5 sub XcSf 2 get 0.5 mul mul XcSd add
-            XcSf 2 get 1.05 mul XcSf 2 get 0.85 mul 3 -1 roll fc-smooth
-            XcSf 1 get XcH sub mul XcH add XcH fc-max
+            /XcH exch def /XcSr XcSf 2 get def
+            % the outline wanders (a broad lobe and a finer notch), the
+            % wall a steep band 0.2 radius wide
+            Hmx 0.3 mul 5.1 add Hmz 0.3 mul 8.3 add fc-noise2 0.5 sub XcSr 0.5 mul mul XcSd add
+            /XcSu exch def
+            XcSr 1.05 mul XcSr 0.85 mul XcSu fc-smooth
+            % the top (#78): never above `height`, it slumps to the rim,
+            % leans one way (by the stack's own noise) and is cut into
+            % knobs and gullies, so no stack is a flat slab
+            XcSf 1 get
+            0.3 0.95 XcSu XcSr div fc-smooth 0.3 mul
+            XcSf 3 get 0.37 mul 1.7 add XcSf 4 get 0.37 mul 4.9 add fc-noise2 360 mul /XcSa exch def
+            Hmx XcSf 3 get sub XcSa cos mul Hmz XcSf 4 get sub XcSa sin mul add XcSr div 1 add 0.08 mul add
+            Hmx 0.17 mul 2.6 add Hmz 0.17 mul 9.4 add fc-noise2
+            Hmx 0.45 mul 6.8 add Hmz 0.45 mul 1.3 add fc-noise2 0.5 mul add 0.16 mul add
+            XcSr 0.75 mul XcSf 1 get MapSea sub 0.5 mul fc-min mul sub
+            XcH sub mul XcH add XcH fc-max
         } if
     } forall
 } bind def
+
+% t s -> s'    a march's next step, kept short near a stack (#78). A
+% stack's wall is steep and narrow (a map stack's is 0.2 radius across, a
+% noise stack's a fraction of a unit), and the terrain's step, sized by the
+% height above the sea floor, could stride over its edge: notched outlines
+% and a cap floating over the water, where only the rays through the top
+% met it. fc-terrain-hit and fc-forest-hit call this with the ray at t,
+% just after the fc-height there, which left the noise stacks' clearance
+% in XcSt (the tallest one there can be in XcStY) and the map stacks' in
+% XcMs (under the tallest map stack's top, XcMsY). While the step's low
+% end is under those tops, the step is at most the horizontal clearance
+% to it: a map stack's outer edge (1.3 radius; in the ring of its wall, 0.6
+% to 1.3 radius, a twentieth of the radius), or the noise stacks' band;
+% never under a sixth of the march's own shortest step. Over a stack's top
+% the march's own step is safe: the top is gentle and the walls only fall.
+/fc-terrain-step {
+    /XcSs exch def /XcRt exch def
+    My XcRt mul CamY add XcSs My 0 fc-min mul add /XcRy exch def
+    XcRy XcStY lt { XcSt XcRt 0.0007 mul 0.035 add fc-max dup XcSs lt { /XcSs exch def } { pop } ifelse } if
+    XcRy XcMsY lt { XcMs dup XcSs lt { /XcSs exch def } { pop } ifelse } if
+    XcSs
+} bind def
+/XcSt 1e9 def /XcStY -1e9 def /XcMs 1e9 def
+% the top of the tallest map stack, set on the first fc-coast call
+/XcMsY null def
 
 % --- driftwood (#40) -----------------------------------------------------------
 % x z -> height of a log there (0 if none): one candidate log per 2.5-unit

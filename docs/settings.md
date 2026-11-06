@@ -812,7 +812,7 @@ valleys, then lakes, whatever their order in the list):
 | `[ /volcano height radius x z ]` | An island preset (#39): a cone of lift with concave flanks (`(1 − d/radius)^1.5`) toward a summit about `height` high, a small crater at the top, and `MapVolcMask` of ridged mask on the flanks for gullies. Applied with the peaks; lift only ever rises. Add `CoastReef` for a fringing reef. |
 | `[ /atoll height radius width x z ]` | An island preset: a ring of low land `height` high (world `y`), `radius` from `x z`, falling off over `width` either side; the lagoon inside stays sea. With `CoastWobble` the ring breaks into islets where it dips under the water. |
 | `[ /cliff height spread x0 z0 x1 z1 … ]` | With `MapSea`: along the polyline (falling off over `spread`), the sea has cut the land back to where it stands `height` above the water, so the coast there is a cliff about that high (shorter where the land isn't that high). |
-| `[ /stack height radius x z ]` | A sea stack: a steep column `radius` wide with its top at `height` (world `y`), drawn per point by `fc_coast.ps` (too narrow for the table). |
+| `[ /stack height radius x z ]` | A sea stack: a steep column `radius` wide with its top at most `height` (world `y`), drawn per point by `fc_coast.ps` (too narrow for the table). The top is eroded: it slumps toward the rim, leans one way and is cut into knobs and gullies, by up to about half the `radius` (and at most a third of the stack's height above `MapSea`). The march slows near it, so a narrow stack keeps its outline (#78). |
 
 Heights have two ceilings. A peak or ridge asks for a mask of at most 1,
 so heights above about `lift + TerrBase + 1.02 TerrH` (47 with the
@@ -1079,8 +1079,9 @@ depth along the ray. With `Ocean` false nothing here loads.
 | `SurfSpacing` | 1.5 | Distance between breaker lines, world units. The lines follow the depth contours: their phase is the distance to the waterline, estimated as depth over the bed's slope, plus a wander. Lines under three pixels apart fade to their mean cover. | 1.5 |
 | `SurfTrail` | 0.3 | Foam trail behind each breaker (seaward, after a sharp shoreward front), as a fraction of the spacing (1/e). | 0.3 |
 | `SurfFoam` | 1 | Surf foam cover, 0..1; 0 turns off the breakers and the swash line at the waterline. | 1 |
-| `WetSand` | 0.1 | Height above the water of the wet band, where the ground mirrors the sky and clouds (Fresnel on a level film; no ground in the reflection). Measured on the same `SeaDepthOct` height as the surf, so the swash meets it; its edge widens to the height a pixel spans. 0: none. | 0.1 |
+| `WetSand` | 0.1 | Height above the water of the wet band, where the ground mirrors the sky and clouds (Fresnel on a level film; no ground in the reflection). Measured on the same `SeaDepthOct` height as the surf, so the swash meets it; its edge widens to the height a pixel spans (at most twice `WetSand`). Only gentle ground is wet: see `WetSlope`. 0: none. | 0.1 |
 | `WetMirror` | 0.75 | How mirror-like the wet band is, 0..1. | 0.75 |
+| `WetSlope` | [0.72 0.9] | The wet band fades in between these values of the ground normal's `y` (about 44 to 26 degrees of slope), so cliff and stack walls at the waterline don't mirror the sky (#78). | [0.72 0.9] |
 | `GlitterGain` | 1 | Sun glitter: a microfacet lobe (Beckmann, with Smith shadowing-masking) on the wave normal, its width `GlitterRough` plus the slope the waves lose with distance, so near glints break up and far ones merge into a smooth path. Shadowed by terrain and clouds. 0: none. | 1 |
 | `GlitterRough` | 0.03 | Slope spread the waves don't resolve. | 0.03 |
 | `SandHeight` | 0.8 | Sand on the sea bed and up to this height above the water (on gentle ground), before `fc_water`'s wet ground. With `lib/fc_coast.ps` loaded (`fc-coast-material` defined) the beach is the coast's, and this paints only the bed under water. 0: none. | 0.8 |
@@ -1105,6 +1106,7 @@ These are procedures, not settings. Redefine them **after** loading
 | `fc-forest-dens` | `x z h ny curv → density height-scale` | `fc_trees`' rules. Wrap it to keep trees off some ground, as `fc_water` does. Redefine it before `fc-landscape-setup`. |
 | `fc-terrain-material` | reads and changes `Alb KlMul KskyMul KbMul` | Defined by `fc_trees` (forest floor), and chained onto by `fc_coast` (beaches) and `fc_water` (shores). With none of them it doesn't exist, and a piece can define it to paint the ground. |
 | `fc-terrain-base` | `x z → lift mask pin` | Defined by `fc_map.ps` (`MapOn`); otherwise absent and the noise massif is used. Map coordinates in; the lift in world units, the massif mask 0–1 and the pin 0–1 out. A piece can define its own (an analytic island, say) before `fc-landscape-setup`. |
+| `fc-terrain-step` | `t s → s′` | The march's next step `s` from `t` along the ray, in `fc-terrain-hit` and `fc-forest-hit`, just after the height at `t`. The default keeps `s`; `fc_coast` shortens it near stacks, whose walls are too steep for the march's own step (#78). Must not lengthen it. |
 | `fc-pixel` | `u v → r g b` | `fc-landscape-pixel` (wrapped by `fc_passes.ps` when a pass is asked for). Replace it entirely for a different scene. |
 
 While a hook runs, `Mx My Mz` is the pixel's unit ray, from `(0, CamY, 0)`.

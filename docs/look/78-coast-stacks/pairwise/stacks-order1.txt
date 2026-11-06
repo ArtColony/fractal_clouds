@@ -1,0 +1,5 @@
+REALISM: B
+AESTHETICS: B
+- B’s uneven skyline and varied cliff faces feel more naturally eroded.
+- B’s right stack has a more convincing, continuous silhouette.
+- B’s sloping main formation creates a more pleasing balance with the isolated stack.
