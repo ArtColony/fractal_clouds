@@ -406,15 +406,21 @@ BAKE_CACHE=1 scripts/render.sh -D ErN=1024 gallery/alpine_forest.ps   # reads th
 DPI=288 scripts/render_bands.sh gallery/alpine_forest.ps -- -D ErN=1024   # on by default: the probe bakes, the bands read
 ```
 
-- **It needs `scripts/render.sh`.** pscat can't write files
-  (`docs/pscat-issues.md` #15), so a bake that missed prints itself to the
-  log, and `render.sh` moves it into `renders/cache/<bake>-<key>.ps` by a
-  temporary file and a rename (bands running in parallel never read half a
-  file). `render.sh` also defines `FcCacheSrc`, a hash of `lib/*.ps`, the
-  piece, `.pscat-version` and the installed pscat's version; without it
-  (bare `pscat`) nothing is cached. `regress.sh` turns the cache off, so its
-  renders always bake. A piece that runs the setup inside a dictionary of
-  its own (`currentdict` isn't `userdict`) isn't cached.
+- **It needs `scripts/render.sh`**, which defines `FcCacheSrc`, a hash of
+  `lib/*.ps`, the piece, `.pscat-version` and the installed pscat's version;
+  without it (bare `pscat`) nothing is cached. It also passes pscat
+  `--allow-write renders/cache`, and a bake that missed writes
+  `renders/cache/<bake>-<key>.ps` itself: to a temporary name, then
+  `renamefile`, so bands running in parallel never read half a file. Its
+  large arrays of reals (the erosion and forest maps) are stored in binary
+  with `writereals` and read back with `readreals`, exactly. pscat refuses
+  `--allow-write` with `--bands`, so under `PSCAT_ARGS="--bands N"` the bake
+  prints itself to the log as text instead and `render.sh` moves it into
+  `renders/cache/` (a temporary file and a rename too). Either kind of file
+  reads back the same; the log's `fc-cache: <bake> written` line ends in
+  `(file)` or `(stdout)`. `regress.sh` turns the cache off, so its renders
+  always bake. A piece that runs the setup inside a dictionary of its own
+  (`currentdict` isn't `userdict`) isn't cached.
 - **The key** is everything a bake can read when it starts: every entry of
   `userdict` (and of the current dictionary, if a piece has begun its own),
   procedures included (operators by name), the random stream's state, the
@@ -425,7 +431,7 @@ DPI=288 scripts/render_bands.sh gallery/alpine_forest.ps -- -D ErN=1024   # on b
   turn) counts as that bake's key instead of its contents. Render-only
   names are left out (`Crop`, `Res`, `PixSeed`, `RowTimes`, `AA`, `Pass`,
   `PassKeep`, `FrameGrid`, `FrameLabel`, `Profile`, and `LnSetUp`, `BakeCache`,
-  `BakeCacheSkip`, `BakeCacheDebug`, `FcCacheSrc`), so a probe, its bands, a
+  `BakeCacheSkip`, `BakeCacheDebug`, `FcCacheSrc`, `FcCacheTag`), so a probe, its bands, a
   crop and a preview at another `Res` all share a bake; so are the libraries'
   `usertime` stamps (`EbT0`, `FsT0` ...). A setting the key should leave out
   only causes a miss; add render-only ones of a piece's own to
@@ -439,9 +445,12 @@ DPI=288 scripts/render_bands.sh gallery/alpine_forest.ps -- -D ErN=1024   # on b
   `can't keep <name>`); the erosion, river and forest bakes do none of these.
   `render.sh --sweep-seed` turns the cache off, since pscat's seed sweep
   overrides the `srand` that puts the stream back.
-- **Disk:** about 20 MB per million reals (the erosion map at `ErN` 1024 is
-  one, plus `ErFlow` with `Rivers`); the forest map at `FsN` 384 is about
-  8 MB. After filing a bake, `render.sh` deletes the oldest files once
+- **Disk and time:** 8 MB per million reals in binary (the erosion map at
+  `ErN` 1024 is one, plus `ErFlow` with `Rivers`), read back in a few ms;
+  the forest maps at `FsN` 384 come to 4.7 MB. A `--bands` run's text file
+  is about 2.7 times that and takes about 0.16 s per million reals to
+  read. Most of a hit's time (about 0.25 s per bake) is the key: hashing
+  `userdict`. After filing a bake, `render.sh` deletes the oldest files once
   `renders/cache/` is over `BAKE_CACHE_MAX_MB` (default 2048);
   `rm -rf renders/cache` empties it.
 

@@ -274,6 +274,15 @@ round-trip digits) and fast enough: 0.17 s to read a million reals, 0.6 s
 to print them. Fixed-point hex (`readhexstring`; there is no
 `writehexstring`) would lose bits, so the cached picture wouldn't match.
 
+**Used (2026-11-06, #16):** with rc.4, `lib/fc_cache.ps` stores each array
+of 256 or more reals in the cache file itself as `currentfile N readreals`
+followed by `writereals`' binary64 (`run` hands `readreals` the bytes right
+after the token's one space). It reads back bit-exact, `-0.0` included,
+and integers come back as reals, so only all-real arrays go that way. At
+`ErN` 1024 (alpine_forest): the erosion file is 8.4 MB instead of 22.6 MB,
+reading it takes about 6 ms instead of about 160 ms, and writing it 0.33 s
+instead of 0.98 s. The forest file is 4.7 MB instead of 8.4 MB.
+
 ## 10. Parallel rendering of independent image bands
 
 - **Kind:** feature request (performance)
@@ -405,7 +414,7 @@ the `--pass mask` PNG.
 **Possible request:** `ImageType 3` (at least `InterleaveType 3` with a 1-bit
 mask) and `nulldevice`.
 
-**Since 0.7.0-rc.4 (#87):** both are in, with 1-bit masks only (entry 19).
+**Since 0.7.0-rc.4 (#87):** both are in, with 1-bit masks only (entry 20).
 `fc-landscape-keep` now renders on the `nulldevice`, keeping the matrix,
 which `nulldevice` resets to identity. In a `--bands` band it keeps the empty clip, since
 `fc-render` reads the band through `defaultmatrix`, which `nulldevice` resets
@@ -446,6 +455,14 @@ wrapper script, nothing is cached.
 fast enough: pscat's `cvs` prints a real with its shortest round-trip
 digits, so a million reals print in 0.6 s (in 64 KB buffers; 2.5 s with a
 `print` per number) and `run` reads them back exactly in 0.17 s.
+
+**Used (2026-11-06, #16):** `scripts/render.sh` passes `--allow-write
+renders/cache` when the cache is on, and `lib/fc_cache.ps` writes each bake
+to `<file>.tmp.<pid>.w`, closes it and `renamefile`s it into place
+(`renamefile` replaces an existing file, as POSIX `rename` does). The stdout
+route stays as the fallback: pscat refuses `--allow-write` with `--bands`
+(documented), so `PSCAT_ARGS="--bands N"` runs still print the bake for
+`render.sh` to file, and a 0.6 pscat writes nothing.
 
 ## 16. The MCP render tool stops every call at 60 s
 
@@ -519,11 +536,24 @@ elementwise arithmetic, comparison masks plus select, gather, reductions and
 numbers: `realtime 4000000 { x y mul pop } repeat realtime exch sub` under
 `pscat --headless`, against the 0.6.2 and 0.7.0-rc.4 binaries.
 
-## 19. The skill implies `ImageType 3` takes a soft mask; masks are 1-bit only
+## 19. `--allow-write` is refused with `--bands`
+
+- **Kind:** feature request (CLI)
+- **Status:** filed PSCatLabs/pscat#1045
+- **Found:** 2026-11-06 (#16, the file-based bake cache)
+
+`pscat --bands N --allow-write DIR` exits with `--bands doesn't combine with
+--allow-write` (0.7.0-rc.4). So `lib/fc_cache.ps` writes its own cache files
+only on plain renders. Under `PSCAT_ARGS="--bands N"` it falls back to
+printing the bake on stdout for `scripts/render.sh` to file.
+(`render_bands.sh` runs separate processes, so it is unaffected.) Repro: a
+program that writes `(out/x) (w) file` in band 0, run with `--bands 2
+--allow-write out`.
+
+## 20. The skill implies `ImageType 3` takes a soft mask; masks are 1-bit only
 
 - **Kind:** skill docs
-- **Status:** open (an upstream filing on 2026-11-06 was blocked by the
-  session's permission settings; to be filed by hand)
+- **Status:** filed PSCatLabs/pscat#1046
 - **Where:** `.claude/skills/pscat/references/extensions.md`, Translucency
   ("a soft-masked ImageType 3 multiplies its own mask by the alpha")
 - **Found:** 2026-11-06, pscat 0.7.0-rc.4, fractal_clouds#87
@@ -553,12 +583,11 @@ Each level's pixels are painted once, through a 1-bit mask, at that level's
 **Possible request:** say in the skill that ImageType 3 masks are 1-bit
 (stencil) only. If "soft-masked" meant the PDF output's `/SMask`, say that.
 
-## 20. An operator that fails leaves its operands popped, not restored
+## 21. An operator that fails leaves its operands popped, not restored
 
 - **Kind:** bug (error semantics)
-- **Status:** open (no duplicate upstream; filing on 2026-11-06 was blocked by
-  the session's permission settings, to be filed by hand)
-- **Found:** 2026-11-06, pscat 0.7.0-rc.4, while writing entry 19's repro
+- **Status:** filed PSCatLabs/pscat#1047
+- **Found:** 2026-11-06, pscat 0.7.0-rc.4, while writing entry 20's repro
 
 When an operator raises an error, Ghostscript leaves its operands on the
 operand stack (as Adobe interpreters do; the PLRM's error-handling section

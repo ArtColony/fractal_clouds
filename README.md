@@ -21,9 +21,9 @@ ln -sf ~/.local/opt/pscat-$v/pscat ~/.local/opt/pscat-$v/pscat-mcp ~/.local/bin/
 pscat --version
 ```
 
-The bare install has only Helvetica, Times and Courier. `pscat fonts install`
-adds the font packs (Palatino and the rest of the LaserWriter 35, and the
-display faces).
+The release bundle carries the standard 35 fonts (`fonts/base35`: Palatino,
+Bookman and the rest map to TeX Gyre). `pscat fonts install` adds the
+display faces.
 
 ## Layout
 
@@ -38,7 +38,7 @@ display faces).
 | `docs/settings.md` | Every landscape setting, its default and the values tried |
 | `docs/techniques.html` | How it works: the algorithms, with diagrams and references (open it in a browser) |
 | `scripts/render.sh` | Render, lint and time pieces into `renders/` (git-ignored) |
-| `scripts/render_bands.sh` | One large frame as parallel horizontal bands, stitched |
+| `scripts/render_bands.sh` | One large frame as parallel horizontal bands, stitched; `--auto N --plan` prints the cuts and predicted times without rendering |
 | `scripts/regress.sh` | Pixel-regression check of the gallery against `tests/regress/linux/` or a git ref; run by CI (`.github/workflows/ci.yml`) |
 | `docs/using-the-libraries.md` | Using `lib/fc_*.ps` from another repo: releases, pinning one with `.fc-version`, cutting a release |
 | `scripts/release.sh`, `scripts/fetch_fc.sh` | Build a release (tarball, standalone techniques page, `SHA256SUMS`); install the pinned one into a project |
@@ -78,6 +78,9 @@ DPI=288 scripts/render_bands.sh gallery/foo.ps --auto 6
                                      # the large frame as six bands at once, cut
                                      # where a small probe render says the work splits
                                      # evenly (no N: one band per core)
+DPI=288 scripts/render_bands.sh gallery/foo.ps --auto 6 --plan
+                                     # just the probe: print the cuts and the
+                                     # predicted time per band and overall
 DPI=288 scripts/render_bands.sh gallery/foo.ps 0.55 0.66 0.81
                                      # or with hand-picked cuts
 ```

@@ -5,6 +5,7 @@
 #   DPI=288 scripts/render_bands.sh gallery/foo.ps --auto 6 -- -D ErN=1024
 #   DPI=288 scripts/render_bands.sh gallery/foo.ps 0.55 0.66 0.81 -- -D ErN=1024
 #   DPI=288 scripts/render_bands.sh gallery/foo.ps          # --auto, one band per core
+#   DPI=288 scripts/render_bands.sh gallery/foo.ps --auto 3 --plan -- -D ErN=1024
 #
 # --auto [N] (also used when no cut points are given) first renders the
 # piece small (PROBE_DPI, default DPI/8 but at least 18) with /RowTimes,
@@ -12,6 +13,13 @@
 # estimated work. N defaults to the number of cores. The probe needs the
 # same defines as the real render (bake sizes above all) for its profile
 # to be representative.
+#
+# --plan (with --auto, which it implies) runs only the probe: it prints the
+# cuts and the predicted time of each band and of the whole frame, and
+# exits without rendering the frame. Give it the same DPI, N and defines
+# as the real run. That run probes again, and the cuts come out the same
+# give or take a row (the probe times rows, and timings vary); to render
+# with exactly the planned cuts, pass them as hand cuts.
 #
 # The bake cache (lib/fc_cache.ps) is on here unless BAKE_CACHE=0: the
 # probe (or, with hand cuts, a tiny priming render at PRIME_DPI, default 9)
@@ -44,11 +52,13 @@
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
-[ $# -gt 0 ] || { sed -n '2,30p' "$0"; exit 2; }
+[ $# -gt 0 ] || { sed -n '/^set -euo/q; 2,$p' "$0"; exit 2; }
 piece="$1"; shift
-cuts=(); auto=""
+cuts=(); auto=""; plan=""
 while [ $# -gt 0 ] && [ "$1" != "--" ]; do
-  if [ "$1" = "--auto" ]; then
+  if [ "$1" = "--plan" ]; then
+    plan=1
+  elif [ "$1" = "--auto" ]; then
     auto=0
     if [ $# -gt 1 ] && [[ "$2" =~ ^[0-9]+$ ]]; then auto="$2"; shift; fi
   else
@@ -60,6 +70,10 @@ done
 [ -n "$auto" ] || [ ${#cuts[@]} -gt 0 ] || auto=0
 if [ -n "$auto" ] && [ ${#cuts[@]} -gt 0 ]; then
   echo "render_bands: give cut points or --auto, not both" >&2; exit 2
+fi
+if [ -n "$plan" ]; then
+  [ ${#cuts[@]} -eq 0 ] || { echo "render_bands: --plan needs --auto, not hand cuts" >&2; exit 2; }
+  auto="${auto:-0}"
 fi
 [ "$auto" != 0 ] || auto="$(getconf _NPROCESSORS_ONLN 2>/dev/null || sysctl -n hw.ncpu)"
 
@@ -144,14 +158,23 @@ sys.stderr.write(f"render_bands: setup (bakes) {t0/1000:.1f} s"
                  + (" in the probe, read back from renders/cache/ by the bands" if cached else " per band")
                  + f"; rows {total/1000:.1f} s at {pdpi:g} dpi, about {total*scale/1000/60:.1f} min at {dpi:g} dpi\n")
 setup = 0 if cached else t0
+band_t = []
 for i in range(n):
     w = at(edges[i+1] / H) - at(edges[i] / H)
+    band_t.append((setup + w*scale)/1000/60)
     sys.stderr.write(f"  band {i}: rows {edges[i]}-{edges[i+1]} ({edges[i+1]-edges[i]}), predicted "
-                     f"{(setup + w*scale)/1000/60:.1f} min\n")
+                     f"{band_t[-1]:.1f} min\n")
+sys.stderr.write(f"render_bands: predicted {max(band_t):.1f} min wall (slowest band), "
+                 f"{sum(band_t):.1f} min CPU for {n} bands\n")
 for c in cuts: print(repr(c / H))
 P
 )"
   read -r -a cuts <<< "$(echo $cutlist)"
+  if [ -n "$plan" ]; then
+    echo "render_bands: cuts ${cuts[*]-}"
+    echo "render_bands: plan only (--plan), the frame was not rendered"
+    exit 0
+  fi
 fi
 
 edges=(0 ${cuts[@]+"${cuts[@]}"} 1)

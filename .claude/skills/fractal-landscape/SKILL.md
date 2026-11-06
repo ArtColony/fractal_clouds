@@ -129,7 +129,10 @@ DPI=288 scripts/render_bands.sh gallery/<name>.ps 0.6 0.8 -- -D ErN=1024 -D ErDr
 ```
 
 The cuts are fractions from the top (two cuts, three bands); put the cuts so
-the expensive rows (forest, water: lower in the frame) get narrower bands. Each band repeats the bakes. Run it in
+the expensive rows (forest, water: lower in the frame) get narrower bands.
+Or let `--auto 3` place them from a small probe render; `--auto 3 --plan`
+(same DPI and defines) runs only the probe and prints the cuts and the
+predicted minutes per band and overall, to check the cost before committing. Each band repeats the bakes. Run it in
 the background (tens of minutes to an hour); the result is
 `renders/<name>.png`. The bands match a whole-frame render pixel for pixel
 (#19, #27), so the cuts leave no seams. Copy the chosen render
@@ -153,7 +156,9 @@ soft-edged) or the hard `fc-sky-clip` and `fc-land-clip`: `docs/examples/framed_
   ask for ranked realism and aesthetic problems), then
   `scripts/codex_critique.sh PROMPT.txt IMAGE.png [CROP.png]`; it saves
   `IMAGE.critique.md` (see `docs/mountains-draft-02.critique.md`).
-- **Pairwise** (did the change help): `scripts/codex_pairwise.sh OLD.png NEW.png`
+- **Pairwise** (did the change help):
+  `scripts/codex_pairwise.sh --subject "a sea cliff coast at dusk" OLD.png NEW.png`
+  (the subject defaults to "a landscape under clouds"; name what the piece shows)
   judges both orders, so a split verdict is position bias, not a result. Keep
   the change if both orders agree. Compare images of equal size.
 - Codex is a second opinion: fix what you can see. `docs/forest/` shows the

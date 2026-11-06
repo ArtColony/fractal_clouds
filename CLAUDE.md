@@ -13,6 +13,6 @@ PostScript generative art rendered with pscat. See `README.md` for setup and lay
 - Ray marching (`lib/fc_render.ps`: one ray per pixel, `fc-pixel` per piece) is the default renderer. `spikes/splat.ps` is kept for quick previews and comparison; see `docs/spikes/1-cloud-timing.md`.
 - PostScript has no locals: each `lib/` file keeps its temporaries under its own prefix, and `scripts/check_names.sh` must pass (it lists names that two libraries both `def`).
 - Repo libraries get a project prefix (`lib/fc_*.ps`). Spikes go in `spikes/`, with the write-up and its images in `docs/spikes/<issue>-<slug>`.
-- Bare installs have only Helvetica, Times and Courier; check `pscat --fonts` before using any other face.
-- When a pscat bug or a mistake in the skills turns up, log it in `docs/pscat-issues.md` with a repro. Don't file upstream until asked.
+- Since pscat 0.7.0 a bare install has the standard 35 (Palatino, Bookman and the rest map to TeX Gyre); check `pscat --fonts` before using any other face.
+- When a pscat bug or a mistake in the skills turns up, log it in `docs/pscat-issues.md` with a repro and file it on PSCatLabs/pscat (search for a duplicate first; generic title, no project names, no domain-specific requests), then set the entry's status to `filed PSCatLabs/pscat#N`.
 - Work happens on a branch per issue (`<kind>/<issue#>-<slug>`), merged by PR into `main`. Push the branch, open its PR and, once CI is green, merge it and close the issues it finishes, all without asking first. An epic (such as #36) is the exception: when its work is done, write an HTML page documenting what it produced, with a demo or gallery piece where possible, and leave closing the epic to the owner. Quick fixes and small features don't need the page.
