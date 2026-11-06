@@ -274,6 +274,15 @@ round-trip digits) and fast enough: 0.17 s to read a million reals, 0.6 s
 to print them. Fixed-point hex (`readhexstring`; there is no
 `writehexstring`) would lose bits, so the cached picture wouldn't match.
 
+**Used (2026-11-06, #16):** with rc.4, `lib/fc_cache.ps` stores each array
+of 256 or more reals in the cache file itself as `currentfile N readreals`
+followed by `writereals`' binary64 (`run` hands `readreals` the bytes right
+after the token's one space). It reads back bit-exact, `-0.0` included,
+and integers come back as reals, so only all-real arrays go that way. At
+`ErN` 1024 (alpine_forest): the erosion file is 8.4 MB instead of 22.6 MB,
+reading it takes about 6 ms instead of about 160 ms, and writing it 0.33 s
+instead of 0.98 s. The forest file is 4.7 MB instead of 8.4 MB.
+
 ## 10. Parallel rendering of independent image bands
 
 - **Kind:** feature request (performance)
@@ -439,6 +448,14 @@ wrapper script, nothing is cached.
 fast enough: pscat's `cvs` prints a real with its shortest round-trip
 digits, so a million reals print in 0.6 s (in 64 KB buffers; 2.5 s with a
 `print` per number) and `run` reads them back exactly in 0.17 s.
+
+**Used (2026-11-06, #16):** `scripts/render.sh` passes `--allow-write
+renders/cache` when the cache is on, and `lib/fc_cache.ps` writes each bake
+to `<file>.tmp.<pid>.w`, closes it and `renamefile`s it into place
+(`renamefile` replaces an existing file, as POSIX `rename` does). The stdout
+route stays as the fallback: pscat refuses `--allow-write` with `--bands`
+(documented), so `PSCAT_ARGS="--bands N"` runs still print the bake for
+`render.sh` to file, and a 0.6 pscat writes nothing.
 
 ## 16. The MCP render tool stops every call at 60 s
 

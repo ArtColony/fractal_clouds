@@ -10,17 +10,28 @@
 %                                proc; with it on, it reads the bake's
 %                                result back from renders/cache/ if a file
 %                                with the same key is there, and otherwise
-%                                runs proc and prints the result for
-%                                scripts/render.sh to file
+%                                runs proc and files the result there
 %
-% pscat 0.6.2 can't write files (docs/pscat-issues.md #15), so the cache is
-% written through stdout: a miss prints a block between %%FcCacheBegin and
-% %%FcCacheEnd lines, and render.sh cuts it out of the log into
-% renders/cache/<name>-<key>.ps, by a temporary file and a rename, so bands
-% rendering in parallel never see half a file. A cache file is PostScript:
-% each name the bake defined or changed, with its value at full precision
-% (pscat's cvs round-trips reals exactly), so a hit reads it back with
-% `run`, which at ErN 1024 takes about 0.2 s for a 20 MB file.
+% A cache file, renders/cache/<name>-<key>.ps, is PostScript: each name the
+% bake defined or changed, with its value, and a hit reads it back with
+% `run`. A miss writes it one of two ways:
+%   - itself, when pscat may write there (pscat 0.7 --allow-write
+%     renders/cache, which scripts/render.sh passes): to
+%     <file>.tmp.<FcCacheTag>.w, then renamefile, so a band rendering in
+%     parallel sees the whole file or none. An array of 256 or more reals
+%     (the erosion and forest maps) goes in binary, `currentfile N
+%     readreals` then writereals' packed binary64, exact and read back in
+%     a few ms (8.4 MB for the map at ErN 1024). Any other value is text at
+%     full precision (pscat's cvs round-trips reals exactly). A write that
+%     fails (disk full, --max-write-bytes) deletes the temporary file and
+%     isn't cached; the render goes on.
+%   - through stdout when it can't (pscat refuses --allow-write with
+%     --bands, and 0.6 writes no files at all, docs/pscat-issues.md #15):
+%     all text, between %%FcCacheBegin and %%FcCacheEnd lines, which
+%     render.sh cuts out of the log into the cache file by a temporary file
+%     and a rename. Under --bands only band 0's stdout is kept, which is
+%     enough. At ErN 1024 that file is 22.6 MB and `run` takes about 0.16 s.
+% The log says which: `fc-cache: <name> written ms N (file)` or `(stdout)`.
 %
 % The key is everything a bake can read, at the moment it starts:
 %   - every entry of userdict, then of the current dictionary if a piece
@@ -33,8 +44,9 @@
 %     stamps (names like EbT0 or FsT1);
 %   - the random stream's state (rrand): a bake draws from it;
 %   - FcCacheSrc, a hash of the source (lib/*.ps, the piece, the pinned
-%     pscat version and the installed one) that render.sh defines when the cache is on. Without
-%     it nothing is cached: the file couldn't be written anyway.
+%     pscat version and the installed one) that render.sh defines when the
+%     cache is on, with FcCacheTag (its pid, for the temporary file's name;
+%     not keyed). Without FcCacheSrc nothing is cached.
 % A miss records every name whose value the bake changed (not eq before
 % and after, or of another type), temporaries included, and the stream's
 % state afterwards. A hit puts all of them back and srand's the stream to
