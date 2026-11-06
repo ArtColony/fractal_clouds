@@ -114,12 +114,18 @@ fc-camera-update
 /SkHR 800 def /SkHM 120 def          % scale heights: air, aerosol
 /SkBR [ 5.2e-5 1.2e-4 3.5e-4 ] def   % Rayleigh scattering per unit (an sRGB fit, near Bruneton's 5.8, 13.5, 33.1)
 /SkBE SkBR def                       % air extinction (no absorption)
-% ozone: a uniform layer from 15 to 35 km, absorbing 0.0052, 0.015, 0.0007
-% straight up (the Chappuis band takes green and orange, and the light
-% that lights the twilight sky has crossed it twice, low down: that's why
-% twilight is blue)
+% ozone: a uniform layer from 15 to 35 km, absorbing 0.0098, 0.028, 0.0013
+% straight up at Ozone 1 (the Chappuis band takes green and orange, and the
+% light that lights the twilight sky has crossed it twice, low down: that's
+% why twilight is blue). That is a standard column, about 300 Dobson units:
+% 8.1e22 molecules per m^2 times a Chappuis cross-section of 3.5e-25 m^2
+% over the green channel, Hillaire's (2020) 0.65, 1.881, 0.085 per Mm at
+% the peak of a 30 km tent. Until #80 the column was about half that
+% (0.0052, 0.015, 0.0007): too little green was taken out of a low sun's
+% light, and the sky beside and above a sunset went olive.
+/Ozone 1 fc-default
 /SkO1 1500 def /SkO2 3500 def
-/SkSO [ 0.26e-5 0.75e-5 0.034e-5 ] def   % absorption per unit inside the layer
+/SkSO [ 0.4875e-5 1.4108e-5 0.0638e-5 ] { Ozone mul } forall 3 array astore def   % absorption per unit inside the layer
 /SkBM 0.85e-4 Turbidity mul def      % aerosol scattering
 /SkBMe SkBM 1.1 mul def              % aerosol extinction
 /SkG 0.65 def                        % aerosol phase asymmetry (Henyey-Greenstein)
@@ -542,3 +548,56 @@ ToneCurve /ACES eq {
     3 { Exposure mul neg 2.71828 exch exp 1 exch sub 0.4545 exp 3 1 roll } repeat
 } bind def
 } ifelse
+
+% ToneHue (fractal_clouds#80), 0..1: keep the hue of bright colours through
+% the curve's shoulder. Either curve works on each channel alone, so a
+% bright orange, whose red is far into the shoulder and its green less so,
+% comes out yellow (a low sun's sky, linear r/g 2.3, leaves the ACES curve
+% at 1.1), and a warmer grade barely moves it. The hue-keeping version runs
+% the brightest channel through the curve and scales the other two with it;
+% the result is blended in by ToneHue times the square of the curve's output
+% for that channel, so dark and middle tones keep the per-channel curve (and
+% its look) and only the shoulder changes; far past the shoulder (the sun's
+% disc) the blend fades out again, so the brightest light still goes to
+% white. 0, the default, is the curve exactly as above.
+/ToneHue 0 fc-default
+ToneHue 0 ne {
+/fc-tone-hue {                                   % a b c (curve input) -> a' b' c' (curve output)
+    /TnC exch def /TnB exch def /TnA exch def
+    /TnM TnA TnB 2 copy lt { exch } if pop TnC 2 copy lt { exch } if pop def
+    TnA fc-tone-curve TnB fc-tone-curve TnC fc-tone-curve
+    TnM 0.000001 gt {
+        TnM fc-tone-curve /TnT exch def
+        /TnS TnT TnM div def
+        % the weight: ToneHue t^2, faded out again far past the shoulder
+        % (a max channel over about 12: the sun's disc and its glow), so
+        % they still go to white
+        TnT dup mul ToneHue mul dup 1 gt { pop 1 } if
+        144 TnM TnM mul 144 add div mul /TnW exch def
+        TnC TnS mul 1 index sub TnW mul add 3 1 roll
+        TnB TnS mul 1 index sub TnW mul add 3 1 roll
+        TnA TnS mul 1 index sub TnW mul add 3 1 roll
+    } if
+} bind def
+ToneCurve /ACES eq {
+/fc-tone-curve { fc-tone-aces-rrt } bind def
+/fc-tone {                                       % linear r g b -> sRGB r g b
+    Exposure TnGain mul /TnK exch def
+    TnK mul /TnB exch def TnK mul /TnG exch def TnK mul /TnR exch def
+    0.59719 TnR mul 0.35458 TnG mul add 0.04823 TnB mul add
+    0.07600 TnR mul 0.90834 TnG mul add 0.01566 TnB mul add
+    0.02840 TnR mul 0.13383 TnG mul add 0.83777 TnB mul add
+    fc-tone-hue
+    /TnB exch def /TnG exch def /TnR exch def
+    1.60475 TnR mul -0.53108 TnG mul add -0.07367 TnB mul add fc-srgb-oetf
+    -0.10208 TnR mul 1.10813 TnG mul add -0.00605 TnB mul add fc-srgb-oetf
+    -0.00327 TnR mul -0.07276 TnG mul add 1.07602 TnB mul add fc-srgb-oetf
+} bind def
+} {
+/fc-tone-curve { neg 2.71828 exch exp 1 exch sub } bind def
+/fc-tone {                                       % linear r g b -> sRGB r g b
+    3 { Exposure mul 3 1 roll } repeat fc-tone-hue
+    3 { dup 0 lt { pop 0 } if 0.4545 exp 3 1 roll } repeat
+} bind def
+} ifelse
+} if

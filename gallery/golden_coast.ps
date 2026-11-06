@@ -75,6 +75,9 @@
 /SunElev where { pop } { /SunElev 3 def } ifelse
 /SunAzim where { pop } { /SunAzim -32 def } ifelse
 /Exposure where { pop } { /Exposure 2.1 def } ifelse
+% keep the low sun's orange through the tone curve's shoulder: per channel,
+% the horizon band came out yellow (#80)
+/ToneHue where { pop } { /ToneHue 1 def } ifelse
 /HazeDist where { pop } { /HazeDist 1000 def } ifelse
 /CloudLayers where { pop } { /CloudLayers [
     << /Type /Cumulus /Lo 60 /Hi 84 /Threshold 0.62 /CoverAmp 0.8 /Scale 0.03 >>
