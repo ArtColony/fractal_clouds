@@ -1,0 +1,5 @@
+REALISM: A
+AESTHETICS: A
+- A’s denser, overlapping canopy feels more like a continuous forest.
+- A’s softer mountain-to-forest transition gives the scene more convincing atmospheric depth.
+- B’s exposed gaps and repeated pointed trees make the procedural structure more noticeable.

@@ -1,0 +1,6 @@
+REALISM: B
+AESTHETICS: B
+- B’s foreground trees blend more naturally into the forest.
+- Its tonal transitions give a stronger sense of depth.
+- A’s prominent, angular foreground conifers reveal the procedural geometry more clearly.
+- B’s more cohesive canopy keeps attention on the mountain landscape.

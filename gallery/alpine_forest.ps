@@ -24,6 +24,14 @@
 /TreesOn where { pop } { /TreesOn true def } ifelse   % the forest (lib/fc_trees.ps)
 /CamAbove where { pop } { /CamAbove 8 def } ifelse  % camera height above the ground below it
 /SnowLine where { pop } { /SnowLine 27 def } ifelse  % early summer
+% (#100) variety in the stand: age patches, per-tree tint, edges a little
+% taller (the trees a little taller, to keep the stand's mean height), and
+% the ground between near crowns in their shade
+/FsAge where { pop } { /FsAge 0.7 def } ifelse
+/FsJit where { pop } { /FsJit 1 def } ifelse
+/FsEdge where { pop } { /FsEdge 0.5 def } ifelse
+/FsUnder where { pop } { /FsUnder 1 def } ifelse
+/FsHMax where { pop } { /FsHMax 3.4 def } ifelse
 
 (lib/fc_landscape.ps) run
 320 200 fc-landscape
