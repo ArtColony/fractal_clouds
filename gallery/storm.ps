@@ -32,9 +32,12 @@
 /StormDist where { pop } { /StormDist 460 def } ifelse
 /StormAzim where { pop } { /StormAzim -5 def } ifelse
 /StormWind where { pop } { /StormWind 200 def } ifelse
-% the shaded air under it: a dark wall along the horizon
-/StormGloom where { pop } { /StormGloom 0.03 def } ifelse
-/StormGloomR where { pop } { /StormGloomR 2.2 def } ifelse
+% the base high enough over the ridge for the rain under it to show (#101)
+/StormBase where { pop } { /StormBase 84 def } ifelse
+% the shaded air under it: dark round the rain, not a wide wall along the
+% horizon (#101: at 0.03 and 2.2 it hid the rain and tinted the horizon)
+/StormGloom where { pop } { /StormGloom 0.02 def } ifelse
+/StormGloomR where { pop } { /StormGloomR 1.5 def } ifelse
 % turrets: a looser envelope lets the billows break the outline (#101)
 /StormEdge where { pop } { /StormEdge 1.2 def } ifelse
 % the billows' undersides and the base lose the sky above them

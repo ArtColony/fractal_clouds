@@ -636,9 +636,10 @@ single layer, `CloudLayers` null, keeps its old cut-off).
 | `Shape` | null | A procedure `x y z oct → dd` (`oct`: the octaves the sample wants, fewer with distance) added to the density before the gain: a positive value adds cloud, a negative one cuts it. Only called inside the band (`Lo < y < Hi`), so a placed object needs a band tall enough to hold it. For placed objects such as a cumulonimbus (#15). Costs a call per sample. It is called before the noise: a value of −1 or less means nothing is there, and the noise is skipped (keep the threshold and coverage such that the noise can't lift −1 above 0). |
 | `RainShafts` | 0 | Above 0: the rain is broken into shafts by 2-D noise with this many cells per unit (the storm uses 0.06); 0 is the old solid curtain. |
 | `Bounds` | null | `[x0 z0 x1 z1]`, world x and z (the camera stands at x = z = 0): the layer is empty outside this box, and each ray marches only the part of the band inside it, with all its `Steps`. For a placed object, so a tall band doesn't make every sky ray march its whole height. |
-| `RainMask` | null | A procedure `x z → 0..1` multiplying the rain (after `RainShafts`). A layer with one also lights its rain with `AmbBot`, as under the base, rather than the ambient a quarter of the way up. The storm uses it to fade the rain toward the edge of the tower's foot. |
-| `Probes` | 1 | A whole number, at least 1: density probes per layer for the ground's cloud shadow and `fc-cloud-sky`, spread evenly over the band above the point. 1 keeps the old single probe at the middle; a tall object needs more (the storm uses 3) or its anvil casts no shadow. |
+| `RainMask` | null | A procedure `x z → 0..1` multiplying the rain (after `RainShafts`); the sample's own height is in `ClRainY` while it runs (the storm leans its shafts by it). A layer with one also lights its rain with `AmbBot`, as under the base, rather than the ambient a quarter of the way up. The storm uses it to fade the rain toward the edge of the tower's foot. |
+| `Probes` | 1 | A whole number, at least 1: density probes per layer for the ground's cloud shadow and `fc-cloud-sky`, spread evenly over the band above the point. 1 keeps the old single probe at the middle; a tall object needs more (the storm uses 8; with 3 none landed in its anvil, which cast no shadow, #101). |
 | `LightDepth` | null | A procedure `x y z → od`: optical depth toward the sun added to the two short sun probes', for a placed object's shadow on itself at a larger scale than the probes reach (#15). Called once per lit sample. |
+| `AmbShade` | null | A procedure `x y z → 0..1` multiplying the ambient (sky) light of a sample, not of its rain: the cloud's occlusion of its own sky, so undersides and crevices go dark (#101). Called once per lit sample. |
 
 The Base column is where every preset starts (the gallery pieces' layer,
 value noise); each preset's own values are in `FcClPresets` in
@@ -676,7 +677,7 @@ it in front of `CloudLayers`. Set them, like every setting, before the run lines
 |---|---|---|---|
 | `StormDist` | 420 | Ground distance from the camera to the tower's foot. | 460 |
 | `StormAzim` | 0 | Its bearing in degrees: 0 is +z (straight ahead at `Yaw` 0), 90 is +x. | −5 |
-| `StormBase` | 70 | The flat, dark base (keep it above the peaks in front, or it hides). | |
+| `StormBase` | 70 | The flat, dark base (keep it above the peaks in front, or it hides, and the rain under it with it). | 84 |
 | `StormTop` | 180 | The anvil's flat top. | |
 | `StormR` | 55 | Tower radius at the base. | |
 | `StormFlare` | 0.3 | The tower is this much wider at the top. | |
@@ -686,16 +687,23 @@ it in front of `CloudLayers`. Set them, like every setting, before the run lines
 | `AnvilR` | 170 | How far it reaches downwind (upwind: a third of that). | |
 | `AnvilW` | 0.4 | Its half-width across the wind, as a fraction of its reach. | |
 | `DomeR` | 34 | Radius of the overshooting dome, centred 0.2 `DomeR` above the tower top; 0 for none. | |
-| `StormEdge` | 2 | Gain of the envelope against the noise: higher is a tighter, smoother outline, lower more ragged. | |
+| `StormEdge` | 2 | Gain of the envelope against the noise: higher is a tighter, smoother outline, lower more ragged, with turrets breaking the tower's sides. | 1.2 |
 | `AnvilEdge` | 4 | The anvil's gain relative to the tower's (smoother). | |
 | `StormShade` | 0.25 | Optical depth per unit length of envelope toward the sun (the layer's `LightDepth`): how dark the far side and the base get. | |
 | `StormShadeN`, `StormShadeStep` | 5, 16 | Its steps toward the sun, starting past the noise's two probes. | |
-| `Virga` | 0.3 | Strength of the streaks hanging under the anvil; 0 for none. | |
+| `Virga` | 0.3 | Strength of the curtain of streaks hanging under the anvil, densest at the underside; 0 for none. | |
 | `VirgaLen` | 26 | How far they hang. | |
+| `VirgaScale` | 0.2 | Their streaks: cells of a 2-D noise per unit. | |
 | `StormRain` | 84 | Rain shafts this far below the base (the layer's `Rain`). | |
-| `StormRainDens` | 0.3 | Their density, as a fraction of the cloud's; the rain is masked by `fc-storm-rainmask` (fades toward the edge of the tower's foot, broad shafts streaked by a finer noise). | |
-| `StormGloom` | 0 | Above 0: the air under the storm is in shade. Rays crossing a column of radius `StormGloomR · StormR` below the base fade toward `StormGloomCol`, by this extinction per unit length, weighted by depth below the base and closeness to the axis (it wraps `fc-landscape-grade`). | 0.03 |
-| `StormGloomR` | 2 | That column's radius, in `StormR`. | 2.2 |
+| `StormRainDens` | 0.3 | Their density, as a fraction of the cloud's; the rain is masked by `fc-storm-rainmask` (fades toward the edge of the tower's foot, broad shafts streaked by a finer noise). | 0.45 |
+| `StormRainSlant` | 0 | The rain is blown downwind this much per unit it falls, so the shafts lean. | 0.3 |
+| `StormRainFine` | 0 | Above 0: fine streaks in the shafts, this strong (0..1). | 0.6 |
+| `StormAmbOcc`, `StormAmbStep` | 0.1, 5 | The sky light a sample loses to the cloud above it (the layer's `AmbShade`): this share of the optical depth one probe `StormAmbStep` straight up, so the billows' undersides, the base and the anvil's underside go dark. | 0.25 |
+| `StormBaseDark`, `StormBaseDarkH` | 0.3, 0.5 | Times a ramp of the sky light from `StormBaseDark` at the base to 1 at `StormBaseDarkH` of the way up the tower. | 0.15 |
+| `StormSkyDim` | 0.85 | The share of its sky light the ground loses under the storm, falling off with distance (half at `StormSkyR · StormR` from the tower's axis or the anvil's middle). It wraps `fc-cloud-sky`, so it acts only where `CloudSkyDim` > 0. A storm this size hides a broad part of the sky, which the straight-up probes don't see. | |
+| `StormSkyR` | 5 | That falloff distance, in `StormR`. | |
+| `StormGloom` | 0 | Above 0: the air under the storm is in shade. Rays crossing a column of radius `StormGloomR · StormR` below the base fade toward `StormGloomCol`, by this extinction per unit length, weighted by depth below the base and closeness to the axis (it wraps `fc-landscape-grade`). | 0.02 |
+| `StormGloomR` | 2 | That column's radius, in `StormR`. | 1.5 |
 | `StormGloomCol` | [0.10 0.11 0.13] | The shaded air's colour (sRGB). | |
 | `StormLayer` | `<< >>` | Overrides for the storm layer's keys (the cloud-layer keys above), e.g. `<< /Steps 160 >>`. | |
 
