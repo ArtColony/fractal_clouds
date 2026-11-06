@@ -1005,7 +1005,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
             exit
         } if
         /FsTp FsT def
-        /FsT FsT FsS add def
+        /FsT FsT FsT FsS fc-terrain-step add def
     } loop
     /FcRay false def
     FsHit 0 gt TreesOn and FsKind 0 eq and {

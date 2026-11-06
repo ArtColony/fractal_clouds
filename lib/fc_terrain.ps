@@ -319,6 +319,9 @@ SnowFill 0 gt {
 } bind def
 
 /TerrTop TerrH 1.25 mul TerrBase add def
+% t s -> s': a hook on the march's next step s from t along the ray
+% (lib/fc_coast.ps keeps it short near map stacks)
+/fc-terrain-step { exch pop } def
 /MarchT0 0.5 fc-default             % where marches start along the ray (a reflection starts at the water)
 
 /fc-terrain-hit {                                % -> t | -1
@@ -341,7 +344,7 @@ SnowFill 0 gt {
             exit
         } if
         /Gprev Gt def
-        /Gt Gt Gd 0.42 mul Gt 0.004 mul 0.2 add 2 copy lt { exch } if pop add def
+        /Gt Gt Gt Gd 0.42 mul Gt 0.004 mul 0.2 add 2 copy lt { exch } if pop fc-terrain-step add def
     } loop
     Ghit
 } bind def

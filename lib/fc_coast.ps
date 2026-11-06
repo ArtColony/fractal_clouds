@@ -169,12 +169,48 @@
     MapStacks { /XcSf exch def
         Hmx XcSf 3 get sub dup mul Hmz XcSf 4 get sub dup mul add sqrt /XcSd exch def
         XcSd XcSf 2 get 1.5 mul lt {
-            /XcH exch def
-            Hmx 0.3 mul 5.1 add Hmz 0.3 mul 8.3 add fc-noise2 0.5 sub XcSf 2 get 0.5 mul mul XcSd add
-            XcSf 2 get 1.05 mul XcSf 2 get 0.85 mul 3 -1 roll fc-smooth
-            XcSf 1 get XcH sub mul XcH add XcH fc-max
+            /XcH exch def /XcSr XcSf 2 get def
+            % the outline wanders (a broad lobe and a finer notch), the
+            % wall a steep band 0.2 radius wide
+            Hmx 0.3 mul 5.1 add Hmz 0.3 mul 8.3 add fc-noise2 0.5 sub XcSr 0.5 mul mul XcSd add
+            /XcSu exch def
+            XcSr 1.05 mul XcSr 0.85 mul XcSu fc-smooth
+            % the top (#78): never above `height`, it slumps to the rim,
+            % leans one way (by the stack's own noise) and is cut into
+            % knobs and gullies, so no stack is a flat slab
+            XcSf 1 get
+            0.3 0.95 XcSu XcSr div fc-smooth 0.3 mul
+            XcSf 3 get 0.37 mul 1.7 add XcSf 4 get 0.37 mul 4.9 add fc-noise2 360 mul /XcSa exch def
+            Hmx XcSf 3 get sub XcSa cos mul Hmz XcSf 4 get sub XcSa sin mul add XcSr div 1 add 0.08 mul add
+            Hmx 0.17 mul 2.6 add Hmz 0.17 mul 9.4 add fc-noise2
+            Hmx 0.45 mul 6.8 add Hmz 0.45 mul 1.3 add fc-noise2 0.5 mul add 0.16 mul add
+            XcSr 0.75 mul XcSf 1 get MapSea sub 0.5 mul fc-min mul sub
+            XcH sub mul XcH add XcH fc-max
         } if
     } forall
+} bind def
+
+% s -> s'    a march's next step, kept short near a map stack (#78): a
+% stack's wall is only 0.2 radius across, so the terrain's step (sized by
+% the height above the ground) could stride over its edge, leaving notches
+% and a cap floating over the water. Within reach of a stack whose top the
+% ray is still under, the step is at most the horizontal clearance to the
+% stack's outer edge (1.3 radius) and, inside it, a twentieth of the radius.
+% fc-terrain-hit and fc-forest-hit call it (t s -> s', the ray at t).
+/fc-terrain-step {
+    MapStacks length 0 gt {
+        /XcSs exch def /XcRt exch def
+        /XcRx Mx XcRt mul TerrOX add def /XcRz Mz XcRt mul TerrOZ add def
+        My XcRt mul CamY add /XcRy exch def
+        MapStacks { /XcSf exch def
+            XcRy XcSs My 0 fc-min mul add XcSf 1 get 1 add lt {
+                XcRx XcSf 3 get sub dup mul XcRz XcSf 4 get sub dup mul add sqrt
+                XcSf 2 get 1.3 mul sub XcSf 2 get 0.05 mul fc-max
+                dup XcSs lt { /XcSs exch def } { pop } ifelse
+            } if
+        } forall
+        XcSs
+    } { exch pop } ifelse
 } bind def
 
 % --- driftwood (#40) -----------------------------------------------------------
