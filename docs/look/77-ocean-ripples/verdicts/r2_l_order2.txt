@@ -1,0 +1,5 @@
+REALISM: A
+AESTHETICS: B
+- A’s irregular ripples and broken reflections feel more like natural water.
+- B’s evenly spaced, parallel bands look more procedural.
+- B’s stronger golden highlights and simpler rhythm create a more striking composition.

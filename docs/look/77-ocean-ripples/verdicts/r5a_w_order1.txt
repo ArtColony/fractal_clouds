@@ -1,0 +1,6 @@
+REALISM: B
+AESTHETICS: B
+- B’s water has more convincing variation in wave shape and reflected light.
+- Its broken sunset reflections feel less uniformly streaked.
+- The brighter water leads the eye naturally toward the sea stacks.
+- Both retain visibly synthetic cliff edges and granular textures.

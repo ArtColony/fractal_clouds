@@ -1,0 +1,7 @@
+REALISM: B
+AESTHETICS: B
+
+- B’s water has less uniform banding and more natural surface variation.
+- Its sunset reflection feels better integrated with the waves.
+- Softer foreground highlights let the sea stacks hold attention.
+- The difference is subtle; both retain visibly procedural cliffs and clouds.

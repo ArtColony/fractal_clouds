@@ -1,0 +1,6 @@
+REALISM: B
+AESTHETICS: B
+- B’s smaller, more broken reflections feel more natural.
+- Its water texture remains clearer around the bright highlights.
+- B has a more balanced rhythm of light and shadow.
+- A’s larger white patches look overexposed and dominate the frame.

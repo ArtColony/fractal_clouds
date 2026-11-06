@@ -1,0 +1,7 @@
+REALISM: B
+AESTHETICS: A
+
+- B’s broken reflections and irregular water texture feel more natural.
+- A’s smoother wave bands look slightly too orderly.
+- A’s stronger golden highlights create a clearer visual path toward the sunset.
+- A feels calmer and more cohesive; B’s foreground is busier.
