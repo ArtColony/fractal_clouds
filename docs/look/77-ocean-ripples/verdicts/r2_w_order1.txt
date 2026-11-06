@@ -1,0 +1,6 @@
+REALISM: B
+AESTHETICS: A
+
+- B’s finer, less regular water texture feels more photographic.
+- A’s broad, repeated wave bands look more procedural.
+- A’s sweeping golden reflections create stronger visual rhythm and draw the eye toward the sunset.

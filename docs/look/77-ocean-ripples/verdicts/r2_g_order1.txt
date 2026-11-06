@@ -1,0 +1,6 @@
+REALISM: B
+AESTHETICS: B
+- B’s varied, overlapping ripples feel more natural.
+- Its reflections break across the water more convincingly.
+- A’s broad white highlights look overly smooth and clipped.
+- B balances golden light with darker texture more pleasingly.

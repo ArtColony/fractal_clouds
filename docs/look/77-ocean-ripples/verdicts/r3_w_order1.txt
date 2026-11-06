@@ -1,0 +1,7 @@
+REALISM: B
+AESTHETICS: B
+
+- B’s irregular wave patterns feel more like wind-driven water.
+- A’s evenly spaced foreground ripples look conspicuously procedural.
+- B’s broken sunlight reflections give the sea a more convincing shimmer.
+- B’s subtler foreground texture keeps attention on the sunset and sea stacks.

@@ -1,0 +1,6 @@
+REALISM: B
+AESTHETICS: B
+- B’s broken reflections and irregular ripples feel more natural.
+- A’s long, uniformly bright bands look more synthetic.
+- B balances golden highlights with darker water more pleasingly.
+- Neither shows enough coastline or sea stacks to judge those features.

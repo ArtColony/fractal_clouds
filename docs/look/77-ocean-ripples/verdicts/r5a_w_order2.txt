@@ -1,0 +1,6 @@
+REALISM: B
+AESTHETICS: B
+- B’s smoother, more coherent ripples feel more like moving seawater.
+- Its reflected sunlight forms a more convincing path toward the foreground.
+- A’s sharper, fragmented highlights give the water a slightly metallic appearance.
+- B’s quieter foreground lets the sea stacks and sunset hold attention.

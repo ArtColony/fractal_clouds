@@ -1,0 +1,6 @@
+REALISM: B
+AESTHETICS: A
+
+- B has more varied ripple shapes and finer surface texture, making the water feel more natural.
+- A’s broader reflections create a clearer visual rhythm.
+- A’s smoother transitions feel calmer; B looks slightly over-sharpened.

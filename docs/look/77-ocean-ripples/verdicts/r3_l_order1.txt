@@ -1,0 +1,6 @@
+REALISM: B
+AESTHETICS: A
+
+- B has finer surface texture and more irregular reflections, making the water feel more natural.
+- A’s smoother golden bands create a cleaner, more graceful composition.
+- Both have unusually repetitive ripples and strongly saturated highlights.

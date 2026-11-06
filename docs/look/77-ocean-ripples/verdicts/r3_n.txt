@@ -1,0 +1,3 @@
+order 1 (old shown first): realism: new   aesthetics: new
+order 2 (new shown first): realism: new   aesthetics: new
+reasons in r3_n_order1.txt and r3_n_order2.txt

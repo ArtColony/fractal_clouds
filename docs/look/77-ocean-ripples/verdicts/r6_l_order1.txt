@@ -1,0 +1,6 @@
+REALISM: B
+AESTHETICS: B
+- B’s broken highlights and irregular ripple edges feel more natural.
+- Its varied surface texture gives the water more depth.
+- A’s smoother, more uniform bands look more synthetic.
+- B balances luminous gold with darker water more effectively.

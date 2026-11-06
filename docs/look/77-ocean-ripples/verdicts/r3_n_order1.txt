@@ -1,0 +1,6 @@
+REALISM: B
+AESTHETICS: B
+- B’s irregular ripples and softer reflections feel more like water.
+- A’s sharp, broken streaks look more visibly procedural.
+- B has a more balanced distribution of highlights and shadow.
+- Both read more as close-up water textures than a recognizable sea-stack coast.
