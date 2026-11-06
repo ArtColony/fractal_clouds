@@ -816,8 +816,8 @@ scripts/fetch_fc.sh --check    # in CI</code></pre>
       <div>
         <p class="ref"><a href="https://github.com/ArtColony/fractal_clouds/pull/71">PR #71</a> &middot; issue #33 <span class="mark done">closed</span></p>
         <h3>Passes for compositing into larger works</h3>
-        <p><code>Pass</code> renders a mask, a depth map, flat material IDs (sky, cloud, rock, snow, forest, water, sand, grass) or a matte for one material. <code>PassKeep</code> keeps passes from the same march, so one page can draw the picture and then place type or art behind the mountains with <code>fc-sky-clip</code>. <code>fc-render</code> also honours <code>translate</code> and <code>scale</code>, so a landscape can be placed in any rectangle of a larger PostScript page.</p>
-        <p>The demo print took 33 minutes at 144 dpi for its 720&times;450-pixel landscape. pscat has no masked images, so clipping in PostScript is hard-edged; a soft alpha comes from the mask PNG.</p>
+        <p><code>Pass</code> renders a mask, a depth map, flat material IDs (sky, cloud, rock, snow, forest, water, sand, grass) or a matte for one material. <code>PassKeep</code> keeps passes from the same march, so one page can draw the picture and then place type or art behind the mountains with <code>fc-behind</code>. <code>fc-render</code> also honours <code>translate</code> and <code>scale</code>, so a landscape can be placed in any rectangle of a larger PostScript page.</p>
+        <p>The demo print took 33 minutes at 144 dpi for its 720&times;450-pixel landscape. Since pscat 0.7 (masked images, alpha on images), <code>fc-behind</code> and <code>fc-land-draw</code> composite with a soft edge (#87); the clips stay hard-edged.</p>
       </div>
       <figure>
         <img src="../docs/examples/framed_print.png" width="864" height="648" loading="lazy" alt="A framed print titled Evening Lake: the lake scene with its title set behind the peaks, and mask, depth and material insets below.">

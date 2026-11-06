@@ -414,6 +414,13 @@ the `--pass mask` PNG.
 **Possible request:** `ImageType 3` (at least `InterleaveType 3` with a 1-bit
 mask) and `nulldevice`.
 
+**Since 0.7.0-rc.4 (#87):** both are in, with 1-bit masks only (entry 20).
+`fc-landscape-keep` now renders on the `nulldevice`, keeping the matrix,
+which `nulldevice` resets to identity. In a `--bands` band it keeps the empty clip, since
+`fc-render` reads the band through `defaultmatrix`, which `nulldevice` resets
+too. `fc-behind` and `fc-land-draw` composite with a soft edge, built from
+1-bit masks and `setalpha`. The clips remain as the fallback.
+
 ## 15. No way to write a file: `file` refuses every write, and the file operators are missing
 
 - **Kind:** missing feature (file output)
@@ -542,3 +549,73 @@ printing the bake on stdout for `scripts/render.sh` to file.
 (`render_bands.sh` runs separate processes, so it is unaffected.) Repro: a
 program that writes `(out/x) (w) file` in band 0, run with `--bands 2
 --allow-write out`.
+
+## 20. The skill implies `ImageType 3` takes a soft mask; masks are 1-bit only
+
+- **Kind:** skill docs
+- **Status:** filed PSCatLabs/pscat#1046
+- **Where:** `.claude/skills/pscat/references/extensions.md`, Translucency
+  ("a soft-masked ImageType 3 multiplies its own mask by the alpha")
+- **Found:** 2026-11-06, pscat 0.7.0-rc.4, fractal_clouds#87
+
+The wording reads as if `ImageType 3` accepted a soft (8-bit) mask. It
+doesn't. `InterleaveType 3` takes only a 1-bit `MaskDict`: 8 bits is
+`rangecheck`, as in Ghostscript, so that part is PLRM behaviour, not a bug.
+`InterleaveType` 1 and 2 raise `limitcheck` (pscat#765, open). An `/SMask`
+entry in an ImageType 1 dictionary is silently ignored. Within PostScript the
+only soft alpha for an image is one `setalpha` for the whole image. Repro
+(`pscat --headless`):
+
+```postscript
+/dd { << /ImageType 1 /Width 4 /Height 1 /BitsPerComponent 8 /Decode [0 1 0 1 0 1] /ImageMatrix [4 0 0 -1 0 1] /DataSource <ff0000ff0000ff0000ff0000> >> } def
+/try { exch print gsave mark exch { exec /DeviceRGB setcolorspace 100 100 scale image } stopped { cleartomark ( failed\n) } { cleartomark ( ok\n) } ifelse print grestore } def
+(8-bit mask) { << /ImageType 3 /InterleaveType 3 /DataDict dd /MaskDict << /ImageType 1 /Width 4 /Height 1 /BitsPerComponent 8 /Decode [0 1] /ImageMatrix [4 0 0 -1 0 1] /DataSource <0055aaff> >> >> } try
+(1-bit mask) { << /ImageType 3 /InterleaveType 3 /DataDict dd /MaskDict << /ImageType 1 /Width 4 /Height 1 /BitsPerComponent 1 /Decode [1 0] /ImageMatrix [4 0 0 -1 0 1] /DataSource <50> >> >> } try
+```
+
+prints `8-bit mask failed`, `1-bit mask ok`.
+
+**Workaround here:** `lib/fc_passes.ps` cuts the coverage into 64 levels.
+Each level's pixels are painted once, through a 1-bit mask, at that level's
+`setalpha`. That is exact "over" to within 1/128, at about 0.25 s for a
+720 × 450 frame.
+
+**Possible request:** say in the skill that ImageType 3 masks are 1-bit
+(stencil) only. If "soft-masked" meant the PDF output's `/SMask`, say that.
+
+## 21. An operator that fails leaves its operands popped, not restored
+
+- **Kind:** bug (error semantics)
+- **Status:** filed PSCatLabs/pscat#1047
+- **Found:** 2026-11-06, pscat 0.7.0-rc.4, while writing entry 20's repro
+
+When an operator raises an error, Ghostscript leaves its operands on the
+operand stack (as Adobe interpreters do; the PLRM's error-handling section
+describes it, though the section number isn't checked here), so code after
+`stopped` sees the stack as it was. pscat drops some or all of them:
+
+```postscript
+{ 1 (a) add } stopped pop count 10 string cvs print (\n) print clear
+{ << /ImageType 3 >> image } stopped pop count 10 string cvs print (\n) print
+```
+
+`pscat --headless` prints `1` and `0`. `gs -sDEVICE=nullpage` prints `2` and
+`1`.
+
+**Effect here:** none in the library. A probe that guards `stopped` with
+`mark ... cleartomark` (as `lib/fc_passes.ps` does) works either way.
+Code that counts on the operands being left would see a shorter stack.
+
+## 22. `version`, `product`, `revision` and `serialnumber` are undefined
+
+- **Kind:** missing standard operators
+- **Status:** filed PSCatLabs/pscat#1048
+- **Found:** 2026-11-06, pscat 0.7.0-rc.4 (#87)
+
+Only `languagelevel` exists (it returns 2). Ghostscript gives `(3010)`,
+`(GPL Ghostscript)`, `10071` and `3`. Repro: `pscat -e '{ version } stopped
+{ (undefined) } if print'`.
+
+**Effect here:** `lib/fc_passes.ps` can't tell whether `setalpha` applies to
+images (pscat#830), because PostScript can't read pixels back to probe it.
+So soft compositing just documents that it needs pscat 0.7.0-rc.4 or later.
