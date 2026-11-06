@@ -367,6 +367,11 @@ against a git ref with `--ref`.
 bundle one libm (for example a port of musl's or of CORE-MATH) instead of
 using the platform's.
 
+**Fixed in 0.7.0-rc.4 (checked 2026-11-06):** pscat now uses one libm
+everywhere (pscat#760). All 12 regress cases render on macOS byte-identical
+to the stored Linux references, and the rc.4 Linux renders match the 0.6.2
+ones too. `scripts/regress.sh` now runs on a Mac without `--docker`.
+
 ## 14. No masked images (`ImageType 3`) and no `nulldevice`
 
 - **Kind:** bug (missing operators)
