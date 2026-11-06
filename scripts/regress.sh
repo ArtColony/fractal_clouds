@@ -2,17 +2,16 @@
 # Pixel-regression check: render every gallery piece cheaply, plus a few
 # full-detail crops, and compare them with reference renders pixel for pixel.
 #
-#   scripts/regress.sh                  # against tests/regress/linux/ (on Linux)
+#   scripts/regress.sh                  # against tests/regress/linux/
 #   scripts/regress.sh --ref main       # against main, rendered here in a git worktree
-#   scripts/regress.sh --update         # rewrite tests/regress/linux/ (on Linux)
+#   scripts/regress.sh --update         # rewrite tests/regress/linux/ (Linux, or --docker)
 #   scripts/regress.sh --docker [...]   # run in a Linux container with the pinned pscat
 #   scripts/regress.sh mountains alpine_forest_crop   # only these cases
 #
-# The stored references are Linux renders: the macOS libm rounds a few
-# results (atan, exp) differently in the last bit, and the erosion and noise
-# grow that into visibly different pixels, so a Mac never matches them
-# (docs/pscat-issues.md). On a Mac use --ref, or --docker to check or update
-# the references. Linux arm64 and x86_64 renders match each other.
+# The stored references are Linux renders. Since pscat 0.7.0 (one libm on
+# every platform, pscat#738) a Mac render matches them pixel for pixel, so
+# a Mac can check them directly. Under 0.6 it never did (docs/pscat-issues.md
+# #13). Updates still come from Linux (--docker on a Mac), as CI uses.
 #
 # Every render goes through scripts/render.sh. Renders, logs and diff images
 # (reference | new | changed pixels in red) go to renders/regress/. Exits 1
@@ -64,7 +63,7 @@ if [ "$docker" = 1 ]; then
   cache="${XDG_CACHE_HOME:-$HOME/.cache}/fractal_clouds"
   if [ ! -x "$cache/$t/pscat" ]; then
     mkdir -p "$cache"
-    dl="$(mktemp -d)"
+    dl="$(mktemp -d "${TMPDIR:-/tmp}/fc.XXXXXX")"
     gh release download "v$v" -R PSCatLabs/pscat -p "$t.tar.gz" -p SHA256SUMS -D "$dl"
     (cd "$dl" && shasum -a 256 -c SHA256SUMS --ignore-missing)
     tar xzf "$dl/$t.tar.gz" -C "$cache"
@@ -78,9 +77,8 @@ if [ "$docker" = 1 ]; then
     s=$?; chown -R '"$(id -u):$(id -g)"' renders tests/regress 2>/dev/null; exit $s' regress ${args[@]+"${args[@]}"}
 fi
 
-if [ "$mode" != ref ] && [ "$(uname -s)" != Linux ]; then
-  echo "regress: the references in $refs are Linux renders and never match $(uname -s);" >&2
-  echo "regress: use --ref main, or --docker to check them in a Linux container" >&2
+if [ "$mode" = update ] && [ "$(uname -s)" != Linux ]; then
+  echo "regress: the references in $refs are Linux renders; update them with --docker --update" >&2
   exit 2
 fi
 
@@ -99,7 +97,7 @@ out="$root/renders/regress"
 rm -rf "$out/new" "$out/old" "$out/diff"
 mkdir -p "$out/new"
 
-tmp="$(mktemp -d)"
+tmp="$(mktemp -d "${TMPDIR:-/tmp}/fc.XXXXXX")"
 cleanup() {
   [ -d "$tmp/ref" ] && git -C "$root" worktree remove --force "$tmp/ref" >/dev/null 2>&1
   rm -rf "$tmp"

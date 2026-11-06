@@ -45,7 +45,7 @@ if ! [[ "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
 fi
 name="fractal_clouds-$ver"
 
-tmp="$(mktemp -d)"
+tmp="$(mktemp -d "${TMPDIR:-/tmp}/fc.XXXXXX")"
 installing=0
 # on any exit: a half-done install is rolled back to the libraries it replaced
 trap 'rc=$?; if [ "$installing" = 1 ]; then rm -f lib/fc_*.ps; mv lib/.fc_old/fc_*.ps lib/ 2>/dev/null || true; fi; rm -rf lib/.fc_new lib/.fc_old "$tmp"; exit $rc' EXIT

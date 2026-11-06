@@ -35,7 +35,7 @@ fi
 
 rm -rf dist
 mkdir -p dist
-work="$(mktemp -d)"
+work="$(mktemp -d "${TMPDIR:-/tmp}/fc.XXXXXX")"
 trap 'rm -rf "$work"' EXIT
 
 # the committed tree, with the images techniques.html points at

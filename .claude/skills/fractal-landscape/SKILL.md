@@ -30,8 +30,8 @@ copy: every setting is in `docs/settings.md`, every method in
    `regress.sh` `JOBS=3`. Run long renders in the background.
    Use the released pscat in `.pscat-version`, never a source checkout.
 6. **Never edit `lib/`** to make one piece. A library change must keep the
-   gallery pixel-identical: check with `JOBS=3 scripts/regress.sh --ref main` on
-   a Mac (plain `scripts/regress.sh` on Linux); `--docker --update` only for an
+   gallery pixel-identical: check with `JOBS=3 scripts/regress.sh` (Mac
+   or Linux, since pscat 0.7; `--ref main` compares against main instead); `--docker --update` only for an
    intended look change or a new gallery piece's references. A new library
    file is `lib/fc_*.ps`, with its own name prefix; run `scripts/check_names.sh`. Per-piece changes go in settings, or in hooks the
    piece redefines *after* loading the landscape (`docs/settings.md`, "Hooks").
