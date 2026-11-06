@@ -1,0 +1,5 @@
+REALISM: A
+AESTHETICS: A
+- A’s irregular cliff crest feels more naturally eroded.
+- B’s right stack has conspicuous angular notches that resemble rendering artifacts.
+- A’s cleaner silhouettes create a more cohesive, tranquil composition.
