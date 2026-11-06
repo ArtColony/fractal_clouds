@@ -22,10 +22,11 @@
 /WaterRise where { pop } { /WaterRise 1.4 def } ifelse
 /WaterCol where { pop } { /WaterCol [ 0.10 0.15 0.16 ] def } ifelse    % sRGB, seen straight down
 
-% the light, the clouds and the range: time of day, weather, terrain
-% (after the piece's own settings, which presets never override)
 /RockTint where { pop } { /RockTint 0.5 def } ifelse    % rock colour (#99), half: the evening light is warm already
 /RockStreak where { pop } { /RockStreak 1 def } ifelse  % dark water streaks down the faces (#99)
+
+% the light, the clouds and the range: time of day, weather, terrain
+% (after the piece's own settings, which presets never override)
 (lib/fc_presets.ps) run
 [ /Evening /Clear /Alpine ] fc-presets
 
