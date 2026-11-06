@@ -92,9 +92,8 @@
 /CoastStacks where { pop } { /CoastStacks 0.6 def } ifelse
 /WindDir where { pop } { /WindDir -20 def } ifelse
 /RippleAmp where { pop } { /RippleAmp 0.06 def } ifelse
-% no wet-sand mirror: no beach is in view, and the wet band also mirrored the
-% sky on the cliff and stack walls, lighting them from behind
-/WetSand where { pop } { /WetSand 0 def } ifelse
+% the wet band (WetSand, default 0.1) catches the sunset on the bench at the
+% cliffs' foot; it stays off the cliff and stack walls (#78)
 
 Plan { /Erode where { pop } { /Erode false def } ifelse } if
 

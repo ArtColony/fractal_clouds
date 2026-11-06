@@ -1,0 +1,18 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+%%Title: Narrow stacks
+% Status: test
+% fractal_clouds#78: golden_coast with its map stacks made narrow (radius
+% about half the height, under the 0.65 where the march used to stride over
+% their walls), to check the stack tops and outlines.
+%   DPI=288 scripts/render.sh -D "Crop=[0.2 0.38 0.55 0.6]" docs/look/78-coast-stacks/narrow_stacks.ps
+/MapFeatures [
+    [ /cliff 20 60   -170 600  -290 330  -200 240  -50 230  80 240 ]
+    [ /cliff 20 60    60 -90  -50 -80  -200 -110  -230 -200  -170 -330  -160 -600 ]
+    [ /stack 18 9    -290 -200 ]
+    [ /stack 16 7    -345 -204 ]
+    [ /stack 20 10   -313 -78 ]
+    [ /stack 22 18   -330 320 ]
+    [ /stack 16 14   -300 250 ]
+] def
+(gallery/golden_coast.ps) run
