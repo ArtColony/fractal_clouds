@@ -1,0 +1,5 @@
+REALISM: B
+AESTHETICS: B
+- B’s denser canopy reads more convincingly as a continuous forest.
+- Fuller tree silhouettes make the foreground feel less spindly.
+- The darker forest provides a stronger visual foundation beneath the pale mountains.

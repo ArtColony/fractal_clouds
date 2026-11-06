@@ -1,0 +1,6 @@
+REALISM: B
+AESTHETICS: A
+- B’s varied tree heights and irregular spacing feel more natural.
+- A’s dense canopy better conceals the angular tree geometry.
+- A’s cohesive foreground gives the mountains a stronger visual frame.
+- Both show similarly convincing atmospheric haze, but visibly synthetic terrain and foliage.

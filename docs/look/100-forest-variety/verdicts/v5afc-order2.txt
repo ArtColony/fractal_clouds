@@ -1,0 +1,5 @@
+REALISM: B
+AESTHETICS: B
+- B’s canopy looks slightly more irregular and less repetitive.
+- Its darker foreground trees give the forest a little more depth.
+- The differences are subtle at this resolution.

@@ -1,0 +1,5 @@
+REALISM: B
+AESTHETICS: B
+- B’s varied tree shapes and spacing make the forest feel less repetitive.
+- More visible ground between trees gives B greater depth.
+- B’s foreground has a more pleasing balance of light and shadow.
