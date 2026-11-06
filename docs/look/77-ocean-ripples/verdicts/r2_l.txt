@@ -1,3 +1,3 @@
 order 1 (old shown first): realism: new   aesthetics: new
 order 2 (new shown first): realism: new   aesthetics: old
-reasons in renders/pw/r2_l/order1.txt and renders/pw/r2_l/order2.txt
+reasons in r2_l_order1.txt and r2_l_order2.txt
