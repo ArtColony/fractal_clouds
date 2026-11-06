@@ -76,6 +76,26 @@
 /PassMat /snow fc-default
 /MaskClouds true fc-default
 /DepthFar null fc-default
+/PassSoft true fc-default
+
+% soft compositing needs pscat's setalpha on images (0.7) and ImageType 3
+% masked images with nulldevice (0.7); probe them, so an older pscat (or
+% Ghostscript) falls back to the hard clips
+/PsSoftOK systemdict /setalpha known {
+    gsave mark {
+        nulldevice /DeviceRGB setcolorspace
+        << /ImageType 3 /InterleaveType 3
+           /DataDict << /ImageType 1 /Width 1 /Height 1 /BitsPerComponent 8 /Decode [0 1 0 1 0 1]
+                        /ImageMatrix [1 0 0 1 0 0] /DataSource <000000> >>
+           /MaskDict << /ImageType 1 /Width 1 /Height 1 /BitsPerComponent 1 /Decode [1 0]
+                        /ImageMatrix [1 0 0 1 0 0] /DataSource <80> >> >> image
+    } stopped { cleartomark false } { cleartomark true } ifelse
+    grestore
+} { false } ifelse def
+PassSoft PsSoftOK not and PassKeep length 0 gt and {
+    (fc_passes: this interpreter has no ImageType 3 or no setalpha on images; fc-land-draw and fc-behind use the hard clips\n) print
+} if
+/PsSoft PassSoft PsSoftOK and PassKeep length 0 gt and def
 
 /PsNames [ /sky /cloud /rock /snow /forest /water /sand /grass ] def
 /PsPal <000000 ffffff d62728 66e0ff 2ca02c 1f4fd8 f2c84b a6d854> def
@@ -165,7 +185,10 @@ Pass /material eq { /AA false store } if          % an average of IDs is no ID
     PsU PsV fc-landscape-pixel
     /PsT LnT def                                 % the hit distance (FcKey may be scaled)
     fc-pass-weights
-    PsKeepOn { PsU FrU eq PsV FrV eq and { fc-pass-record } if } if
+    PsKeepOn {
+        PsSoft { fc-pass-soft } if
+        PsU FrU eq PsV FrV eq and { fc-pass-record } if
+    } if
     Pass /beauty ne {
         PsKeepD /beauty known PsU FrU eq PsV FrV eq and and { fc-pass-keep-rgb } if
         pop pop pop
@@ -179,24 +202,75 @@ Pass /material eq { /AA false store } if          % an average of IDs is no ID
 
 % --- recording --------------------------------------------------------------------
 /PsKeepOn PassKeep length 0 gt def
-/PsKeepD 4 dict def
+/PsKeepD 8 dict def
 /PsFresh true def
 
 /fc-pass-alloc {                                 % - -> -: rows for this render
     PassKeep { /PsK exch def
         PsKeepD PsK [ IH { IW PsK /beauty eq { 3 mul } if string } repeat ] put
     } forall
+    PsSoft {                                     % the soft composite's own rows
+        PsKeepD /mask known not { PsKeepD /mask [ IH { IW string } repeat ] put } if
+        PsKeepD /fg [ IH { IW 3 mul string } repeat ] put
+        PsKeepD /bg [ IH { IW 3 mul string } repeat ] put
+        /PsZr IW 7 add 8 idiv string def
+    } if
+    /PsLv null def
     /PsFresh false def
 } bind def
 
 /fc-pass-record {                                % - -> -: this pixel (FrI, FrJ)
     PsFresh { fc-pass-alloc } if
-    PsKeepD /mask known {
+    PsKeepD /mask known PsSoft not and {
         PsKeepD /mask get FrJ get FrI
         MaskClouds { 1 PsW 0 get sub } { FcKey 0 lt { 0 } { 1 } ifelse } ifelse fc-byte put
     } if
     PsKeepD /depth known { PsKeepD /depth get FrJ get FrI fc-pass-depth fc-byte put } if
     PsKeepD /material known { PsKeepD /material get FrJ get FrI fc-pass-id put } if
+} bind def
+
+% --- the soft composite's record (PassSoft) ---------------------------------------
+% Every sample of the pixel, the centre and its antialiasing samples, adds to
+% three running sums, rewritten after each: the coverage w (1 on the
+% landscape; 1 - Tr on the sky with MaskClouds, else 0), the landscape's
+% own colour weighted by w (fg) and what is behind it weighted by 1 - w
+% (bg). Both are straight, not premultiplied: an edge pixel's fg is the
+% mountain's colour alone, with none of the sky it was averaged with, so
+% fg at alpha w over new art leaves no sky-coloured fringe, and fg at w
+% over bg gives back the picture. On the sky the clouds' straight colour
+% is their light over their opacity, Cr / (1 - Tr), and the sky behind
+% them is LnR LnG LnB, each graded and toned as the picture is.
+/PsAf [ 0 0 0 ] def /PsAb [ 0 0 0 ] def
+/PsAn 0 def /PsAw 0 def /PsAs 0 def
+/fc-pass-add-f {                                 % r g b w -> -: add w x rgb to fg
+    /PsCk exch def /PsAw PsAw PsCk add def
+    2 -1 0 { /PsCq exch def PsCk mul PsAf PsCq get add PsAf PsCq 3 -1 roll put } for
+} bind def
+/fc-pass-add-b {                                 % r g b w -> -: ... and to bg
+    /PsCk exch def /PsAs PsAs PsCk add def
+    2 -1 0 { /PsCq exch def PsCk mul PsAb PsCq get add PsAb PsCq 3 -1 roll put } for
+} bind def
+/fc-pass-put3 {                                  % rows sums weight -> -: this pixel's colour
+    /PsCk exch def /PsCs exch def FrJ get /PsKr exch def
+    0 1 2 { /PsCq exch def PsKr FrI 3 mul PsCq add PsCs PsCq get PsCk div fc-byte put } for
+} bind def
+/fc-pass-soft {                                  % r g b -> r g b
+    PsFresh { fc-pass-alloc } if
+    PsU FrU eq PsV FrV eq and {                  % the centre sample comes first
+        /PsAn 0 def /PsAw 0 def /PsAs 0 def
+        0 1 2 { dup PsAf exch 0 put PsAb exch 0 put } for
+    } if
+    /PsAn PsAn 1 add def
+    FcKey 0 ge { 3 copy 1 fc-pass-add-f } {
+        MaskClouds 1 Tr sub 1e-4 gt and {
+            /PsCw 1 Tr sub def
+            Cr PsCw div Cg PsCw div Cb PsCw div fc-landscape-grade fc-tone PsCw fc-pass-add-f
+            LnR LnG LnB fc-landscape-grade fc-tone Tr fc-pass-add-b
+        } { 3 copy 1 fc-pass-add-b } ifelse
+    } ifelse
+    PsKeepD /mask get FrJ get FrI PsAw PsAn div fc-byte put
+    PsKeepD /fg get PsAw 0 gt { PsAf PsAw } { PsAb PsAs } ifelse fc-pass-put3
+    PsKeepD /bg get PsAs 0 gt { PsAb PsAs } { PsAf PsAw } ifelse fc-pass-put3
 } bind def
 
 % r g b -> r g b: the picture's centre sample, when the image shows a pass
@@ -227,7 +301,15 @@ Pass /mask eq Pass /depth eq or PsKeepOn not and
 % --- using the kept passes ----------------------------------------------------------
 /fc-landscape-keep {                             % pw ph -> -
     PsKeepOn not { (fc_passes: fc-landscape-keep with nothing in PassKeep\n) print } if
-    gsave newpath 0 0 0 0 rectclip fc-landscape grestore
+    % nulldevice paints nothing but still runs the image's data procedure;
+    % keep the matrix, which it resets. Under pscat --bands fc-render reads
+    % the band from defaultmatrix, which nulldevice resets too, so a band
+    % (or an interpreter without nulldevice) keeps the empty clip
+    gsave
+    PsSoftOK /BandBBox where { pop false } { true } ifelse and
+        { matrix currentmatrix nulldevice setmatrix } { newpath 0 0 0 0 rectclip } ifelse
+    fc-landscape
+    grestore
 } bind def
 
 /fc-pass-rows {                                  % name -> rows | null
@@ -242,7 +324,7 @@ Pass /mask eq Pass /depth eq or PsKeepOn not and
         gsave
         FrPw FrPh scale
         /PsDm [ IW 0 0 IH neg 0 IH ] def
-        PsDn /beauty eq {
+        PsDn /beauty eq PsDn /fg eq or PsDn /bg eq or {
             IW IH 8 PsDm { PsDa PsDj get /PsDj PsDj 1 add def } false 3 colorimage
         } {
             PsDn /material eq {
@@ -285,3 +367,84 @@ Pass /mask eq Pass /depth eq or PsKeepOn not and
 } bind def
 /fc-sky-clip { false fc-pass-clip } bind def
 /fc-land-clip { true fc-pass-clip } bind def
+
+% --- soft compositing (PassSoft, pscat 0.7) -------------------------------------
+% pscat's ImageType 3 masks are 1 bit, so a soft edge is drawn as layers: the
+% kept coverage is cut into PsQ levels, and the pixels at level q are painted
+% once, through a 1-bit mask, at alpha q / PsQ (times the alpha in force).
+% Each pixel is painted at most once, at its own alpha, so the result is
+% straight-alpha "over", within 1/(2 PsQ) of the exact coverage.
+/PsQ 64 def
+/PsLv null def
+
+% - -> -: PsLv[q] the 1-bit rows (or null) of the pixels at level q, between
+% rows PsLj0[q] and PsLj1[q]
+/fc-pass-levels {
+    /PsLv PsQ 1 add array def /PsLj0 PsQ 1 add array def /PsLj1 PsQ 1 add array def
+    /PsMb IW 7 add 8 idiv def
+    /PsCa PsKeepD /mask get def
+    0 1 IH 1 sub { /PsCj exch def /PsCr PsCa PsCj get def
+        0 1 IW 1 sub { /PsCi exch def
+            PsCr PsCi get dup 0 gt {
+                PsQ mul 127 add 255 idiv dup 0 gt {
+                    /PsLq exch def
+                    PsLv PsLq get null eq { PsLv PsLq IH array put PsLj0 PsLq PsCj put } if
+                    PsLj1 PsLq PsCj put
+                    PsLv PsLq get dup PsCj get null eq { dup PsCj PsMb string put } if
+                    PsCj get PsCi -3 bitshift 2 copy get 128 PsCi 7 and neg bitshift or put
+                } { pop } ifelse
+            } { pop } ifelse
+        } for
+    } for
+} bind def
+
+% rows maskrows j0 j1 -> -: frame rows j0..j1 of a kept colour pass through
+% 1-bit mask rows (null: none of the row), in the frame's unit square
+/fc-pass-mimage {
+    /PsJ1 exch def /PsJ0 exch def /PsMr exch def /PsDr exch def
+    /PsDj PsJ0 def /PsMj PsJ0 def
+    /DeviceRGB setcolorspace
+    << /ImageType 3 /InterleaveType 3
+       /DataDict << /ImageType 1 /Width IW /Height PsJ1 PsJ0 sub 1 add /BitsPerComponent 8
+                    /Decode [0 1 0 1 0 1] /ImageMatrix [IW 0 0 IH neg 0 IH PsJ0 sub]
+                    /DataSource { PsDr PsDj get /PsDj PsDj 1 add def } >>
+       /MaskDict << /ImageType 1 /Width IW /Height PsJ1 PsJ0 sub 1 add /BitsPerComponent 1
+                    /Decode [1 0] /ImageMatrix [IW 0 0 IH neg 0 IH PsJ0 sub]
+                    /DataSource { PsMr PsMj get dup null eq { pop PsZr } if /PsMj PsMj 1 add def } >>
+    >> image
+} bind def
+
+% - -> -: the landscape over what is on the page, its edge (and with
+% MaskClouds its clouds over the sky) soft; the hard fallback is the beauty
+% through fc-land-clip
+/fc-land-draw {
+    PsSoft {
+        PsKeepD /fg known not { (fc_passes: fc-land-draw before the landscape was kept\n) print } {
+            PsLv null eq { fc-pass-levels } if
+            gsave
+            FrPw FrPh scale
+            /PsA0 currentalpha def
+            1 1 PsQ { /PsLk exch def
+                PsLv PsLk get null ne {
+                    PsA0 PsLk mul PsQ div setalpha
+                    PsKeepD /fg get PsLv PsLk get PsLj0 PsLk get PsLj1 PsLk get fc-pass-mimage
+                } if
+            } for
+            grestore
+        } ifelse
+    } { gsave fc-land-clip /beauty fc-pass-draw grestore } ifelse
+} bind def
+
+% - -> -: what is behind the landscape, opaque (the sky, and clouds unless
+% MaskClouds), over the whole frame; the hard fallback is the beauty
+/fc-sky-draw {
+    PsSoft { /bg fc-pass-draw } { /beauty fc-pass-draw } ifelse
+} bind def
+
+% proc -> -: the picture with proc's art behind the landscape: the sky, then
+% the art, then the landscape with a soft edge; the hard fallback is the
+% beauty, then the art through fc-sky-clip
+/fc-behind {
+    PsSoft { fc-sky-draw gsave exec grestore fc-land-draw }
+           { /beauty fc-pass-draw gsave fc-sky-clip exec grestore } ifelse
+} bind def

@@ -6,8 +6,8 @@
 % A demo of render passes (lib/fc_passes.ps, docs/settings.md "Render
 % passes"): the evening-lake scene is rendered once, into a rectangle of a
 % larger page, with its mask, depth and material IDs kept. The page then
-% puts the title behind the mountains (drawn through the sky
-% clip, after the picture), and prints the three passes underneath as
+% puts the title behind the mountains (fc-behind: the sky, the
+% title, then the landscape over it with a soft edge), and prints the three passes underneath as
 % insets. Helvetica and Times only.
 %
 %   scripts/render.sh docs/examples/framed_print.ps
@@ -34,16 +34,16 @@ gsave WinX WinY translate WinS dup scale
 320 200 fc-landscape-keep
 grestore
 
-% the picture
-gsave WinX WinY translate WinS dup scale /beauty fc-pass-draw grestore
-
-% behind the mountains: the title, through the sky clip, after the picture
+% the picture, with the title behind the mountains: the sky, the title, then
+% the landscape over it with a soft edge (or, on an interpreter without
+% masked images, the picture and the title through the hard sky clip)
 gsave
 WinX WinY translate WinS dup scale
-fc-sky-clip
-0.30 0.22 0.34 setrgbcolor
-/Times-Bold findfont 28 scalefont setfont
-120 140 moveto (Evening Lake) show
+{
+    0.30 0.22 0.34 setrgbcolor
+    /Times-Bold findfont 28 scalefont setfont
+    120 140 moveto (Evening Lake) show
+} fc-behind
 grestore
 
 % keyline
