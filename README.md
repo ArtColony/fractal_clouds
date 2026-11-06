@@ -21,9 +21,9 @@ ln -sf ~/.local/opt/pscat-$v/pscat ~/.local/opt/pscat-$v/pscat-mcp ~/.local/bin/
 pscat --version
 ```
 
-The bare install has only Helvetica, Times and Courier. `pscat fonts install`
-adds the font packs (Palatino and the rest of the LaserWriter 35, and the
-display faces).
+The release bundle carries the standard 35 fonts (`fonts/base35`: Palatino,
+Bookman and the rest map to TeX Gyre). `pscat fonts install` adds the
+display faces.
 
 ## Layout
 
