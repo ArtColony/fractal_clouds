@@ -51,8 +51,9 @@
 %   PassSoft    true     with PassKeep, keep what fc-behind and fc-land-draw
 %                        need for a soft edge: the mask from every sample
 %                        (antialiased), and the landscape's own colour and
-%                        what is behind it (three bytes a pixel each). Needs
-%                        pscat 0.7 (ImageType 3, setalpha on images); without
+%                        what is behind it (three bytes a pixel each), and
+%                        the compositing alpha (one). Needs pscat
+%                        0.7.0-rc.4+ (ImageType 3, setalpha on images); without
 %                        them, or false, the hard clips, as before #87
 %
 % With PassKeep, one march gives a page the picture and its passes:
