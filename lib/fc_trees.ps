@@ -331,11 +331,13 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
 %            stands, before the edge is found, so their margins are edges
 %   FsEdge   finds the stand's edge (the density over its box blur FsEdgeW
 %            wide: high just inside a margin) and lowers the trees away
-%            from it, by up to FsEdge 0.18, so the edges stand tallest
+%            from it, by up to FsEdge 0.18, so the edges (and trees in
+%            the open) stand tallest
 %   FsAge    patches of stand age (two octaves of noise at FsAgeScale,
 %            kept in FsAg, 0 young .. 1 old): young stands up to FsAge 0.45
 %            shorter; the shading makes them lighter and yellower, and the
-%            old ones darker and bluer (fc-forest-tint)
+%            old ones darker and bluer (fc-forest-tint: red +-40%, green
+%            +-28%, blue +-4% at FsAge 1)
 /FsVarOn FsAge 0 gt FsEdge 0 gt or FsGaps 0 gt or def
 /FsTintOn FsAge 0 gt FsJit 0 gt or def
 /fc-forest-variety {
@@ -380,6 +382,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
         % the edge: the density well over its surroundings'
         0 1 FsN FsN mul 1 sub { /Fbk exch def
             0.04 0.22 FsDm Fbk get FyB Fbk get sub fc-smooth
+            1 0.25 0.6 FsDm Fbk get fc-smooth sub fc-max     % (and trees in the open)
             1 exch sub FsEdge 0.18 mul mul 1 exch sub
             FsHs Fbk get mul FsHs Fbk 3 -1 roll put
         } for
@@ -418,9 +421,9 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
 /fc-forest-age-tint {
     fc-forest-age 2 mul 1 exch sub FsAge mul /Fyy exch def
     aload pop
-    Fyy -0.06 mul 1 add mul 3 1 roll
-    Fyy 0.16 mul 1 add mul 3 1 roll
-    Fyy 0.26 mul 1 add mul 3 1 roll
+    Fyy 0.04 mul 1 add mul 3 1 roll
+    Fyy 0.28 mul 1 add mul 3 1 roll
+    Fyy 0.40 mul 1 add mul 3 1 roll
     3 array astore
 } bind def
 
@@ -1525,10 +1528,10 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
 /fc-forest-under {
     /FcPx Kt PixAng mul def /FcY 0 def
     Kx Kz Kx Kz fc-forest-mapt fc-crowns pop
-    1 0 FsCell 0.5 mul FcHc fc-smooth sub 0.7 mul  Ftd 0.3 mul add 1 fc-min
+    1 0 FsCell 0.5 mul FcHc fc-smooth sub 0.6 mul  Ftd 0.5 mul add 1 fc-min
     FsUnder mul Ftw mul /Fyo exch def
-    /KskyMul KskyMul 1 Fyo 0.75 mul sub mul def
-    /Alb [ Alb { 1 Fyo 0.3 mul sub mul } forall ] def
+    /KskyMul KskyMul 1 Fyo 0.8 mul sub mul def
+    /Alb [ Alb { 1 Fyo 0.35 mul sub mul } forall ] def
 } bind def
 
 % fc-terrain-shade's material hook: reads Kx Kz Kh Ny Kt Ksnow Alb
