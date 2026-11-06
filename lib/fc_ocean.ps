@@ -31,7 +31,11 @@
 
 /SwellAmp 0.10 fc-default            % swell slope (the steepest component's)
 /SwellLen 12 fc-default              % longest swell wavelength, world units
-/SwellSpread 30 fc-default           % degrees the components' headings spread around WindDir
+/SwellSpread 60 fc-default           % degrees the longest components' headings spread around WindDir
+/SwellWaves 16 fc-default            % number of swell components
+/SwellRatio 0.83 fc-default          % each component's wavelength over the previous one's
+/SwellFan 1.5 fc-default             % the shortest components spread this many times SwellSpread
+/SwellTilt 0 fc-default              % slope ~ wavelength^SwellTilt: 0 all equal, higher favours the long
 /SwellShoal 0.8 fc-default           % extra steepness in the surf zone
 /SeaShallow [ 0.10 0.70 0.66 ] fc-colour   % the water's own colour over shallows, sRGB
 /SeaDeep [ 0.03 0.11 0.13 ] fc-colour      % ... and over deep water
@@ -51,14 +55,54 @@
 /SandHeight 0.8 fc-default           % sand on the bed and up to this height above the water; 0: none
 /SandCol [ 0.74 0.67 0.52 ] fc-colour      % sRGB
 
-% the swell: [ wavelength (of SwellLen)  heading (of SwellSpread)  slope  phase ]
+% the swell: SwellWaves directional sine waves, a short-crested sea rather
+% than a few long-crested trains (#77: four waves, one of them carrying half
+% the slope, printed evenly spaced stripes once the shorter ones had faded).
+% Wavelengths fall geometrically from SwellLen by SwellRatio, each jittered
+% so no two are near harmonics; headings spread around WindDir, by
+% SwellSpread for the longest and up to SwellFan times that for the
+% shortest, crowded toward the wind (about cos² spreading); phases, jitter
+% and headings come from fixed low-discrepancy sequences, not rand, so the
+% sea draws nothing from the piece's random stream. The slopes fall gently
+% with the wavelength (SwellTilt), so that no one component dominates at any
+% distance, and are scaled so their summed variance is the old four waves'
+% (1² + 0.75² + 0.6² + 0.45²): the sea is as rough as before, the glitter as
+% wide. Each entry:
+%   [ kx kz  cos sin  slope  phase  lost-weight  height-weight  wavelength ]
+% k is 360 / wavelength along the heading; the lost weights add up to the old
+% four slopes' sum, so the far sea (all components faded) is as before; the
+% height weights (slope times wavelength: the long waves make the crests)
+% are scaled so the summed height has the old one's spread.
 /OcWaves [
-    [ 1.00  0.00 1.00   0 ]
-    [ 0.63  0.65 0.75  70 ]
-    [ 0.41 -0.80 0.60 200 ]
-    [ 0.27  0.30 0.45 130 ]
+    0 1 SwellWaves 1 sub { /OcI exch def
+        OcI 0.618034 mul 0.37 add dup floor sub /OcU exch def
+        OcI 0.754878 mul 0.11 add dup floor sub /OcV exch def
+        OcI 0.569840 mul 0.83 add dup floor sub 360 mul /OcPh exch def
+        SwellRatio OcI exp OcV 0.5 sub 0.16 mul 1 add mul /OcLf exch def
+        % heading: V spread to -1..1, squeezed toward 0 (more energy downwind)
+        OcU 2 mul 1 sub dup abs sqrt mul
+        SwellFan 1 sub OcI SwellWaves 1 sub 1 fc-max div mul 1 add mul
+        SwellSpread mul WindDir add /OcDg exch def
+        SwellLen OcLf mul /OcWv exch def
+        [ OcDg cos 360 mul OcWv div  OcDg sin 360 mul OcWv div
+          OcDg cos OcDg sin
+          OcLf SwellTilt exp  OcPh  0 0  OcWv ]
+    } for
 ] def
-/OcWsum 0 OcWaves { 2 get add } forall def
+/OcSq 0 OcWaves { 4 get dup mul add } forall def
+/OcSs 2.125 OcSq div sqrt def
+/OcWsum 0 def /OcHq 0 def
+OcWaves { /OcW exch def
+    OcW 4 OcW 4 get OcSs mul put
+    /OcWsum OcWsum OcW 4 get add def
+    /OcHq OcHq OcW 4 get OcW 8 get mul dup mul add def
+} forall
+/OcLs 2.8 OcWsum div def
+/OcHs 1.4578 OcHq sqrt div def           % sqrt(2 x 2.125): the old sum's spread
+OcWaves { /OcW exch def
+    OcW 6 OcW 4 get OcLs mul put
+    OcW 7 OcW 4 get OcW 8 get mul OcHs mul 2.8 div put
+} forall
 /OcD 1000 def /OcH 0 def /OcLost 0 def
 
 % --- the bed under the sea ------------------------------------------------------
@@ -98,19 +142,16 @@
     SurfDepth 3 mul 0 OcD fc-smooth SwellShoal mul 1 add SwellAmp mul /OcA exch def
     /OcGx 0 def /OcGz 0 def /OcH 0 def /OcLost 0 def
     OcWaves { /OcW exch def
-        SwellLen OcW 0 get mul /OcWv exch def
-        OcWv OcFp 3 mul div 1 fc-min /OcFd exch def
+        OcW 8 get OcFp 3 mul div 1 fc-min /OcFd exch def
         OcFd 0.05 gt {
-            SwellSpread OcW 1 get mul WindDir add /OcDg exch def
-            OcX OcDg cos mul OcZ OcDg sin mul add 360 mul OcWv div OcW 3 get add /OcP exch def
-            OcA OcW 2 get mul OcFd mul OcP cos mul /OcS exch def
-            /OcGx OcGx OcS OcDg cos mul add def
-            /OcGz OcGz OcS OcDg sin mul add def
-            /OcH OcH OcP sin OcW 2 get mul OcFd mul add def
+            OcX OcW 0 get mul OcZ OcW 1 get mul add OcW 5 get add /OcP exch def
+            OcA OcW 4 get mul OcFd mul OcP cos mul /OcS exch def
+            /OcGx OcGx OcS OcW 2 get mul add def
+            /OcGz OcGz OcS OcW 3 get mul add def
+            /OcH OcH OcP sin OcW 7 get mul OcFd mul add def
         } if
-        /OcLost OcLost OcA OcW 2 get mul 1 OcFd sub mul add def
+        /OcLost OcLost OcA OcW 6 get mul 1 OcFd sub mul add def
     } forall
-    /OcH OcH OcWsum div def
     % the chop: the lake's ripples
     OcX OcZ OcT OcNormPrev
     /OcNz exch def /OcNy exch def /OcNx exch def
