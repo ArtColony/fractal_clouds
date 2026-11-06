@@ -94,9 +94,14 @@
 /DepthFar null fc-default
 /PassSoft true fc-default
 
-% soft compositing needs pscat's setalpha on images (0.7) and ImageType 3
-% masked images with nulldevice (0.7); probe them, so an older pscat (or
-% Ghostscript) falls back to the hard clips
+% Soft compositing needs pscat 0.7.0-rc.4 or later: ImageType 3 masked
+% images and nulldevice (pscat#758), and setalpha applied to images
+% (pscat#830). The probe below finds the first two and that setalpha
+% exists, so an older pscat (or Ghostscript) falls back to the hard clips.
+% It can't tell whether setalpha reaches images: PostScript can't read
+% pixels back, and pscat has no version operator. A build that has #758
+% but not #830 would paint every level opaque; use
+% PassSoft false there
 /PsSoftOK systemdict /setalpha known {
     gsave mark {
         nulldevice /DeviceRGB setcolorspace
@@ -109,7 +114,7 @@
     grestore
 } { false } ifelse def
 PassSoft PsSoftOK not and PassKeep length 0 gt and {
-    (fc_passes: this interpreter has no ImageType 3 or no setalpha on images; fc-land-draw and fc-behind use the hard clips\n) print
+    (fc_passes: soft compositing needs pscat 0.7.0-rc.4 or later \(ImageType 3, nulldevice, setalpha on images\); fc-land-draw and fc-behind use the hard clips\n) print
 } if
 /PsSoft PassSoft PsSoftOK and PassKeep length 0 gt and def
 
@@ -227,6 +232,7 @@ Pass /material eq { /AA false store } if          % an average of IDs is no ID
     } forall
     PsSoft {                                     % the soft composite's own rows
         PsKeepD /mask known not { PsKeepD /mask [ IH { IW string } repeat ] put } if
+        PsKeepD /alpha [ IH { IW string } repeat ] put   % the mask, raised where fg needs it
         PsKeepD /fg [ IH { IW 3 mul string } repeat ] put
         PsKeepD /bg [ IH { IW 3 mul string } repeat ] put
         /PsZr IW 7 add 8 idiv string def
@@ -260,6 +266,7 @@ Pass /material eq { /AA false store } if          % an average of IDs is no ID
 % (1 - w) bg is c again; the tone curve isn't linear, so splitting before
 % it would darken the clouds.
 /PsAf [ 0 0 0 ] def /PsAb [ 0 0 0 ] def /PsBc [ 0 0 0 ] def
+/PsFg [ 0 0 0 ] def /PsBg [ 0 0 0 ] def
 /PsAn 0 def /PsAw 0 def /PsAs 0 def
 /fc-pass-add-f {                                 % r g b w -> -: add w x rgb to fg
     /PsCk exch def /PsAw PsAw PsCk add def
@@ -293,9 +300,40 @@ Pass /material eq { /AA false store } if          % an average of IDs is no ID
             } for
         } { 3 copy 1 fc-pass-add-b } ifelse
     } ifelse
-    PsKeepD /mask get FrJ get FrI PsAw PsAn div fc-byte put
-    PsKeepD /fg get PsAw 0 gt { PsAf PsAw } { PsAb PsAs } ifelse fc-pass-put3
-    PsKeepD /bg get PsAs 0 gt { PsAb PsAs } { PsAf PsAw } ifelse fc-pass-put3
+    /PsAa PsAw PsAn div def
+    PsKeepD /mask get FrJ get FrI PsAa fc-byte put
+    0 1 2 { /PsCq exch def
+        PsFg PsCq PsAw 0 gt { PsAf PsCq get PsAw div } { PsAb PsCq get PsAs div } ifelse put
+        PsBg PsCq PsAs 0 gt { PsAb PsCq get PsAs div } { PsFg PsCq get } ifelse put
+    } for
+    PsAw 0 gt PsAs 0 gt and { fc-pass-fit } if
+    PsKeepD /alpha get FrJ get FrI PsAa fc-byte put
+    PsKeepD /fg get PsFg 1 fc-pass-put3
+    PsKeepD /bg get PsBg 1 fc-pass-put3
+} bind def
+
+% - -> -: keep fg in 0..1. Over a dark sky a bright cloud's straight colour
+% (c - Tr bg) / (1 - Tr) can pass 1 (the tone curve is concave), and a
+% clamped fg would no longer give back the picture. Any alpha a' >= a with
+% fg' = bg + a (fg - bg) / a' composites to the same colour, so raise the
+% compositing alpha (PsAa, kept apart from the mask) just enough that every
+% channel of fg' is in range
+/fc-pass-fit {
+    /PsAt PsAa def
+    0 1 2 { /PsCq exch def
+        /PsCf PsFg PsCq get def /PsCb PsBg PsCq get def
+        PsCf 1 gt { PsCb 0.999999 lt { PsAa PsCf PsCb sub mul 1 PsCb sub div } { 1 } ifelse
+                    PsAt fc-max /PsAt exch def } if
+        PsCf 0 lt { PsCb 0.000001 gt { PsAa PsCb PsCf sub mul PsCb div } { 1 } ifelse
+                    PsAt fc-max /PsAt exch def } if
+    } for
+    /PsAt PsAt 1 fc-min def
+    PsAt PsAa gt {
+        0 1 2 { /PsCq exch def
+            PsFg PsCq PsBg PsCq get PsFg PsCq get PsBg PsCq get sub PsAa mul PsAt div add put
+        } for
+        /PsAa PsAt def
+    } if
 } bind def
 
 % r g b -> r g b: the picture's centre sample, when the image shows a pass
@@ -407,7 +445,7 @@ Pass /mask eq Pass /depth eq or PsKeepOn not and
 /fc-pass-levels {
     /PsLv PsQ 1 add array def /PsLj0 PsQ 1 add array def /PsLj1 PsQ 1 add array def
     /PsMb IW 7 add 8 idiv def
-    /PsCa PsKeepD /mask get def
+    /PsCa PsKeepD /alpha get def
     0 1 IH 1 sub { /PsCj exch def /PsCr PsCa PsCj get def
         0 1 IW 1 sub { /PsCi exch def
             PsCr PsCi get dup 0 gt {
