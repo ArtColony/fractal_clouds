@@ -781,6 +781,33 @@ octaves) the two-pixel footprint never gets below 0.044 units, so the
 finest roughness octave (0.042) and grass octave (0.022) only switch on if
 `GroundOct` is raised.
 
+## Meadow and beach texture (`fc_midground.ps`, with `MidGrass`, `MidSand` or `MidBump`, #103)
+
+Texture for grass and sand at every distance, so a meadow or a beach
+between the near ground cover (`GroundOn`, which works only within about
+50 units) and the far terrain is not one flat tone. `fc_terrain.ps` loads
+`lib/fc_midground.ps` at its end when any of the three strengths is above
+0 (all 0 by default: identical output), and calls it after the material
+hook and the ground cover. Grass is ground the earlier steps painted green
+(green over the mean of red and blue by 1.15 to 1.35 in linear terms, a stricter test than `fc_ground.ps`'s, which pale sand passes); sand is the coast's beach
+(`fc_coast.ps`'s sand weight and its distance from the water). Every
+octave and line fades in as it grows from one to 2.5 footprints (two
+pixels on the ground, stretched by how obliquely the ray meets it) and
+leaves its mean where it can't show, so nothing aliases and the tone
+doesn't drift with distance or image size. Each octave is turned its own
+way and shifted by the coarser ones (no tiling). Noise only, no `rand`.
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `MidGrass` | 0 | 0–1: meadow texture. Broad patches (7 and 2.6 units' wavelength) of lush, deeper green (`MidLush`) and drier swathes toward straw (`MidStraw`), then straw tufts and darker clumps (0.38 and 0.15 units; a 1-unit octave breaks up the dry swathes) and a fine mottle. | 1 in pnw_coast, tropical_island |
+| `MidSand` | 0 | 0–1: beach texture, above the water only: lighter and darker drifts stretched along the wind (`MidWind`; 3 × 0.6 and 0.8 × 0.15 units) with a grainy mottle close up; damp, darker sand within about `MidDamp` of the water (its edge wandering; it fades out where the ray grazes the sand, which then mirrors the sky, `WetSand`); and a wrack line (`MidWrack`) 0.25 units wide at each distance in `MidTide`, broken into clumps once they span a few pixels along it, and weighed by its share of the footprint along the ray, so far off it thins to a faint line instead of an outline. Meant for sand: on cobbles (`/PNWCoast`) the drifts read as marbling. | 1 in tropical_island |
+| `MidBump` | 0 | Micro-relief on that grass and sand: three octaves of a height noise (1.7, 0.65 and 0.25 units), each `MidBump` × its wavelength / 10 high; their slope tilts the shading normal and their hollows see up to a quarter less sky (what shows under overcast). Sand gets 1.5 times as much. | 1 in pnw_coast, tropical_island |
+| `MidStraw`, `MidWrack` | [0.62 0.56 0.36], [0.30 0.26 0.20] | sRGB: dry straw in the meadow; the strandlines' wrack. | |
+| `MidLush` | [0.80 0.95 0.70] | Multiplier on the albedo in lush patches (deeper, more saturated green). | |
+| `MidDamp` | 4 | Damp sand reaches about this far (units) from the water, ±40%. | |
+| `MidTide` | [5 13] | Strandlines: their distances (units, the coast's wobbled distance) from the water, each wandering by 30% of it. `[]`: none. | |
+| `MidWind` | null | Degrees from +x toward +z (as `WindDir`): the direction sand drifts run along. null: `WindDir` when the water defines it, else 37. | |
+
 ## Terrain from a map (`fc_map.ps`, with `MapOn`)
 
 A piece lays out its geography in map coordinates, which are the terrain's
