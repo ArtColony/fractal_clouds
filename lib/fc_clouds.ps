@@ -73,9 +73,13 @@
     /Threshold 0.57
     /CoverAmp 0.45 /CoverScale 0.0045
     /Gain 14                         % density per unit of noise above threshold
+    /Floor 0                         % noise units added inside the cloud: a density step at its edge
     /Sigma 0.09
     /DensOct 5 /ShadOct 3 /ShadStep 3.2
     /Steps 96
+    /StepGrow 0.012                  % each march step is (Hi - Lo span) / Steps + StepGrow t
+    /Refine 0                        % > 0: halve the step this many times where the march enters
+                                     % the cloud, so its edge doesn't move with the jitter (#80)
     /AmbTop [ 0.62 0.72 0.88 ] /AmbBot [ 0.34 0.38 0.48 ]
     /Rain 0                          % rain shafts this far below the base
     /RainDens 0.15                   % their density, as a fraction of the base's
@@ -146,9 +150,9 @@
     0 ne ClShear 0 ne or /ClWarp exch def
     /ClThr ClD /Threshold get def
     /ClCovA ClD /CoverAmp get def /ClCovS ClD /CoverScale get def
-    /ClGain ClD /Gain get def /ClSig ClD /Sigma get def
+    /ClGain ClD /Gain get def /ClSig ClD /Sigma get def /ClFloor ClD /Floor get def
     /ClDOct ClD /DensOct get def /ClSOct ClD /ShadOct get def /ClSStep ClD /ShadStep get def
-    /ClSteps ClD /Steps get def
+    /ClSteps ClD /Steps get def /ClGrow ClD /StepGrow get def /ClRefine ClD /Refine get def
     /ClAmbT ClD /AmbTop get def /ClAmbB ClD /AmbBot get def
     /ClShape ClD /Shape get def /ClShaped ClD /Shape get null ne def
     ClD /Bounds get dup null eq { pop /ClBoxed false def } {
@@ -177,9 +181,9 @@
     /ClScale NoiseScale def /ClSx 1 def /ClSy 1.6 def /ClSz 1 def
     /ClShear 0 def /ClWc 1 def /ClWs 0 def /ClWarp false def
     /ClThr Threshold def /ClCovA CoverAmp def /ClCovS CoverScale def
-    /ClGain 14 def /ClSig Sigma def
+    /ClGain 14 def /ClSig Sigma def /ClFloor 0 def
     /ClDOct DensOct def /ClSOct ShadOct def /ClSStep ShadStep def
-    /ClSteps CloudSteps def
+    /ClSteps CloudSteps def /ClGrow 0.012 def /ClRefine 0 def
     /ClAmbT AmbTop def /ClAmbB AmbBot def
     /ClShape null def /ClShaped false def
     /ClBoxed false def /ClProbes 1 def /ClLDeep false def /ClAmbSd false def
@@ -347,7 +351,7 @@
         ClThr sub 1 Dprof sub ClPamp mul sub
         ClCovA 0 gt { Dcov add } if
         ClShaped { Dsh add } if
-        dup 0 lt { pop 0 } { ClGain mul } ifelse
+        dup 0 lt { pop 0 } { ClFloor 0 ne { ClFloor add } if ClGain mul } ifelse
         } ifelse
     } ifelse } ifelse
     } ifelse
@@ -502,14 +506,16 @@
         % a hash of the pixel (fc-cloud-jitter), a new value per layer
         /Cdt0 Ct1 Ct0 sub ClSteps div def
         /Ct Ct0 def
-        /Cdt Cdt0 Ct 0.012 mul add def
+        /Cdt Cdt0 Ct ClGrow mul add def
         /Ct Ct Cdt ClJit mul add def
         /ClJit ClJit 0.7548777 add dup floor sub def
+        /Cempty true def
         {
             Ct Ct1 ge { exit } if
-            /Cdt Cdt0 Ct 0.012 mul add def
+            /Cdt Cdt0 Ct ClGrow mul add def
             /Px Mx Ct mul def /Py My Ct mul CamY add def /Pz Mz Ct mul def
             Px Py Pz Ct fc-cloud-oct fc-layer-density dup 0 gt {
+                ClRefine 0 gt { Cempty { fc-cloud-refine } if /Cempty false def } if
                 /Cd exch def
                 % CloudDense: shorten a dense step (to half at most), so no
                 % one sample takes too much of the light
@@ -527,10 +533,28 @@
                 Cw mul Cr add /Cr exch def
                 /Tr Tr 1 Ca sub mul def
                 Tr 0.01 lt { exit } if
-            } { pop } ifelse
+            } { pop /Cempty true def } ifelse
             /Ct Ct Cdt add def
         } loop
     } if
+} bind def
+
+% Refine (#80): the march has just stepped from clear air (at Ct - Cdt, or
+% the layer's start) into cloud (at Ct, density d). Bisect that step
+% ClRefine times for the edge, and move this sample there: the edge then
+% sits where the density says, not where the pixel's jitter put the step,
+% so a sharp edge (Floor) stays sharp instead of dithering over a step
+% (several units, far off). Costs ClRefine density samples per entry.
+/fc-cloud-refine {                               % d -> d (sets Ct Px Py Pz)
+    /CrD exch def
+    /CrHi Ct def /CrLo Ct Cdt sub dup Ct0 lt { pop Ct0 } if def
+    ClRefine {
+        /CrM CrLo CrHi add 2 div def
+        Mx CrM mul My CrM mul CamY add Mz CrM mul CrM fc-cloud-oct fc-layer-density
+        dup 0 gt { /CrD exch def /CrHi CrM def } { pop /CrLo CrM def } ifelse
+    } repeat
+    /Ct CrHi def /Px Mx Ct mul def /Py My Ct mul CamY add def /Pz Mz Ct mul def
+    CrD
 } bind def
 
 % clip Ct0..Ct1 to the layer's Bounds box (the camera is at x = z = 0)
