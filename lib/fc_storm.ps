@@ -32,8 +32,11 @@
 /StormEdge 2 fc-default              % envelope gain: higher = smoother, tighter outline
 /Virga 0.3 fc-default                % strength of the streaks under the anvil; 0 for none
 /VirgaLen 26 fc-default              % how far they hang
+/VirgaScale 0.2 fc-default           % their streaks, cells per unit
 /StormRain 84 fc-default             % rain shafts this far below the base (the layer's Rain)
 /StormRainDens 0.3 fc-default       % their density, as a fraction of the cloud's
+/StormRainSlant 0 fc-default         % the rain is blown downwind this much per unit it falls
+/StormRainFine 0 fc-default          % > 0: fine streaks in the shafts, this strong (0..1)
 /AnvilEdge 4 fc-default              % the anvil's envelope gain, relative to the tower's
 /StormShade 0.25 fc-default          % optical depth per unit length of envelope toward the sun
 /StormShadeN 5 fc-default /StormShadeStep 16 fc-default    % its steps
@@ -42,6 +45,17 @@
                                      % StormGloomR, toward StormGloomCol (wraps fc-landscape-grade)
 /StormGloomR 2 fc-default            % that column's radius, in StormR
 /StormGloomCol [ 0.10 0.11 0.13 ] fc-colour
+/StormAmbOcc 0.1 fc-default          % the sky light a sample loses to the cloud above it: this
+                                     % share of the optical depth StormAmbStep straight up
+/StormAmbStep 5 fc-default
+/StormBaseDark 0.3 fc-default        % the sky light at the base, as a share of the light
+                                     % StormBaseDarkH * (StormTop - StormBase) up the tower
+/StormBaseDarkH 0.5 fc-default
+/StormSkyDim 0.85 fc-default          % the sky the storm hides from the ground round it, at
+                                     % most (under it); wraps fc-cloud-sky, so it acts only
+                                     % where CloudSkyDim > 0
+/StormSkyR 5 fc-default              % how far that reaches: half as much this far from the
+                                     % tower's axis or the anvil's middle, in StormR
 /StormLayer << >> fc-default         % overrides for the storm layer's keys (docs/settings.md)
 
 % --- derived ------------------------------------------------------------------
@@ -90,11 +104,16 @@
 
 /fc-storm-shape {                                % x y z oct -> dd
     pop fc-storm-env StormEdge mul
-    % virga: streaks under the anvil, fading down to VirgaLen below it
+    % virga: streaks under the anvil, fading down to VirgaLen below it. The
+    % anvil's value VirgaLen higher is > 0 within VirgaLen under it, and
+    % larger nearer it: a soft curtain hanging from the underside, streaked
+    % by a 2-D noise of VirgaScale cells per unit (#101: the old hard patches
+    % of a coarser noise hung as separate puffs)
     Virga 0 gt { SmY AnvilBot VirgaLen sub gt SmY StormTop lt and { dup 0.2 lt {
         SmU SmW SmY VirgaLen add StormTop fc-min fc-storm-anvil dup 0 gt {
-            SmX 0.11 mul 3.1 add SmZ 0.11 mul 8.7 add fc-noise2 0.5 sub 3 mul
-            dup 0 lt { pop pop } { mul Virga mul 0.25 sub fc-max } ifelse
+            2 mul 1 fc-min
+            0.3 0.7 SmX VirgaScale mul 3.1 add SmZ VirgaScale mul 8.7 add fc-noise2 fc-smooth mul
+            Virga mul 0.15 sub fc-max
         } { pop } ifelse
     } if } if } if
 } bind def
@@ -113,13 +132,34 @@
     StormShadeStep mul StormShade mul
 } bind def
 
+% the sky light at a sample (the layer's AmbShade): one density probe
+% StormAmbStep straight up, so the undersides of the billows, the base and
+% the underside of the anvil lose the sky above them, times a ramp from
+% StormBaseDark at the base up the tower
+/fc-storm-amb {                                  % x y z -> 0..1
+    /SaZ exch def /SaY exch def /SaX exch def
+    SaX SaY StormAmbStep add SaZ ClSOct fc-layer-density
+    ClSig mul StormAmbStep mul StormAmbOcc mul neg 2.71828 exch exp
+    StormBase StormBase StH StormBaseDarkH mul add SaY fc-smooth
+    1 StormBaseDark sub mul StormBaseDark add mul
+} bind def
+
 % the rain under the base (the layer's RainMask): fades out toward the edge
-% of the tower's foot, in broad shafts streaked by a finer noise
+% of the tower's foot, in broad shafts streaked by a finer noise. The mask
+% is read where the rain left the base: StormRainSlant downwind per unit
+% fallen (from the sample's height, ClRainY), so the shafts lean
 /fc-storm-rainmask {                             % x z -> 0..1
     /SrZ exch def /SrX exch def
+    StormRainSlant 0 ne {
+        StormBase ClRainY sub 0 fc-max StormRainSlant mul /SrD exch def
+        /SrX SrX StWc SrD mul sub def /SrZ SrZ StWs SrD mul sub def
+    } if
     0 0.6 SrX StormBase 10 add SrZ fc-storm-env fc-smooth
     0.3 0.7 SrX 0.05 mul 17.3 add SrZ 0.05 mul 4.1 add fc-noise2 fc-smooth mul
     SrX 0.25 mul 2.9 add SrZ 0.25 mul 11.7 add fc-noise2 0.7 mul 0.3 add mul
+    StormRainFine 0 gt {
+        SrX 0.8 mul 5.3 add SrZ 0.8 mul 1.9 add fc-noise2 0.5 sub 2 mul StormRainFine mul 1 add 0 fc-max mul
+    } if
 } bind def
 
 % --- the layer ------------------------------------------------------------------
@@ -147,11 +187,12 @@
        /Profile [ 1000 1000 ] /ProfAmp 0     % the Shape makes the outline
        /Noise /Billow /Scale 0.05 /Stretch [ 1 0.8 1 ] /Threshold 0.36
        /CoverAmp 0 /Gain 12 /Sigma 0.12
-       /DensOct 5 /ShadOct 3 /ShadStep 9 /Steps 110
+       /DensOct 5 /ShadOct 3 /ShadStep 3 /Steps 110
        /AmbTop [ 0.40 0.44 0.53 ] /AmbBot [ 0.06 0.065 0.08 ]
        /Rain StormRain /RainDens StormRainDens /RainMask { fc-storm-rainmask }
        /Shape { fc-storm-shape } /LightDepth { fc-storm-depth }
-       /Bounds fc-storm-bounds /Probes 3
+       /AmbShade { fc-storm-amb }
+       /Bounds fc-storm-bounds /Probes 8   % 8: probes land in the anvil, so it shades the ground (#101)
     >>
     StormLayer { 2 index 3 1 roll put } forall
 } bind def
@@ -194,3 +235,26 @@ StormGloom 0 gt {
     /FsGradeOrig /fc-landscape-grade load def
     /fc-landscape-grade { fc-storm-gloom FsGradeOrig } def
 } if
+
+% --- the sky the storm hides ----------------------------------------------------
+% fc-cloud-sky probes straight up, so only the ground right under the storm
+% lost its sky light; but a storm this size hides a broad part of the sky
+% from the ground for miles round it. The ground loses up to StormSkyDim of
+% its sky light, falling off as h^2 / (h^2 + d^2) with the plan distance d
+% to the nearer of the tower's axis and the anvil's middle, h StormSkyR
+% StormR (fc_terrain applies it through CloudSkyDim).
+StormSkyDim 0 gt {
+    /SsSkyOrig /fc-cloud-sky load def
+    /SsH StormSkyR StormR mul dup mul def
+    % the anvil's middle, half way out downwind
+    /SsAx StCx StTopU AnvilR 0.5 mul add StWc mul add def
+    /SsAz StCz StTopU AnvilR 0.5 mul add StWs mul add def
+    /fc-cloud-sky {                              % x y z -> T
+        3 copy SsSkyOrig /SsT exch def
+        /SsZ exch def pop /SsX exch def
+        SsX StCx sub dup mul SsZ StCz sub dup mul add
+        SsX SsAx sub dup mul SsZ SsAz sub dup mul add fc-min
+        SsH add SsH exch div StormSkyDim mul 1 exch sub SsT mul
+    } def
+} if
+

@@ -7,7 +7,8 @@
 % curtain and dark air under it, the anvil spreading left from the top with
 % an overshooting dome, virga under it, and the range in its shadow, backlit.
 % The storm is lib/fc_storm.ps, loaded after the landscape.
-% Preview: DPI=36 scripts/render.sh gallery/storm.ps.
+% Preview: DPI=36 scripts/render.sh gallery/storm.ps; 640x400 (gallery/previews/storm-640x400.png):
+% DPI=144 scripts/render_bands.sh gallery/storm.ps 0.4 0.62 (about 4 minutes).
 
 /Seed where { pop } { /Seed 5 def } ifelse
 /AA where { pop } { /AA true def } ifelse
@@ -22,7 +23,9 @@
 % the base and the range in shade, the shadow falling toward us
 /SunElev where { pop } { /SunElev 38 def } ifelse
 /SunAzim where { pop } { /SunAzim -5 def } ifelse
-/HazeDist where { pop } { /HazeDist 800 def } ifelse
+% clearer air than the valley pieces: at 800 the haze in front of the storm
+% was a veil that flattened the tower to one grey (#101)
+/HazeDist where { pop } { /HazeDist 1200 def } ifelse
 % the storm takes the skylight from the ground under it (lib/fc_terrain.ps)
 /CloudSkyDim where { pop } { /CloudSkyDim 0.75 def } ifelse
 % the storm (lib/fc_storm.ps): ahead and a little right of centre, the
@@ -30,9 +33,21 @@
 /StormDist where { pop } { /StormDist 460 def } ifelse
 /StormAzim where { pop } { /StormAzim -5 def } ifelse
 /StormWind where { pop } { /StormWind 200 def } ifelse
-% the shaded air under it: a dark wall along the horizon
-/StormGloom where { pop } { /StormGloom 0.03 def } ifelse
-/StormGloomR where { pop } { /StormGloomR 2.2 def } ifelse
+% the base high enough over the ridge for the rain under it to show (#101)
+/StormBase where { pop } { /StormBase 84 def } ifelse
+% the shaded air under it: dark round the rain, not a wide wall along the
+% horizon (#101: at 0.03 and 2.2 it hid the rain and tinted the horizon)
+/StormGloom where { pop } { /StormGloom 0.02 def } ifelse
+/StormGloomR where { pop } { /StormGloomR 1.5 def } ifelse
+% turrets: a looser envelope lets the billows break the outline (#101)
+/StormEdge where { pop } { /StormEdge 1.2 def } ifelse
+% the billows' undersides and the base lose the sky above them
+/StormAmbOcc where { pop } { /StormAmbOcc 0.25 def } ifelse
+/StormBaseDark where { pop } { /StormBaseDark 0.15 def } ifelse
+% the rain: denser, blown downwind as it falls, finely streaked
+/StormRainDens where { pop } { /StormRainDens 0.45 def } ifelse
+/StormRainSlant where { pop } { /StormRainSlant 0.3 def } ifelse
+/StormRainFine where { pop } { /StormRainFine 0.6 def } ifelse
 
 (lib/fc_landscape.ps) run
 (lib/fc_storm.ps) run

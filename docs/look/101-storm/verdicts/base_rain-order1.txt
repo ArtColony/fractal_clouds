@@ -1,0 +1,6 @@
+REALISM: B
+AESTHETICS: B
+- B’s cloud has more convincing volume and internal shading.
+- Its slanted rain shafts feel more wind-driven and natural.
+- The varied rain curtains create stronger depth and visual movement.
+- A’s cloud base and central rain shaft look conspicuously rectangular.

@@ -531,7 +531,7 @@ blend sky (`SkyModel` false), exactly as before.
 | `HazeDist` | 520 | Distance at which haze reaches 63% at height 0. Smaller means thicker air. | 400, 520, 650 |
 | `HazeH` | 45 | Height over which the haze thins by a factor of e. | 45 |
 | `HazeChroma` | 1 with `SkyModel`, else 0 | How far the haze fades each channel at its own rate. 1 takes the haze to be the model's Rayleigh air plus enough neutral aerosol to reach `HazeDist` in green, so blue fades a little sooner and red a little later (about 15% and 4% at `HazeDist` 650: a haze that thick is mostly aerosol); 0 fades every channel over `HazeDist`; 2 or 3 exaggerates the blue distance. `HazeDist` is the green channel's distance. | 0, 1 |
-| `Shafts` | false | Sun shafts (#49): crepuscular rays where clouds shadow the haze. Loads `lib/fc_shafts.ps`, which marches each ray's haze once through the clouds' shadows and darkens the shadowed part; lit haze keeps its value. Off, the closed-form haze runs as before. Needs a sun above the horizon and clouds that cast shadows; strongest looking toward a low sun, with haze that reaches up toward the cloud base (a larger `HazeH`). Costs up to `ShaftSteps` shadow probes per ray, each one density evaluation per layer (times the layer's `Probes`: 3 for the storm) at `min(ShaftOct, ShadOct)` octaves. | false, true |
+| `Shafts` | false | Sun shafts (#49): crepuscular rays where clouds shadow the haze. Loads `lib/fc_shafts.ps`, which marches each ray's haze once through the clouds' shadows and darkens the shadowed part; lit haze keeps its value. Off, the closed-form haze runs as before. Needs a sun above the horizon and clouds that cast shadows; strongest looking toward a low sun, with haze that reaches up toward the cloud base (a larger `HazeH`). Costs up to `ShaftSteps` shadow probes per ray, each one density evaluation per layer (times the layer's `Probes`: 8 for the storm) at `min(ShaftOct, ShadOct)` octaves. | false, true |
 | `ShaftSteps` | 48 | Shadow probes per ray, evenly spaced over its first `ShaftDist` and offset by the pixel's blue-noise value (as the cloud march's, #27, so bands and crops match). Fewer is faster and grainier or more rippled. | 32, 48, 96 |
 | `ShaftJitter` | 0.2 | How much of that blue-noise offset the steps get. 1 is a whole step: no ripples, but a fine grain in the haze (about three times the shafts-off grain at 32 steps). 0 puts every probe at its step's middle: no grain, but where a step is long beside a cloud's shadow, faint ripples. | 0, 0.2, 1 |
 | `ShaftDist` | `HazeDist` | How far out the probes go. The haze beyond is taken to be shadowed by the average of the marched part. | 300 … 600 |
@@ -636,9 +636,10 @@ single layer, `CloudLayers` null, keeps its old cut-off).
 | `Shape` | null | A procedure `x y z oct → dd` (`oct`: the octaves the sample wants, fewer with distance) added to the density before the gain: a positive value adds cloud, a negative one cuts it. Only called inside the band (`Lo < y < Hi`), so a placed object needs a band tall enough to hold it. For placed objects such as a cumulonimbus (#15). Costs a call per sample. It is called before the noise: a value of −1 or less means nothing is there, and the noise is skipped (keep the threshold and coverage such that the noise can't lift −1 above 0). |
 | `RainShafts` | 0 | Above 0: the rain is broken into shafts by 2-D noise with this many cells per unit (the storm uses 0.06); 0 is the old solid curtain. |
 | `Bounds` | null | `[x0 z0 x1 z1]`, world x and z (the camera stands at x = z = 0): the layer is empty outside this box, and each ray marches only the part of the band inside it, with all its `Steps`. For a placed object, so a tall band doesn't make every sky ray march its whole height. |
-| `RainMask` | null | A procedure `x z → 0..1` multiplying the rain (after `RainShafts`). A layer with one also lights its rain with `AmbBot`, as under the base, rather than the ambient a quarter of the way up. The storm uses it to fade the rain toward the edge of the tower's foot. |
-| `Probes` | 1 | A whole number, at least 1: density probes per layer for the ground's cloud shadow and `fc-cloud-sky`, spread evenly over the band above the point. 1 keeps the old single probe at the middle; a tall object needs more (the storm uses 3) or its anvil casts no shadow. |
+| `RainMask` | null | A procedure `x z → 0..1` multiplying the rain (after `RainShafts`); the sample's own height is in `ClRainY` while it runs (the storm leans its shafts by it). A layer with one also lights its rain with `AmbBot`, as under the base, rather than the ambient a quarter of the way up. The storm uses it to fade the rain toward the edge of the tower's foot. |
+| `Probes` | 1 | A whole number, at least 1: density probes per layer for the ground's cloud shadow and `fc-cloud-sky`, spread evenly over the band above the point. 1 keeps the old single probe at the middle; a tall object needs more (the storm uses 8; with 3 none landed in its anvil, which cast no shadow, #101). |
 | `LightDepth` | null | A procedure `x y z → od`: optical depth toward the sun added to the two short sun probes', for a placed object's shadow on itself at a larger scale than the probes reach (#15). Called once per lit sample. |
+| `AmbShade` | null | A procedure `x y z → 0..1` multiplying the ambient (sky) light of a sample, not of its rain: the cloud's occlusion of its own sky, so undersides and crevices go dark (#101). Called once per lit sample. |
 
 The Base column is where every preset starts (the gallery pieces' layer,
 value noise); each preset's own values are in `FcClPresets` in
@@ -676,7 +677,7 @@ it in front of `CloudLayers`. Set them, like every setting, before the run lines
 |---|---|---|---|
 | `StormDist` | 420 | Ground distance from the camera to the tower's foot. | 460 |
 | `StormAzim` | 0 | Its bearing in degrees: 0 is +z (straight ahead at `Yaw` 0), 90 is +x. | −5 |
-| `StormBase` | 70 | The flat, dark base (keep it above the peaks in front, or it hides). | |
+| `StormBase` | 70 | The flat, dark base (keep it above the peaks in front, or it hides, and the rain under it with it). | 84 |
 | `StormTop` | 180 | The anvil's flat top. | |
 | `StormR` | 55 | Tower radius at the base. | |
 | `StormFlare` | 0.3 | The tower is this much wider at the top. | |
@@ -686,16 +687,23 @@ it in front of `CloudLayers`. Set them, like every setting, before the run lines
 | `AnvilR` | 170 | How far it reaches downwind (upwind: a third of that). | |
 | `AnvilW` | 0.4 | Its half-width across the wind, as a fraction of its reach. | |
 | `DomeR` | 34 | Radius of the overshooting dome, centred 0.2 `DomeR` above the tower top; 0 for none. | |
-| `StormEdge` | 2 | Gain of the envelope against the noise: higher is a tighter, smoother outline, lower more ragged. | |
+| `StormEdge` | 2 | Gain of the envelope against the noise: higher is a tighter, smoother outline, lower more ragged, with turrets breaking the tower's sides. | 1.2 |
 | `AnvilEdge` | 4 | The anvil's gain relative to the tower's (smoother). | |
 | `StormShade` | 0.25 | Optical depth per unit length of envelope toward the sun (the layer's `LightDepth`): how dark the far side and the base get. | |
 | `StormShadeN`, `StormShadeStep` | 5, 16 | Its steps toward the sun, starting past the noise's two probes. | |
-| `Virga` | 0.3 | Strength of the streaks hanging under the anvil; 0 for none. | |
+| `Virga` | 0.3 | Strength of the curtain of streaks hanging under the anvil, densest at the underside; 0 for none. | |
 | `VirgaLen` | 26 | How far they hang. | |
+| `VirgaScale` | 0.2 | Their streaks: cells of a 2-D noise per unit. | |
 | `StormRain` | 84 | Rain shafts this far below the base (the layer's `Rain`). | |
-| `StormRainDens` | 0.3 | Their density, as a fraction of the cloud's; the rain is masked by `fc-storm-rainmask` (fades toward the edge of the tower's foot, broad shafts streaked by a finer noise). | |
-| `StormGloom` | 0 | Above 0: the air under the storm is in shade. Rays crossing a column of radius `StormGloomR · StormR` below the base fade toward `StormGloomCol`, by this extinction per unit length, weighted by depth below the base and closeness to the axis (it wraps `fc-landscape-grade`). | 0.03 |
-| `StormGloomR` | 2 | That column's radius, in `StormR`. | 2.2 |
+| `StormRainDens` | 0.3 | Their density, as a fraction of the cloud's; the rain is masked by `fc-storm-rainmask` (fades toward the edge of the tower's foot, broad shafts streaked by a finer noise). | 0.45 |
+| `StormRainSlant` | 0 | The rain is blown downwind this much per unit it falls, so the shafts lean. | 0.3 |
+| `StormRainFine` | 0 | Above 0: fine streaks in the shafts, this strong (0..1). | 0.6 |
+| `StormAmbOcc`, `StormAmbStep` | 0.1, 5 | The sky light a sample loses to the cloud above it (the layer's `AmbShade`): this share of the optical depth one probe `StormAmbStep` straight up, so the billows' undersides, the base and the anvil's underside go dark. | 0.25 |
+| `StormBaseDark`, `StormBaseDarkH` | 0.3, 0.5 | Times a ramp of the sky light from `StormBaseDark` at the base to 1 at `StormBaseDarkH` of the way up the tower. | 0.15 |
+| `StormSkyDim` | 0.85 | The share of its sky light the ground loses under the storm, falling off with distance (half at `StormSkyR · StormR` from the tower's axis or the anvil's middle). It wraps `fc-cloud-sky`, so it acts only where `CloudSkyDim` > 0. A storm this size hides a broad part of the sky, which the straight-up probes don't see. | |
+| `StormSkyR` | 5 | That falloff distance, in `StormR`. | |
+| `StormGloom` | 0 | Above 0: the air under the storm is in shade. Rays crossing a column of radius `StormGloomR · StormR` below the base fade toward `StormGloomCol`, by this extinction per unit length, weighted by depth below the base and closeness to the axis (it wraps `fc-landscape-grade`). | 0.02 |
+| `StormGloomR` | 2 | That column's radius, in `StormR`. | 1.5 |
 | `StormGloomCol` | [0.10 0.11 0.13] | The shaded air's colour (sRGB). | |
 | `StormLayer` | `<< >>` | Overrides for the storm layer's keys (the cloud-layer keys above), e.g. `<< /Steps 160 >>`. | |
 
@@ -1010,6 +1018,14 @@ it, the forest is only a colour texture on the ground.
 | `FsShoreH` | 1.5 | On a coast (`lib/fc_coast.ps` loaded): no trees on low ground (under `FsShoreH` above the beach's berm, `MapSea + CoastBerm`) within `CoastSandW` of the water, fading in over its outer half; higher ground (cliff tops, stacks) keeps its trees however near the sea. 0 turns the gate off (#40). | 1.5 |
 | `FsSnow` | 0 | Snow the forest knows about (#26), 0–1. The bake estimates `fc-terrain-shade`'s snow cover per texel (the same formula, from the map's heights and slopes and the same noises) and scales the density by `1 − FsSnow·s`, where `s` rises over `FsSnowBand` of the estimate: at 1, no tree stands in a deep snow field, and stands thin where the snow does. Only the map (crowns and floor) sees it; past the map the canopy texture already fades under snow. Costs about 15% more bake. 0 leaves the forest as before. | 0 |
 | `FsSnowBand` | [0.3 0.65] | Estimated snow cover (0–1) where the thinning starts, and where it is full. | |
+| `FsAge` | 0 | Stand age patches (#100): two octaves of noise at `FsAgeScale` (kept in the bake) mark stands young (0) to old (1). Young stands are up to `0.45·FsAge` shorter, and their needles lighter and yellower; old ones darker and bluer (±26% red, ±16% green at 1). The far canopy texture takes the same tint, so near and far agree. 0 is off: the forest as before. | 0.7 (alpine_forest), 1 (pnw_coast) |
+| `FsAgeScale` | 0.02 | Frequency of the age patches (1 / world units: 0.02 is patches some 25 units, 250 m, across). | 0.02 |
+| `FsJit` | 0 | Per-tree hue jitter (#100), on top of the `alb`/`alb2` mix and the ±22% value spread every tree already has: red up to `±0.25·FsJit`, blue the other way, so some trees are yellow-green and some blue-green. | 1 |
+| `FsEdge` | 0 | The stand's edge (#100): where the density is well over its box blur `FsEdgeW` wide (just inside a margin, by a meadow, a glade, the shore), trees keep their full height; away from it they are lowered by up to `0.18·FsEdge`, so the edges stand tallest and the canopy steps down into the stand. Heights only come down (the march's bounds hold), so a piece may raise `FsHMax` to keep the stand's mean (alpine_forest 3.4, pnw_coast 3.5). | 0.5, 1 |
+| `FsEdgeW` | 8 | How wide the edge test's blur is (world units); the edge reaches about half of it in. | 8 |
+| `FsGaps` | 0 | Small gaps and glades in closed stands (#100): noise at `FsGapScale` thins the density (up to `FsGaps` of it) where the stand is over about 0.45, so a closed forest has openings and their margins (with `FsEdge`) are edges. In blind pairwise the gaps lost on alpine_forest's mid-ground at 0.5 and 0.25 (they read as procedural holes), so no piece uses them yet. | 0 |
+| `FsGapScale` | 0.07 | Frequency of the gaps (1 / world units). Keep it low: whether a tree stands is read at each point, so a sharp gap would slice crowns. | 0.07 |
+| `FsUnder` | 0 | Shadowed understorey (#100): near crowns (where they are drawn as crowns) the ground's sky light is cut by up to `0.75·FsUnder` and the litter darkened by up to 30%, most beside and under a crown (within half a cell) and more in a closed stand. Overcast pieces show it most: there the sky is the light. | 1 |
 | `FsSnagCol` | [0.40 0.36 0.31] | Weathered dead wood: snags, and the sides of logs. | |
 | `FsLogCol` | [0.30 0.27 0.20] | The mossy top of a fallen trunk. | |
 | `FsN` | 384 | Density map resolution. | 384 |

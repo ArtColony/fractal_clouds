@@ -1,0 +1,7 @@
+REALISM: B
+AESTHETICS: B
+
+- B’s billowing cloud texture feels more natural than A’s smooth, solid slab.
+- B’s rain shafts blend more convincingly into the distant mountains.
+- B has richer light and shadow, giving the storm more depth.
+- B’s darker foreground creates stronger separation and a more dramatic composition.

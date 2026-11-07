@@ -74,6 +74,14 @@ View 2 eq {
 /MidGrass where { pop } { /MidGrass 1 def } ifelse
 /MidBump where { pop } { /MidBump 1 def } ifelse
 Plan { /Erode where { pop } { /Erode false def } ifelse } if
+% (#100) variety in the stand: age patches, per-tree tint, edges standing
+% tallest (the trees a little taller, to keep the stand's mean height),
+% and the ground between near crowns in their shade
+/FsAge where { pop } { /FsAge 1 def } ifelse
+/FsJit where { pop } { /FsJit 1 def } ifelse
+/FsEdge where { pop } { /FsEdge 1 def } ifelse
+/FsUnder where { pop } { /FsUnder 1 def } ifelse
+/FsHMax where { pop } { /FsHMax 3.5 def } ifelse
 
 (lib/fc_presets.ps) run
 [ /PNWCoast ] fc-presets

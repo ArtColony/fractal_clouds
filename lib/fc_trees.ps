@@ -58,6 +58,16 @@
 /FsSnag 0.03 fc-default              % fraction of the trees that are dead snags
 /FsFallen 0.02 fc-default            % fraction lying on the ground
 /FsSnagDens 0.55 fc-default       % snags fade out over this +- 0.15 of the stand's density (0: anywhere)
+% (#100) variety in the stand; every one 0 (off) by default, which keeps
+% the forest exactly as it was (see "variety in the stand" below)
+/FsAge 0 fc-default                  % stand age patches: young ones shorter, lighter, yellower
+/FsAgeScale 0.02 fc-default          % their frequency (1 / world units)
+/FsJit 0 fc-default                  % per-tree hue jitter, yellow-green to blue-green
+/FsEdge 0 fc-default                 % the stand's edge trees tallest, the interior a little lower
+/FsEdgeW 8 fc-default                % how far in the edge reaches (world units)
+/FsGaps 0 fc-default                 % small gaps and glades inside closed stands
+/FsGapScale 0.07 fc-default          % their frequency (1 / world units)
+/FsUnder 0 fc-default                % the ground near crowns shadowed (sky occluded)
 /FsMix [ 1 ] fc-default              % weights of the species in FsSpecies, in order
 /FsAutumn 0 fc-default               % 0 summer; 1 larches gold and broadleaves turned
 /FsBark [ 0.21 0.16 0.12 ] fc-colour         % spruce bark
@@ -312,6 +322,121 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     FsSnowBand 0 get FsSnowBand 1 get 3 -1 roll fc-smooth FsSnow mul 1 exch sub
 } bind def
 
+% --- variety in the stand (#100) ----------------------------------------------
+% A forest of evenly spaced trees of one size and one green reads as a
+% carpet. With these settings above 0 the bake varies the stand (all of
+% it lands in the density and height maps, FsDm and FsHs, so fc-tree-cell,
+% the march and their bounds don't change: heights only ever come down):
+%   FsGaps   cuts small gaps and glades (noise at FsGapScale) into closed
+%            stands, before the edge is found, so their margins are edges
+%   FsEdge   finds the stand's edge (the density over its box blur FsEdgeW
+%            wide: high just inside a margin) and lowers the trees away
+%            from it, by up to FsEdge 0.18, so the edges (and trees in
+%            the open) stand tallest
+%   FsAge    patches of stand age (two octaves of noise at FsAgeScale,
+%            kept in FsAg, 0 young .. 1 old): young stands up to FsAge 0.45
+%            shorter; the shading makes them lighter and yellower, and the
+%            old ones darker and bluer (fc-forest-tint: red +-40%, green
+%            +-28%, blue +-4% at FsAge 1)
+/FsVarOn FsAge 0 gt FsEdge 0 gt or FsGaps 0 gt or def
+/FsTintOn FsAge 0 gt FsJit 0 gt or def
+/fc-forest-variety {
+    FsGaps 0 gt {
+        0 1 FsN 1 sub { /Fbj exch def
+            0 1 FsN 1 sub { /Fbi exch def
+                /Fbk Fbj FsN mul Fbi add def
+                FsDm Fbk get /Fyd exch def
+                Fyd 0.3 gt {
+                    0.58 0.76
+                    FsX0 Fbi FsTex mul add FsGapScale mul 2.3 add
+                    FsZ0 Fbj FsTex mul add FsGapScale mul 6.1 add fc-noise2 fc-smooth
+                    0.45 0.8 Fyd fc-smooth mul FsGaps mul 1 exch sub Fyd mul
+                    FsDm Fbk 3 -1 roll put
+                } if
+            } for
+        } for
+    } if
+    FsEdge 0 gt {
+        % the density blurred, a box FsEdgeW wide, rows then columns
+        /FyR FsEdgeW 0.5 mul FsTex div 0.5 add cvi 1 fc-max def
+        /Fyt FsN FsN mul array def /FyB FsN FsN mul array def
+        0 1 FsN 1 sub { /Fbj exch def
+            0 1 FsN 1 sub { /Fbi exch def
+                0 Fbi FyR sub 0 fc-max 1 Fbi FyR add FsN 1 sub fc-min {
+                    FsDm exch Fbj FsN mul add get add
+                } for
+                Fbi FyR add FsN 1 sub fc-min Fbi FyR sub 0 fc-max sub 1 add div
+                Fyt Fbj FsN mul Fbi add 3 -1 roll put
+            } for
+        } for
+        0 1 FsN 1 sub { /Fbj exch def
+            0 1 FsN 1 sub { /Fbi exch def
+                0 Fbj FyR sub 0 fc-max 1 Fbj FyR add FsN 1 sub fc-min {
+                    FsN mul Fbi add Fyt exch get add
+                } for
+                Fbj FyR add FsN 1 sub fc-min Fbj FyR sub 0 fc-max sub 1 add div
+                FyB Fbj FsN mul Fbi add 3 -1 roll put
+            } for
+        } for
+        /Fyt null def
+        % the edge: the density well over its surroundings'
+        0 1 FsN FsN mul 1 sub { /Fbk exch def
+            0.04 0.22 FsDm Fbk get FyB Fbk get sub fc-smooth
+            1 0.25 0.6 FsDm Fbk get fc-smooth sub fc-max     % (and trees in the open)
+            1 exch sub FsEdge 0.18 mul mul 1 exch sub
+            FsHs Fbk get mul FsHs Fbk 3 -1 roll put
+        } for
+        /FyB null def
+    } if
+    FsAge 0 gt {
+        /FsAg FsN FsN mul array def
+        0 1 FsN 1 sub { /Fbj exch def
+            /Fyz FsZ0 Fbj FsTex mul add FsAgeScale mul def
+            0 1 FsN 1 sub { /Fbi exch def
+                /Fbk Fbj FsN mul Fbi add def
+                /Fyx FsX0 Fbi FsTex mul add FsAgeScale mul def
+                Fyx 4.7 add Fyz 8.3 add fc-noise2 0.65 mul
+                Fyx 2.3 mul 1.9 add Fyz 2.3 mul 5.2 add fc-noise2 0.35 mul add
+                0.3 0.7 3 -1 roll fc-smooth
+                dup FsAg Fbk 3 -1 roll put
+                1 exch sub FsAge 0.45 mul mul 1 exch sub
+                FsHs Fbk get mul FsHs Fbk 3 -1 roll put
+            } for
+        } for
+    } if
+} bind def
+
+% x z -> the stand's age there, 0 young .. 1 old (nearest texel; 0.5
+% off the map, or without FsAge)
+/fc-forest-age {
+    FsBaked FsAge 0 gt and not { pop pop 0.5 } {
+    FsZ0 sub FsTex div 0.5 add cvi exch FsX0 sub FsTex div 0.5 add cvi
+    dup 0 lt 1 index FsN 1 sub gt or 2 index 0 lt or 2 index FsN 1 sub gt or { pop pop 0.5 } {
+        exch FsN mul add FsAg exch get
+    } ifelse } ifelse
+} bind def
+
+% c x z -> c': a colour tinted by the stand's age at x z (young lighter
+% and yellower, old darker and bluer)
+/fc-forest-age-tint {
+    fc-forest-age 2 mul 1 exch sub FsAge mul /Fyy exch def
+    aload pop
+    Fyy 0.04 mul 1 add mul 3 1 roll
+    Fyy 0.28 mul 1 add mul 3 1 roll
+    Fyy 0.40 mul 1 add mul 3 1 roll
+    3 array astore
+} bind def
+
+% Fwa (a crown's albedo), for the tree FcK standing at x z -> -: its
+% stand's age tint, and a small hue jitter per tree
+/fc-forest-tint {
+    FsAge 0 gt { Fwa 3 1 roll fc-forest-age-tint /Fwa exch def } { pop pop } ifelse
+    FsJit 0 gt {
+        FsR 6 get FcK 97 add 255 and get 0.5 sub FsJit mul /Fyj exch def
+        /Fwa [ Fwa 0 get Fyj 0.5 mul 1 add mul  Fwa 1 get  Fwa 2 get Fyj -0.6 mul 1 add mul ] def
+    } if
+} bind def
+
 /fc-forest-bake {
     /FsT0 usertime def
     /FsX0 Yaw sin FsDist mul FsSize 2 div sub def
@@ -373,6 +498,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
         } for
     } for
     /FsSl null def
+    FsVarOn { fc-forest-variety } if             % (#100)
     % with palms, the density's maximum over the texels within reach
     % (fc-forest-mapt): a crown can be a cell from its cell's centre, where
     % fc-tree-cell reads the density, plus the nearest-texel and bilinear
@@ -1156,6 +1282,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     FsR 2 get FcK get 0.45 mul 0.78 add
     Fwx 6.1 mul Fwz 4.3 mul add 1.3 add Fwy 7.7 mul fc-noise2 0.5 sub 0.6 mul 1 add mul
     /Fwv exch def [ exch { Fwv mul } forall ] /Fwa exch def
+    FsTintOn { Fwx FcBx sub Fwz FcBz sub fc-forest-tint } if     % (#100)
     % sun: wrapped diffuse (needles scatter some light round the crown),
     % the terrain's shadow and the other crowns'
     Fnx SunDir 0 get mul Fny SunDir 1 get mul add Fnz SunDir 2 get mul add 0.25 add 1.25 div
@@ -1241,6 +1368,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     } if
     FsR 2 get FcK get 0.4 mul 0.8 add Fwn1 Fwn2 sub 0.5 mul 1 add mul
     /Fwv exch def [ exch { Fwv mul } forall ] /Fwa exch def
+    FsTintOn { Fwx FcBx sub Fwz FcBz sub fc-forest-tint } if     % (#100)
     % sun: wrapped, the terrain's shadow and the crowns' (its own masses too)
     Fnx SunDir 0 get mul Fny SunDir 1 get mul add Fnz SunDir 2 get mul add 0.3 add 1.3 div
     dup 0 lt { pop 0 } if /Fwl exch def
@@ -1371,6 +1499,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     FcISp /shade get
     FsR 2 get FcK get 0.45 mul 0.78 add Fwn1 0.6 mul 1 add mul 0.7 mul
     /Fwv exch def [ exch { Fwv mul } forall ] /Fwa exch def
+    FsTintOn { Fwx Fwz fc-forest-tint } if                       % (#100)
     % the sun, wrapped as for the crown, reaches it only when low
     Fnx SunDir 0 get mul Fny SunDir 1 get mul add Fnz SunDir 2 get mul add 0.25 add 1.25 div
     dup 0 lt { pop 0 } if /Fwl exch def
@@ -1390,6 +1519,19 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
         Bounce Fwi get Fwb mul 0.35 mul add
         mul
     } for
+} bind def
+
+% (#100) the ground's occlusion by the crowns near it, for the material
+% hook: by the horizontal clearance to the nearest crown (fc-crowns' FcHc,
+% at most half a cell), and by how closed the stand is around. Scales the
+% sky and darkens the litter. Reads Kx Kz Kt Ftw Ftd.
+/fc-forest-under {
+    /FcPx Kt PixAng mul def /FcY 0 def
+    Kx Kz Kx Kz fc-forest-mapt fc-crowns pop
+    1 0 FsCell 0.5 mul FcHc fc-smooth sub 0.6 mul  Ftd 0.5 mul add 1 fc-min
+    FsUnder mul Ftw mul /Fyo exch def
+    /KskyMul KskyMul 1 Fyo 0.8 mul sub mul def
+    /Alb [ Alb { 1 Fyo 0.35 mul sub mul } forall ] def
 } bind def
 
 % fc-terrain-shade's material hook: reads Kx Kz Kh Ny Kt Ksnow Alb
@@ -1420,7 +1562,9 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
                 Kt PixAng mul 3 mul 1 exch div 1.1 fc-min /Ftf exch def
                 Kx Ftf mul 3.1 add Kz Ftf mul 7.3 add fc-noise2 0.5 sub 0.6 mul 1 add
                 Kx 0.09 mul 5.3 add Kz 0.09 mul 1.1 add fc-noise2 0.5 sub 0.5 mul 1 add mul /Ftm exch def
-                Alb [ FsAlb { Ftm mul 0.85 mul } forall ] Ftc mix3v /Alb exch def
+                Alb [ FsAlb { Ftm mul 0.85 mul } forall ]
+                FsAge 0 gt { Kx Kz fc-forest-age-tint } if          % (#100)
+                Ftc mix3v /Alb exch def
                 /KlMul KlMul 1 Ftc 0.65 mul sub mul def
                 /KskyMul KskyMul 1 Ftc 0.4 mul sub mul def
                 /KbMul KbMul 1 Ftc sub mul def
@@ -1436,6 +1580,9 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
                 /FsO Kt fc-terrain-oct def
                 /KlMul KlMul Kx Kh 0.05 add Kz fc-tree-sunvis mul def
             } if
+            % (#100) near crowns the ground is shadowed: the sky is hidden
+            % by the crowns standing round it, most under and beside them
+            FsUnder 0 gt Ftw 0 gt and { fc-forest-under } if
         } if
         % (#40) palms lean out over bare sand: there their shade goes by the
         % march's dilated density (fc-forest-mapt), not the stand's edge

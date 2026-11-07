@@ -88,6 +88,8 @@
     /Probes 1                        % density probes for ground shadow and sky dimming (#15)
     /LightDepth null                 % { x y z -> od } optical depth toward the sun added
                                      % to the two probes' (a placed object's own shadow, #15)
+    /AmbShade null                   % { x y z -> 0..1 } scales the ambient (skylight) at a
+                                     % sample, not its rain: occlusion by the cloud itself (#101)
 >> def
 
 /FcClPresets <<
@@ -155,6 +157,7 @@
     } ifelse
     /ClProbes ClD /Probes get def
     /ClLDepth ClD /LightDepth get def /ClLDeep ClD /LightDepth get null ne def
+    /ClAmbS ClD /AmbShade get def /ClAmbSd ClD /AmbShade get null ne def
     % fade the samples over the last 30% of TMax, so a layer that reaches
     % the horizon thins out instead of ending in a hard line
     /ClFade true def /ClF0 TMax 0.7 mul def /ClF1 1 TMax 0.3 mul div def
@@ -179,7 +182,7 @@
     /ClSteps CloudSteps def
     /ClAmbT AmbTop def /ClAmbB AmbBot def
     /ClShape null def /ClShaped false def
-    /ClBoxed false def /ClProbes 1 def /ClLDeep false def
+    /ClBoxed false def /ClProbes 1 def /ClLDeep false def /ClAmbSd false def
     /ClFade false def /ClF0 0 def /ClF1 0 def
     currentdict end
 } bind def
@@ -300,6 +303,7 @@
 % rain under the base: the cloud a little way up, in vertical shafts that
 % thin out toward the ground
 /fc-cloud-rain {                                 % (Dx Dy Dz Doct) -> d
+    /ClRainY Dy def                              % the sample's height, for a RainMask (#101)
     ClLo Dy sub ClRain div
     dup 1 ge { pop 0 } {
         1 exch sub ClRainD mul
@@ -459,10 +463,12 @@
     2.71828 Lod 0.25 mul neg exp 0.45 mul add
     /Lsun exch def
     Ly ClLo sub ClDy div dup 0 lt { pop 0 } if Lrn { pop 0 } if /Lh exch def    % (rain was moved into the band above)
+    % AmbShade: the layer's own occlusion of the sky light (not in its rain)
+    ClAmbSd { Lrn { 0.8 } { Lx Ly Lz ClAmbS 0.8 mul } ifelse } { 0.8 } ifelse /Lam exch def
     0 1 2 {
         /Li exch def
         SunCol Li get Lsun mul
-        ClAmbB Li get ClAmbT Li get ClAmbB Li get sub Lh mul add 0.8 mul add
+        ClAmbB Li get ClAmbT Li get ClAmbB Li get sub Lh mul add Lam mul add
     } for
 } bind def
 
