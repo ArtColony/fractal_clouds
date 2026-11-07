@@ -570,10 +570,10 @@ ToneHue 0 ne {
         TnM fc-tone-curve /TnT exch def
         /TnS TnT TnM div def
         % the weight: ToneHue t^2, faded out again far past the shoulder
-        % (a max channel over about 12: the sun's disc and its glow), so
+        % (a max channel over about 8: the sun's disc and its glow), so
         % they still go to white
         TnT dup mul ToneHue mul dup 1 gt { pop 1 } if
-        144 TnM TnM mul 144 add div mul /TnW exch def
+        64 TnM TnM mul 64 add div mul /TnW exch def
         TnC TnS mul 1 index sub TnW mul add 3 1 roll
         TnB TnS mul 1 index sub TnW mul add 3 1 roll
         TnA TnS mul 1 index sub TnW mul add 3 1 roll
