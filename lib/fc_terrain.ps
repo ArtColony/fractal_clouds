@@ -59,6 +59,7 @@ GroundOn { /GroundOct 3 fc-default /TerrNormMin 0.03 fc-default } if
 /RockCool [ 0.44 0.45 0.47 ] fc-colour     % rock near and above the snowline
 /RockStreak 0 fc-default             % 0..1: dark water streaks on steep rock
 /RockStreakW 5 fc-default            % streak spacing across the face, world units
+/RockStreakL 16 fc-default           % streak length down the face, world units of height (#109)
 /SkyAmb [ 0.58 0.66 0.80 ] fc-colour
 /Bounce [ 0.40 0.36 0.30 ] fc-colour         % light off the ground below
 /PixAng 0.0035 fc-default
@@ -509,27 +510,64 @@ SnowFill 0 gt {
     RockCool Krhi RockTint mul 0.8 mul mix3v
 } bind def
 
-% Water streaks (#99), called from fc-terrain-shade on steep ground: rock
-% colour -> rock colour. A noise stretched down the fall line (across the
-% face every RockStreakW, along it every 33 units of height, plus an
-% octave three times finer across) darkens rock
-% in streaks, more in hollows; where streaks would be under a few pixels
-% wide only their mean darkening is kept. The noise is taken on two fixed
-% vertical planes, x-y and z-y, blended by the normal (triplanar style).
+% Water streaks (#99, #109), called from fc-terrain-shade on steep ground:
+% rock colour -> rock colour. A noise stretched down the fall line (across
+% the face every RockStreakW, along it every 33 units of height, with an
+% octave three times finer and a ragged-edge octave nine times finer
+% across) is put through a soft threshold. Each streak starts under a
+% ragged line every RockStreakL units of height and fades and narrows down
+% the slope from there. Gullies stay wetter. Each octave fades to its mean
+% where it would be under a few pixels wide, so nothing aliases. The noise
+% is taken on two fixed vertical planes, x-y and z-y, blended by the
+% normal (triplanar style; a coordinate built from the normal would swim).
+/fc-terrain-streak-plane {                      % u off -> v (one plane)
+    /Krof exch def /Kru exch def
+    Kru Krh fc-noise2 0.65 mul
+    Kru 3 mul 5.7 add Krh 2 mul Krof add fc-noise2 0.5 sub Kro2 mul 0.5 add 0.35 mul add
+    Kro3 0 gt { Kru 9 mul 1.3 add Krh 7 mul Krof add fc-noise2 0.5 sub Kro3 mul 0.22 mul add } if
+    % where this streak starts: a ragged line every RockStreakL, wandering
+    % mostly with the ground's own noises (the same on both planes, so a
+    % jump in the blend weights between facets shows no seam) and a little
+    % from streak to streak
+    Krs0 Kru 0.7 mul 3.1 Krof add fc-noise2 0.35 mul add
+    dup floor sub                               % 1 at the top of a run, 0 at its foot
+    % darkest just under the start (a soft head), fading down the slope;
+    % 0 at both ends of a run, so the wrap leaves no seam (and the profile
+    % is taken per plane, before the blend, for the same reason)
+    dup 1 0.65 1 4 -1 roll fc-smooth sub mul
+} bind def
 /fc-terrain-streak {
     1 0.55 0.85 Ny fc-smooth sub /Krst exch def                 % 1 on cliffs
-    % two fixed planes, blended by which way the face turns (a coordinate
-    % across the face built from the normal would swim as the normal does)
     /Krwz Nz dup mul def /Krwx Nx dup mul def
-    /Kru Kx RockStreakW div def /Krv Kz RockStreakW div 17.3 add def
     /Krh Kh 0.03 mul Kv 2 mul add def
-    Kru Krh fc-noise2 0.65 mul  Kru 3 mul 5.7 add Krh 2 mul fc-noise2 0.35 mul add  Krwz mul
-    Krv Krh 5.1 add fc-noise2 0.65 mul  Krv 3 mul Krh 2 mul 9.3 add fc-noise2 0.35 mul add  Krwx mul add
-    Krwz Krwx add 0.0001 fc-max div
-    0.5 0.7 3 -1 roll fc-smooth
-    2 5 RockStreakW Kt PixAng mul 0.000001 fc-max div fc-smooth  % streaks resolved?
-    exch 0.25 sub mul 0.25 add
-    0.6 mul  0 3 Kcav fc-smooth 0.3 mul add                     % gullies stay wet
+    % footprint: pixels per RockStreakW; each octave fades in from 2 to 5 px
+    RockStreakW Kt PixAng mul 0.000001 fc-max div /Krpx exch def
+    /Kro1 2 5 Krpx fc-smooth def
+    /Kro2 2 5 Krpx 3 div fc-smooth def
+    /Kro3 2 5 Krpx 9 div fc-smooth def
+    /Kro4 3 8 Krpx RockStreakW div RockStreakL mul 0.35 mul fc-smooth def   % head resolved?
+    /Krs0 Kh RockStreakL 0.1 fc-max div Kv 3 mul add Kv2 0.8 mul add def
+    /Krv 0 def /Krl 0 def /Krws 0 def             % (weights only of the planes taken)
+    Krwz 0.01 gt {
+        /Krws Krws Krwz add def
+        Kx RockStreakW div 0 fc-terrain-streak-plane Krwz mul Krl add /Krl exch def
+        Krwz mul Krv add /Krv exch def
+    } if
+    Krwx 0.01 gt {
+        /Krws Krws Krwx add def
+        Kz RockStreakW div 17.3 add 11.9 fc-terrain-streak-plane Krwx mul Krl add /Krl exch def
+        Krwx mul Krv add /Krv exch def
+    } if
+    /Krws Krws 0.0001 fc-max def
+    /Krv Krv Krws div def /Krl Krl Krws div def
+    % lengthwise fade, or its mean where the runs are unresolved; the
+    % streak also narrows down the slope
+    Krl 0.34 sub Kro4 mul 0.34 add /Krl exch def   % (0.34: the mean)
+    Krv 0.08 1 Krl sub mul sub  0.32 0.72 3 -1 roll fc-smooth
+    0.36 sub Kro1 mul 0.36 add                  % streaks resolved? (0.36: the mean)
+    Krl 0.5 mul 0.5 add mul
+    % gullies stay wetter, but in streaks too, not as one flat dark face
+    dup 0.75 mul exch 0.5 mul 0.5 add  0 3 Kcav fc-smooth 0.22 mul mul add
     Krst mul RockStreak mul /Krd exch def
     [ exch dup 0 get 1 Krd 0.9 mul sub mul exch dup 1 get 1 Krd sub mul exch 2 get 1 Krd 1.1 mul sub 0 fc-max mul ]
 } bind def
