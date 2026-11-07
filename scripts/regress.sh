@@ -41,6 +41,9 @@ cases() {
   echo "tropical_island_crop|gallery/tropical_island.ps|Crop=[0.82 0.1 0.94 0.3]"
   echo "pnw_coast_crop|gallery/pnw_coast.ps|View=2;Crop=[0.15 0.52 0.5 0.66]"
   echo "golden_coast_crop|gallery/golden_coast.ps|Crop=[0.36 0.40 0.52 0.56]"
+  # (#85) the near crowns' notches, hanging tips and holes; FsNearPx 3 so
+  # they show at this size (the frame's own 6 px needs DPI 144)
+  echo "pnw_coast_near|gallery/pnw_coast.ps|Crop=[0.05 0.7 0.3 1];FsNearPx=3"
 }
 
 mode=stored ref="" docker=0 only=()
