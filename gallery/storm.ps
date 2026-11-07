@@ -47,7 +47,13 @@
 % the rain: denser, blown downwind as it falls, finely streaked
 /StormRainDens where { pop } { /StormRainDens 0.45 def } ifelse
 /StormRainSlant where { pop } { /StormRainSlant 0.3 def } ifelse
-/StormRainFine where { pop } { /StormRainFine 0.6 def } ifelse
+% (#113: 0.6 aliased along the march into a salt-and-pepper speckle)
+/StormRainFine where { pop } { /StormRainFine 0.3 def } ifelse
+% shorter march steps far off: at the default StepGrow (0.012) a step at
+% the storm's distance was over 5 units, and the per-pixel jitter of where
+% it fell turned the anvil's thin rim and the rain into speckle (#113).
+% About 50% more time in the cloud
+/StormLayer where { pop } { /StormLayer << /StepGrow 0.002 /Steps 160 >> def } ifelse
 
 (lib/fc_landscape.ps) run
 (lib/fc_storm.ps) run

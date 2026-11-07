@@ -50,6 +50,7 @@
 /ShadOct 3 fc-default                % octaves for shadow probes
 /ShadStep 3.2 fc-default
 /CloudSteps 96 fc-default            % at most this many samples per ray
+/CloudStepGrow 0.012 fc-default      % each step grows by this times the distance (the layer key StepGrow)
 /AmbTop [ 0.62 0.72 0.88 ] fc-colour
 /AmbBot [ 0.34 0.38 0.48 ] fc-colour
 /PixAng 0.0035 fc-default
@@ -197,7 +198,7 @@
     /ClThr Threshold def /ClCovA CoverAmp def /ClCovS CoverScale def
     /ClGain 14 def /ClSig Sigma def /ClFloor 0 def
     /ClDOct DensOct def /ClSOct ShadOct def /ClSStep ShadStep def
-    /ClSteps CloudSteps def /ClGrow 0.012 def /ClRefine 0 def
+    /ClSteps CloudSteps def /ClGrow CloudStepGrow def /ClRefine 0 def
     /ClAmbT AmbTop def /ClAmbB AmbBot def
     /ClShape null def /ClShaped false def
     /ClBoxed false def /ClProbes 1 def /ClLDeep false def /ClAmbSd false def
@@ -225,7 +226,7 @@
         ClNew /Lo CloudLo put ClNew /Hi CloudHi put ClNew /Scale NoiseScale put
         ClNew /Threshold Threshold put ClNew /CoverAmp CoverAmp put ClNew /CoverScale CoverScale put
         ClNew /Sigma Sigma put ClNew /DensOct DensOct put ClNew /ShadOct ShadOct put
-        ClNew /ShadStep ShadStep put ClNew /Steps CloudSteps put
+        ClNew /ShadStep ShadStep put ClNew /Steps CloudSteps put ClNew /StepGrow CloudStepGrow put
     } {
         FcClPresets ClType known not {
             (fc_clouds: no cloud preset named /) print ClType 40 string cvs print (\n) print
