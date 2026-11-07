@@ -1,0 +1,46 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 0 0 320 200
+%%Title: Sunbeams
+% Status: draft
+% fractal_clouds#86: looking into a low sun behind a broken cloud deck over
+% the range, with sun shafts (lib/fc_shafts.ps) and their forward lobe
+% (ShaftFwd), so the lit air between the clouds' shadows fans out from the
+% sun. Preview: DPI=144 scripts/render.sh gallery/sunbeams.ps.
+
+/Seed where { pop } { /Seed 5 def } ifelse
+/AA where { pop } { /AA true def } ifelse
+/GroundOn where { pop } { /GroundOn true def } ifelse
+/Yaw where { pop } { /Yaw 10 def } ifelse
+/Pitch where { pop } { /Pitch 5 def } ifelse
+/CamLift where { pop } { /CamLift 0.72 def } ifelse
+
+% --- light: a low sun ahead, just behind the cloud deck -------------------
+/SunElev where { pop } { /SunElev 5 def } ifelse
+/SunAzim where { pop } { /SunAzim 10 def } ifelse
+
+% --- clouds and air: haze tall enough to reach the deck's shadows ---------
+/CloudLo where { pop } { /CloudLo 70 def /CloudHi 95 def } ifelse
+/Threshold where { pop } { /Threshold 0.56 def } ifelse
+/CoverAmp where { pop } { /CoverAmp 0.6 def } ifelse
+/NoiseScale where { pop } { /NoiseScale 0.02 def } ifelse
+/HazeDist where { pop } { /HazeDist 300 def } ifelse
+/HazeH where { pop } { /HazeH 100 def } ifelse
+
+% --- sun shafts (#49, #86) ---------------------------------------------
+/Shafts where { pop } { /Shafts true def } ifelse
+/ShaftDark where { pop } { /ShaftDark 0.9 def } ifelse
+/ShaftFwd where { pop } { /ShaftFwd 2 def } ifelse
+/ShaftG where { pop } { /ShaftG 0.85 def } ifelse
+/ShaftEdge where { pop } { /ShaftEdge 0.5 def } ifelse
+% the sharper shadows alias into ripples on the near ground at 48 steps:
+% more steps, and more of the blue-noise offset, turn them into a fine grain
+% no stronger than the #49 shafts' at 48 steps
+/ShaftSteps where { pop } { /ShaftSteps 128 def } ifelse
+/ShaftJitter where { pop } { /ShaftJitter 0.6 def } ifelse
+
+/RockTint where { pop } { /RockTint 1 def } ifelse
+/RockStreak where { pop } { /RockStreak 1 def } ifelse
+
+(lib/fc_landscape.ps) run
+320 200 fc-landscape
+showpage
