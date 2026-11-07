@@ -1,0 +1,5 @@
+REALISM: A
+AESTHETICS: A
+- A’s varied ground texture reads more like grass and uneven meadow terrain.
+- A has richer tonal depth and softer transitions around the trees.
+- B’s smooth ground and blocky patches look more synthetic.
