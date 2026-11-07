@@ -40,6 +40,13 @@
 /MidGrass where { pop } { /MidGrass 1 def } ifelse
 /MidSand where { pop } { /MidSand 1 def } ifelse
 /MidBump where { pop } { /MidBump 1 def } ifelse
+% the /Tropical preset's cumulus, with finer steps far off and the edge found by
+% bisection, so the distant cumulus come out clean instead of speckled (#120;
+% /Floor, as golden_coast has it, made them a third heavier here)
+/CloudLayers where { pop } { /CloudLayers [
+    << /Type /Cumulus /Lo 62 /Hi 92 /Threshold 0.56 /CoverAmp 0.6 /Scale 0.032 /Wind 20
+       /StepGrow 0.003 /Refine 4 >>
+] def } ifelse
 Plan { /Erode where { pop } { /Erode false def } ifelse } if
 
 (lib/fc_presets.ps) run
