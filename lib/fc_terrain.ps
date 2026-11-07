@@ -29,6 +29,8 @@
 GroundOn { /GroundOct 3 fc-default /TerrNormMin 0.03 fc-default } if
 /GroundOct 0 fc-default              % octaves past TerrOct where the pixels are fine enough
 /TerrNormMin 0.08 fc-default         % shortest step for the shading normal, world units
+% meadow and beach texture at every distance (#103, lib/fc_midground.ps)
+/MidGrass 0 fc-default /MidSand 0 fc-default /MidBump 0 fc-default
 /MassifScale 0.22 fc-default         % massif wavelength, in ridge wavelengths
 /WarpAmp 0.45 fc-default             % domain warp, in ridge wavelengths
 /MassifLo 0.30 fc-default /MassifHi 0.56 fc-default  % massif mask ramp
@@ -436,6 +438,12 @@ SnowFill 0 gt {
         /Nn Nx Nx mul Ny Ny mul add Nz Nz mul add sqrt def
         /Nx Nx Nn div def /Ny Ny Nn div def /Nz Nz Nn div def
     } if
+    MidGrass 0 gt MidSand 0 gt or MidBump 0 gt or {   % meadow and beach texture (#103)
+        fc-mid-shade
+        /Nx Nx MgTx add def /Nz Nz MgTz add def
+        /Nn Nx Nx mul Ny Ny mul add Nz Nz mul add sqrt def
+        /Nx Nx Nn div def /Ny Ny Nn div def /Nz Nz Nn div def
+    } if
     /Ksn 0 def /Ksw 0 def
     StrataAmp 0 gt Ny 0.92 lt and { fc-terrain-strata } if
     % crevices darken, crest edges catch a little more light, on bare rock
@@ -631,3 +639,5 @@ SnowFill 0 gt {
 MapOn { (lib/fc_map.ps) run } if
 % foreground ground cover (#29): wraps fc-height, so it loads last
 GroundOn { (lib/fc_ground.ps) run } if
+% meadow and beach texture (#103)
+MidGrass 0 gt MidSand 0 gt or MidBump 0 gt or { (lib/fc_midground.ps) run } if
