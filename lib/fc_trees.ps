@@ -611,50 +611,52 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
 % small on screen (FcPx: world units per pixel where it stands), before
 % they can alias into pixel noise.
 %
-% (#85) Near (a crown over FsNearPx px in radius on screen, and trunks
-% on), the crown is built whorl by whorl instead (fc-tree-nprof): whorl k
-% reaches, in each direction, its envelope reach times its own factor
-% (the same two noises as above, but per whorl, the angle's taken round a
-% circle in the noise so it has no seam), so a whorl can fall short and
-% the one below show past it: tiers of different lengths in the outline.
-% The settings below fade in from FsNearPx to twice that:
-%   FsLobe      each whorl's branches: its reach round the trunk is also
-%               1 - FsLobe (1 - c), c = (1 + cos(N a + phase)) / 2, N 3..5
-%               per tree, the phase hashed per whorl so the lobes don't
-%               line up into ribs
-%   FsTipDroop  a whorl's tips hang further, by FsTipDroop FcDroop
-%               (u/reach)^6 (1 - its height): the lower branches level out
-%               and their tips hang
-%   FsHoles     the crown's solid is the whorls' branch layers, not the
-%               whole column under the top (fc-tree-layer): each is
-%               1.2 / FcTiers thick at the trunk (the layers overlap: a
-%               solid core), thinning toward its tip by up to FsHoles, more
-%               where noise (a third of the crown radius, per whorl) says
-%               so; a layer under 1.5 px thick is gone, and a gap under
-%               1.5 px is closed. So the rim has gaps between the tiers and
-%               holes through them, and what is behind shows through.
-% With all three 0 the near crowns are still built whorl by whorl, so the
-% whole of it is behind FsNearOn (any of them over 0): off, every crown is
-% exactly as before.
+% (#85) Near, three more things, each faded in by FcPn as the crown's
+% radius goes from FsNearPx to twice that on screen (FsNearOn: any of
+% them over 0). Each one's amplitude goes to 0 with FcPn, so the crown
+% changes smoothly from the far one, and a crown under FsNearPx px (or
+% every crown, with all three 0) is exactly as before:
+%   FsLobe      notches between the branches round the trunk: the reach
+%               times 1 - FsLobe (1 - c)^3, c = (1 + cos(N a + phase)) / 2,
+%               N 3..5 per tree (an integer: no seam in the angle), the
+%               phase turning from whorl to whorl so the notches don't line
+%               up into grooves
+%   FsTipDroop  the branches run out flatter and their tips hang: the
+%               droop along a branch goes as (u/reach)^(2.5 + 1.5 FsTipDroop)
+%   FsHoles     the crown is a shell over a core (fc-tree-layer), not solid
+%               all the way down from its top: the shell is the top whorls'
+%               branches, 1.5 / FcTiers deep (and at least 1.5 px across
+%               however steeply they hang); the core is the envelope cone
+%               shrunk to 1 - 0.45 FsHoles of the radius. Where the shell
+%               stands well clear of the core, noise (a quarter of the
+%               crown radius) holes it, up to 60% of it: you see into the
+%               dark inside, and at the rim through the crown to what is
+%               behind. fc-tree-cell takes the part nearest FcY as the
+%               solid, as for a crown of masses.
 /FcPx 0.01 def
 /FcEnv FsEnv def /FcDroop FsDroop def /FcTiers FsTiers def /FcRag 1 def /FcLobes 1 def
 /FsNearOn FsLobe 0 gt FsTipDroop 0 gt or FsHoles 0 gt or def
-/FcPn 0 def /FcL 0 def /FpP 2.5 def
+/FcPn 0 def /FcL 0 def /FpP 2.5 def /Fpw 0 def /FpTop 0 def
 /fc-tree-prof {
     /Fpz exch def /Fpx exch def
     Fpx dup mul Fpz dup mul add sqrt FcR div /Fpu exch def
-    % (#85) near: whorl by whorl
-    /FcPn FsNearOn FcL 0 gt and {
-        FcR FcPx div FsNearPx sub FsNearPx div 0 fc-max 1 fc-min } { 0 } ifelse def
-    FcPn 0 gt { fc-tree-nprof } {
     Fpu 1 ge { -1 } {
         FcR FcPx div 4 sub 8 div dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if /Fpl exch def
+        % (#85) near: notches, hanging tips, holes
+        FsNearOn {
+            /FcPn FcL 0 gt { FcR FcPx div FsNearPx sub FsNearPx div 0 fc-max 1 fc-min } { 0 } ifelse def
+            /FpP FsTipDroop FcPn mul 1 fc-min 1.5 mul 2.5 add def
+        } if
         Fpl 0 gt {
             1 Fpu sub FcEnv exp FcDroop add FcTiers mul floor /Fpk exch def
-            Fpu 0.02 lt { 0 } { Fpz Fpx atan } ifelse 0.0167 FcLobes mul mul FcK 0.37 mul add
+            Fpu 0.02 lt { 0 } { Fpz Fpx atan } ifelse dup /Fpa exch def 0.0167 FcLobes mul mul FcK 0.37 mul add
             Fpk 1.7 mul FcK 0.13 mul add fc-noise2 1 sub 0.15 FcRag mul mul Fpl mul 1 add
             % and whole whorls are longer or shorter than their neighbours
             Fpk 2.9 mul FcK 0.7 mul add FcK 0.21 mul 3.3 add fc-noise2 1 sub 0.2 FcRag mul mul Fpl mul 1 add mul
+            FcPn 0 gt FsLobe 0 gt and {
+                FsR 6 get FcK get 2.99 mul floor 3 add Fpa mul Fpk 137.5 mul add FsR 3 get FcK get 360 mul add
+                cos 1 add 0.5 mul 1 exch sub 3 exp FsLobe FcPn mul mul 1 exch sub mul
+            } if
             Fpu exch div /Fpu exch def
         } if
         % the smooth envelope
@@ -663,112 +665,62 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
             1 Fpu sub FcEnv exp FcDroop add FcTiers mul floor FcTiers fc-min /Fpk exch def
             Fpk 1 lt { Fps Fpl 1 sub mul } {     % past the lowest whorl: fade out
                 /Fpy Fpk FcTiers div def
-                Fpy  Fpu  1 Fpy FcDroop sub 0 fc-max 1 FcEnv div exp sub div  2.5 exp FcDroop mul  sub
+                Fpy  Fpu  1 Fpy FcDroop sub 0 fc-max 1 FcEnv div exp sub div  dup /Fpw exch def FpP exp FcDroop mul  sub
                 Fps sub Fpl mul Fps add
             } ifelse
         } { Fps } ifelse
+        FcPn 0 gt { dup /FpTop exch def } if
         dup 0.001 lt { pop -1 } { 0.94 mul 0.06 add FcH mul } ifelse
     } ifelse
-    } ifelse
 } bind def
 
-% (#85) j -> whorl j's branch top at Fpu, in profile units (0..1), or -1
-% where it doesn't reach that far in the direction Fpca Fpsa; leaves Fpw,
-% how far out along the branch that is (0..1). Reads FpA, FpTd, FpN, FpPh.
-/fc-tree-nwhorl {
-    /Fpj exch def /Fpy Fpj FcTiers div def
-    % the species' raggedness (as fc-tree-prof's, per whorl)
-    Fpca FcLobes mul 0.955 mul Fpj 1.7 mul add FcK 0.37 mul add
-    Fpsa FcLobes mul 0.955 mul FcK 0.13 mul add fc-noise2 1 sub 0.15 FcRag mul mul 1 add
-    Fpj 2.9 mul FcK 0.7 mul add FcK 0.21 mul 3.3 add fc-noise2 1 sub 0.2 FcRag mul mul 1 add mul
-    % branch lobes round the trunk
-    % (pointed: c^2, at most FpA / 2 short), and two whorls in five
-    % shorter, by up to FpA
-    FpA 0 gt {
-        FpN Fpa mul Fpj 137.5 mul add FpPh add cos 1 add 0.5 mul dup mul 1 sub FpA 0.5 mul mul 1 add mul
-        FsR 4 get Fpj 37 mul FcK add 255 and get 2.5 mul 1.5 sub 0 fc-max FpA mul 1 exch sub mul
-    } if
-    1 Fpy FcDroop sub 0 fc-max 1 FcEnv div exp sub mul /FpRj exch def
-    Fpu FpRj ge { -1 } {
-        /Fpw Fpu FpRj div def
-        Fpy Fpw FpP exp FcDroop mul sub
-    } ifelse
-} bind def
-
-% (#85) the near crown (from fc-tree-prof, Fpu Fpx Fpz set) -> y above
-% the ground, or -1: the higher of the two highest whorls that reach the
-% point (a whorl's hanging tip can be lower than the next one down there).
-% Leaves Fpk, the highest whorl that could reach it, for fc-tree-layer.
-/fc-tree-nprof {
-    Fpu 1 ge { -1 } {
-        Fpu 0.02 lt { 0 } { Fpz Fpx atan } ifelse /Fpa exch def
-        /Fpca Fpa cos def /Fpsa Fpa sin def
-        /FpA FsLobe FcPn mul def
-        /FpP FsTipDroop FcPn mul 1 fc-min 1.5 mul 2.5 add def
-        /FpN FsR 6 get FcK get 2.99 mul floor 3 add def
-        /FpPh FsR 3 get FcK get 360 mul def
-        1 Fpu sub FcEnv exp FcDroop add FcTiers mul floor FcTiers fc-min cvi /Fpk exch def
-        /FpT -1 def
-        Fpk -1 1 { fc-tree-nwhorl
-            dup 0 ge { FpT 0 lt { /FpT exch def } { FpT fc-max /FpT exch def exit } ifelse } { pop } ifelse
-        } for
-        FpT 0.001 lt { -1 } { FpT 0.94 mul 0.06 add FcH mul } ifelse
-    } ifelse
-} bind def
-
-% (#85, FsHoles) after fc-tree-nprof, for FcY under the crown's top: ->
-% the top and bottom (world units over the ground, before any lift) of
-% the branch layer nearest FcY (vertically), or -1 -1 if no layer is
-% near. Over a hole a whorl has no layer, and the nearest is the next one
-% down (or up). Layers less than 1.5 px apart are one.
+% (#85, FsHoles) after fc-tree-prof (its Fpu, Fpw, Fpy and the top in
+% FpTop, profile units), for FcY under the crown's top: -> the top and
+% bottom (world units over the ground, before any lift) of the part of
+% the crown nearest FcY (vertically): its shell, or its core, or a short
+% way off in a hole (so the march steps carefully past the hole's edge)
 /fc-tree-layer {
     /FpH FcH 0.94 mul def
     % FcY in profile units (the lift undone)
     FcY FcB 0 gt { FcB FcH mul sub 1 FcB sub div } if FcH 0.06 mul sub FpH div /Fpq exch def
     /FpMin FcPx 1.5 mul FpH div def
-    /FpG FsHoles FcPn mul def
-    /FpD 1000 def /FpT -1 def /FpB -1 def
-    /Fpt1 -1 def /Fpb1 -1 def            % the layer being gathered (top, bottom)
-    % the whorls whose layers can be within a whorl of FcY, from the top
-    Fpq FcDroop add 1.3 FcTiers div add FcTiers mul ceiling Fpk fc-min cvi -1
-    Fpq 1.3 FcTiers div sub FcTiers mul floor 1 fc-max cvi {
-        fc-tree-nwhorl /Fpyj exch def
-        Fpyj 0 ge {
-            % thinner out along the branch, and holed where the noise is
-            % over a threshold that falls toward the tip
-            % over a threshold that falls toward the tip; but at least
-            % 1.5 px thick across the branch, however steep it hangs
-            /Fpo 0.3 0.9 Fpw fc-smooth FpG mul def
-            1 Fpo 0.5 mul sub 1.2 FcTiers div mul
-            Fpw FpP 1 sub exp FpP mul FcDroop mul FpH mul FpRj FcR mul div 1 add FpMin mul fc-max /Fpth exch def
-            Fpo 0 gt {
-                Fpx FcR div 4 mul Fpj 1.9 mul add Fpz FcR div 4 mul FcK 0.37 mul add fc-noise2
-                1 Fpo 0.6 mul sub gt { /Fpth 0 def } if
-            } if
-            Fpth 0 gt {
-                Fpt1 0 lt { /Fpt1 Fpyj def /Fpb1 Fpyj Fpth sub def } {
-                    Fpb1 Fpyj sub FpMin lt {
-                        % (less than 1.5 px below the last: the same layer)
-                        /Fpb1 Fpb1 Fpyj Fpth sub fc-min def
-                        /Fpt1 Fpt1 Fpyj fc-max def
-                    } {
-                        fc-tree-layer-1 /Fpt1 Fpyj def /Fpb1 Fpyj Fpth sub def
-                    } ifelse
-                } ifelse
-            } if
+    /FpG FsHoles FcPn mul 1 fc-min def
+    % the core: the envelope cone, narrower
+    1 FpG 0.45 mul sub /Fpc exch def
+    Fpu Fpc lt { 1 Fpu Fpc div sub FcEnv exp } { -1 } ifelse /Fpyc exch def
+    % the shell: 1.5 whorls deep, at least 1.5 px across the branches
+    1.5 FcTiers div
+    Fpw FpP 1 sub exp FpP mul FcDroop mul FpH mul
+        1 Fpy FcDroop sub 0 fc-max 1 FcEnv div exp sub FcR mul 0.0001 fc-max div 1 add FpMin mul
+    fc-max FpTop exch sub /Fpsb exch def
+    Fpyc Fpsb ge {
+        % core and shell are one
+        FpTop 0
+    } {
+        % holes where the shell is a whorl or more clear of the core
+        /Fpho false def
+        0.5 FcTiers div 1.5 FcTiers div Fpsb Fpyc 0 fc-max sub fc-smooth FpG mul 0.6 mul /Fpo exch def
+        Fpo 0 gt {
+            % (sheared by the shell's height, so that on a steep skirt
+            % the holes are blobs, not streaks down it)
+            /Fpf 3.5 FcR div def
+            Fpx FpTop FpH mul add Fpf mul FcK 0.37 mul add
+            Fpz FpTop FpH mul 0.6 mul sub Fpf mul FcK 0.13 mul add fc-noise2
+            1 Fpo sub gt { /Fpho true def } if
         } if
-    } for
-    Fpt1 0 ge { fc-tree-layer-1 } if
-    FpT 0 lt { -1 -1 } {
-        FpT 0.94 mul 0.06 add FcH mul
-        FpB FpMin le { 0 } { FpB 0.94 mul 0.06 add FcH mul } ifelse
+        Fpho {
+            % in a hole: the core, if it is under 4 px off, else 4 px off
+            Fpyc 0 ge Fpq Fpyc sub FpMin 2.67 mul lt and { Fpyc 0 } { Fpq FpMin 2.67 mul sub -1 } ifelse
+        } {
+            % the shell or the core, whichever is nearer
+            Fpq FpTop sub Fpsb Fpq sub fc-max
+            Fpyc 0 ge { Fpq Fpyc sub Fpq neg fc-max } { 1000 } ifelse
+            lt { FpTop Fpsb } { Fpyc 0 } ifelse
+        } ifelse
     } ifelse
-} bind def
-% the gathered layer Fpt1 Fpb1 against FcY (Fpq): keep it if nearest
-/fc-tree-layer-1 {
-    Fpq Fpt1 sub Fpb1 Fpq sub fc-max dup FpD lt {
-        /FpD exch def /FpT Fpt1 def /FpB Fpb1 def
-    } { pop } ifelse
+    /FpB exch def /FpT exch def
+    FpT 0.94 mul 0.06 add FcH mul
+    FpB 0 lt { -1 } { FpB FpMin le { 0 } { FpB 0.94 mul 0.06 add FcH mul } ifelse } ifelse
 } bind def
 
 % -> the species dict of the tree FcK, drawn by FsMix's weights, each
@@ -1131,8 +1083,10 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
                 % (a crown of masses: the mass nearest FcY, so the gaps
                 % between masses stay open)
                 FcKind 0 eq FcSblob and { /Fctop FhIt def /Fcbase FhIb def } if
-                % (#85) a cone near, with holes: the branch layer nearest FcY
-                FsHoles 0 gt { FcKind 0 eq FcSblob not and FcSpalm not and FcPn 0 gt and {
+                % (#85) a cone near, with holes: its shell or core, whichever
+                % is nearer FcY (not for the sun's probes: they would mostly
+                % step over the thin shell, and its shadow would be dotted)
+                FsHoles 0 gt FcSun not and { FcKind 0 eq FcSblob not and FcSpalm not and FcPn 0 gt and {
                     FcY Fctop lt {
                         fc-tree-layer /Fcly exch def /Fcty exch def
                         Fcty 0 lt { /Fctop FcY FcPx sub def /Fcbase -1 def } {
@@ -1333,8 +1287,9 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
 % the probes would mostly step over.
 /FsVisS FsPalmOn { [ 0.2 0.4 0.62 0.85 1.1 1.35 1.6 1.9 2.2 2.55 2.9 3.4 ] } { [ 0.12 0.35 0.7 1.2 1.9 2.9 ] } ifelse def
 /FsVisTol FsPalmOn { 0.1 } { 0 } ifelse def
+/FcSun false def
 /fc-tree-sunvis {
-    /Fvz exch def /Fvy exch def /Fvx exch def
+    /Fvz exch def /Fvy exch def /Fvx exch def /FcSun true def
     /Fvv 1 def /Fvsp 0 def
     FsVisS {
         /Fvs exch def
@@ -1359,6 +1314,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
             } if
         } if
     } forall
+    /FcSun false def
     Fvv
 } bind def
 
