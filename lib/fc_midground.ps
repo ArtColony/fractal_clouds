@@ -11,8 +11,8 @@
 % Mx My Mz, may change Alb and KskyMul, and leaves MgTx MgTz, a tilt that
 % fc-terrain-shade adds to the normal's x and z.
 %
-% Where it goes: grass is ground the earlier steps painted green (the same
-% greenness test as fc_ground.ps); sand is the coast's beach (XcMw, the
+% Where it goes: grass is ground the earlier steps painted green (a stricter
+% greenness test than fc_ground.ps's); sand is the coast's beach (XcMw, the
 % weight fc_coast.ps's material hook gave it, and XcMd, its distance from
 % the water).
 %
@@ -60,15 +60,18 @@
     /MgTx 0 def /MgTz 0 def
     /MgX Kx TerrOX add def /MgZ Kz TerrOZ add def
     % the footprint: two pixels, stretched by the ray's grazing angle
-    Mx Nx mul My Ny mul add Mz Nz mul add abs 0.05 fc-max sqrt
-    Kt PixAng mul 2 mul exch div /MgF exch def
-    % greenness of what the ground is painted (fc_ground.ps's test)
+    /MgGr Mx Nx mul My Ny mul add Mz Nz mul add abs 0.02 fc-max def
+    Kt PixAng mul 2 mul MgGr 0.05 fc-max sqrt div /MgF exch def
+    % greenness of what the ground is painted (fc_ground.ps's test, set
+    % higher: pale sand, green over blue by about 1.1, passes that one)
     Alb 1 get  Alb 0 get Alb 2 get add 0.5 mul 0.0001 add div /MgG exch def
-    1.04 1.3 MgG fc-smooth 1 Ksnow sub mul MidGrass mul /MgG exch def
+    1.15 1.35 MgG fc-smooth 1 Ksnow sub mul MidGrass mul /MgG exch def
     % the beach
     /XcMw where { pop XcMw XcMd } { 0 1e9 } ifelse
     /MgD exch def
-    MidSand mul 1 Ksnow sub mul /MgSw exch def
+    MidSand mul 1 Ksnow sub mul
+    % above the water only: the bed under the shallows is fc_water's
+    /MapSea where { pop -0.05 0.1 Kh MapSea sub fc-smooth mul } if /MgSw exch def
     /MgG MgG 1 MgSw MidSand 0.001 fc-max div sub mul def   % (sand can pass the test)
     MgG 0.001 gt { fc-mid-grass } if
     MgSw 0.001 gt { fc-mid-sand } if
@@ -87,7 +90,7 @@
     /Alb [ 0 1 2 { dup Alb exch get exch MidLush exch get 1 sub MgL mul 1 add mul } for ] def
     % dry: toward straw, in swathes, broken by the 1-unit octave
     MgGrassO MgGrassC MgGrassS 4 fc-mid-oct 0.5 sub 1.0 fc-mid-w mul /MgQ exch def
-    MgP MgQ 0.35 mul add 0.05 0.2 3 -1 roll fc-smooth 0.3 mul MgG mul /MgDy exch def
+    MgP MgQ 0.35 mul add 0.12 0.3 3 -1 roll fc-smooth 0.3 mul MgG mul /MgDy exch def
     Alb MidStraw MgDy mix3v /Alb exch def
     % straw tufts and darker clumps (0.38, 0.15 units): their contrast where they
     % show, their mean where they don't
@@ -96,7 +99,7 @@
     0.38 fc-mid-w /MgW3 exch def 0.15 fc-mid-w /MgW4 exch def
     MgN3 0.65 mul MgN4 0.35 mul add /MgT exch def
     % tufts: the tops of the noise, toward straw
-    0.6 0.72 MgT fc-smooth MgW3 mul 0.06 1 MgW3 sub mul add 0.22 mul MgG mul /MgTu exch def
+    0.62 0.74 MgT fc-smooth MgW3 mul 0.05 1 MgW3 sub mul add 0.18 mul MgG mul /MgTu exch def
     Alb MidStraw MgTu mix3v /Alb exch def
     % clumps: the bottoms, darker
     0.42 0.3 MgT fc-smooth MgW3 mul 0.06 1 MgW3 sub mul add 0.2 mul
@@ -117,13 +120,20 @@
     /MgV MgZ MgWc mul MgX MgWs mul sub def
     MgU 3 div 4.1 add MgV 0.6 div 8.3 add fc-noise2 0.5 sub 0.6 fc-mid-w mul 0.6 mul
     MgU 0.8 div 1.3 add MgV 0.15 div 2.7 add fc-noise2 0.5 sub 0.15 fc-mid-w mul 0.4 mul add
-    0.3 mul MgSw mul 1 add /MgK exch def
+    % and close up a grainy mottle (0.06, 0.025 units), turned two ways
+    MgX 0.8 mul MgZ 0.6 mul add 0.06 div 7.7 add MgZ 0.8 mul MgX 0.6 mul sub 0.06 div 1.9 add fc-noise2
+    0.5 sub 0.06 fc-mid-w mul 0.35 mul add
+    MgX 0.5 mul MgZ 0.87 mul sub 0.025 div 3.1 add MgZ 0.5 mul MgX 0.87 mul add 0.025 div 6.6 add fc-noise2
+    0.5 sub 0.025 fc-mid-w mul 0.3 mul add
+    0.5 mul MgSw mul 1 add /MgK exch def
     % damp sand near the water: darker and a little cooler, its edge wandering
     MidDamp
     MgX 0.11 mul 3.3 add MgZ 0.11 mul 9.1 add fc-noise2 0.5 sub 0.8 mul 1 add mul
     0 fc-max /MgDd exch def
-    MgDd MgDd 0.25 mul MgD fc-smooth 0.28 mul MgSw mul /MgWt exch def
-    /Alb [ Alb 0 get 1 MgWt sub mul  Alb 1 get 1 MgWt 1.05 mul sub mul  Alb 2 get 1 MgWt 1.15 mul sub mul ] def
+    % (seen at a glancing angle wet sand mirrors the sky instead: the
+    % darkening fades out there, where fc_ocean's wet band takes over)
+    MgDd MgDd 0.25 mul MgD fc-smooth 0.45 mul MgSw mul 0.02 0.12 MgGr fc-smooth mul /MgWt exch def
+    /Alb [ Alb 0 get 1 MgWt sub mul  Alb 1 get 1 MgWt 1.02 mul sub mul  Alb 2 get 1 MgWt 1.06 mul sub mul ] def
     /Alb [ Alb { MgK mul } forall ] def
     % strandlines: a thin wrack line at each tide's reach, wandering and broken
     MidTide { /MgTd exch def
@@ -131,14 +141,18 @@
         MgX 0.07 mul MgTd add MgZ 0.07 mul 5.7 add fc-noise2 0.5 sub MgTd 0.3 mul mul add
         MgX 0.4 mul 2.1 add MgZ 0.4 mul MgTd add fc-noise2 0.5 sub 0.6 mul add
         MgD sub abs /MgLd exch def
-        % 0.1 units wide; where it is under a footprint, its share of it
-        /MgLw 0.1 def
-        MgLw MgF 0.5 mul fc-max /MgLe exch def
+        % 0.25 units wide; where it is under a footprint, its share of it
+        /MgLw 0.25 def
+        % (a line along the shore is crossed along the ray: the footprint
+        % there is the full stretch, not the mean)
+        MgLw Kt PixAng mul MgGr div fc-max /MgLe exch def
         MgLe 0 MgLd fc-smooth MgLw MgLe div 1 fc-min mul
-        % broken into clumps
-        0.35 0.6 MgX 0.9 mul MgTd 3.1 mul add MgZ 0.9 mul 1.7 add fc-noise2 fc-smooth
-        1.1 fc-mid-w dup 3 1 roll mul exch 1 exch sub 0.5 mul add mul
-        0.7 mul MgSw mul /MgLt exch def
+        % broken into clumps and gaps; they run along the line, across the
+        % ray, so they show once 1.1 units span a few pixels across
+        0.45 0.62 MgX 0.9 mul MgTd 3.1 mul add MgZ 0.9 mul 1.7 add fc-noise2 fc-smooth
+        1 2.5 1.1 Kt PixAng mul 2 mul 0.000001 fc-max div fc-smooth
+        dup 3 1 roll mul exch 1 exch sub 0.3 mul add mul
+        0.65 mul MgSw mul /MgLt exch def
         MgLt 0 gt { Alb MidWrack MgLt mix3v /Alb exch def } if
     } forall
 } bind def
@@ -149,7 +163,7 @@
 % hollows see a little less sky
 /fc-mid-bump {
     /MgWu 0 def /MgWv 0 def /MgH 0 def
-    MgG MgSw add 1 fc-min MidBump mul /MgB exch def
+    MgG MgSw 1.5 mul add 1.5 fc-min MidBump mul /MgB exch def
     0 2 MgBumpO length 2 sub { /MgI exch def
         MgBumpO MgI get /MgWl exch def
         MgWl fc-mid-w /MgOw exch def

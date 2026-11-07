@@ -776,7 +776,7 @@ between the near ground cover (`GroundOn`, which works only within about
 `lib/fc_midground.ps` at its end when any of the three strengths is above
 0 (all 0 by default: identical output), and calls it after the material
 hook and the ground cover. Grass is ground the earlier steps painted green
-(the same greenness test as `fc_ground.ps`); sand is the coast's beach
+(green over the mean of red and blue by 1.15 to 1.35 in linear terms, a stricter test than `fc_ground.ps`'s, which pale sand passes); sand is the coast's beach
 (`fc_coast.ps`'s sand weight and its distance from the water). Every
 octave and line fades in as it grows from one to 2.5 footprints (two
 pixels on the ground, stretched by how obliquely the ray meets it) and

@@ -36,6 +36,10 @@
 /Pitch where { pop } { /Pitch 2.5 def } ifelse
 /TMax where { pop } { /TMax 1600 def } ifelse
 /SunAzim where { pop } { /SunAzim 150 def } ifelse    % high, behind the camera on the right
+% meadow and beach texture at every distance (#103, lib/fc_midground.ps)
+/MidGrass where { pop } { /MidGrass 1 def } ifelse
+/MidSand where { pop } { /MidSand 1 def } ifelse
+/MidBump where { pop } { /MidBump 1 def } ifelse
 Plan { /Erode where { pop } { /Erode false def } ifelse } if
 
 (lib/fc_presets.ps) run
