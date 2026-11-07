@@ -208,8 +208,9 @@
 % --- compiling CloudLayers -----------------------------------------------------
 % FcClList: one complete dict per layer (colours linear). FcClUp: their
 % bindings sorted by base height; FcClDown: the reverse. FcClMarchUp,
-% FcClMarchDown, FcClDensAll, FcClShadAll, FcClShadOctAll and FcClSkyAll:
-% the per-pixel loops over them, unrolled (fc-cloud-unroll).
+% FcClMarchDown (FcClMarch picks one), FcClDensAll, FcClShadAll,
+% FcClShadOctAll and FcClSkyAll: the per-pixel loops over them, unrolled
+% (fc-cloud-unroll).
 /FcClCompiled false def
 /FcClColourKeys [ /AmbTop /AmbBot ] def
 
@@ -295,6 +296,11 @@
     /FcClDown [ FcClN 1 sub -1 0 { FcClUp exch get } for ] def
     /FcClMarchUp FcClUp { Tr 0.01 lt not { fc-cloud-march } if } fc-cloud-unroll def
     /FcClMarchDown FcClDown { Tr 0.01 lt not { fc-cloud-march } if } fc-cloud-unroll def
+    % nearest band first: up the list for a rising ray, down it otherwise
+    % (one layer: one march, so a compiled kernel holds it once)
+    /FcClMarch FcClN 1 eq { /FcClMarchUp load } {
+        { My 0 ge { FcClMarchUp } { FcClMarchDown } ifelse }
+    } ifelse def
     /FcClDensAll FcClUp { DqX DqY DqZ DqO fc-layer-density add } fc-cloud-unroll def
     /FcClShadAll FcClUp { fc-cloud-shadow1 } fc-cloud-unroll def
     /FcClShadOctAll FcClUp { ClSOct DqO gt { /ClSOct DqO def } if fc-cloud-shadow1 } fc-cloud-unroll def
@@ -602,10 +608,7 @@
     /Cr 0 def /Cg 0 def /Cb 0 def /Tr 1 def
     /ClJit fc-cloud-jitter def
     FcClCompiled not { fc-clouds-compile } if
-    CloudLayers null eq { fc-cloud-march } {
-        % nearest band first: up the list for a rising ray, down it otherwise
-        My 0 ge { FcClMarchUp } { FcClMarchDown } ifelse
-    } ifelse
+    CloudLayers null eq { fc-cloud-march } { FcClMarch } ifelse
 } bind def
 
 % The march's first-step jitter, 0..1: a 64 x 64 blue-noise tile (void and
