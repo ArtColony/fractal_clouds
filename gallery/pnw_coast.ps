@@ -69,6 +69,10 @@ View 2 eq {
 } ifelse
 /TMax where { pop } { /TMax 1200 def } ifelse
 /SunAzim where { pop } { /SunAzim -40 def } ifelse
+% meadow texture at every distance (#103, lib/fc_midground.ps); the cobble
+% beach keeps its own (MidSand's drifts and damp sand are for sand)
+/MidGrass where { pop } { /MidGrass 1 def } ifelse
+/MidBump where { pop } { /MidBump 1 def } ifelse
 Plan { /Erode where { pop } { /Erode false def } ifelse } if
 % (#100) variety in the stand: age patches, per-tree tint, edges standing
 % tallest (the trees a little taller, to keep the stand's mean height),

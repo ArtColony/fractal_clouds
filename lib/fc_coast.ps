@@ -286,6 +286,7 @@
 % beach is installed on the first fc-coast call instead (setup, after every
 % library has loaded), running before the trees' and the water's hooks.
 /fc-coast-material {
+    /XcMw 0 def /XcMd 1e9 def                    % (read by fc_midground.ps, #103)
     Kh MapSea sub /XcE exch def
     XcE CoastBerm 1.6 add lt XcE -4 gt and {
         Kx TerrOX add Kz TerrOZ add fc-coast-dist /XcMk exch def /XcMd exch def

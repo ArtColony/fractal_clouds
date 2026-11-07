@@ -1,0 +1,184 @@
+%!PS-Adobe-3.0
+% fc_midground.ps -- meadow and beach texture at every distance
+% (fractal_clouds#103): patches of different greens, dry straw, darker
+% clumps on grass; wind streaks, damp sand, strandlines and hummocks on
+% the beach; and a micro-relief normal and sky occlusion on both.
+%
+% fc_terrain.ps loads this file at its end when MidGrass, MidSand or
+% MidBump is above 0 (set them before loading, like every setting), and
+% calls fc-mid-shade after the material hook and the ground cover
+% (fc_ground.ps). It reads Kx Kz Kh Kt Nx Ny Nz Ksnow Alb and the ray
+% Mx My Mz, may change Alb and KskyMul, and leaves MgTx MgTz, a tilt that
+% fc-terrain-shade adds to the normal's x and z.
+%
+% Where it goes: grass is ground the earlier steps painted green (a stricter
+% greenness test than fc_ground.ps's); sand is the coast's beach (XcMw, the
+% weight fc_coast.ps's material hook gave it, and XcMd, its distance from
+% the water).
+%
+% Detail follows distance: every octave, and every line, fades in as it
+% grows from one to 2.5 footprints, the footprint being two pixels on the
+% ground, stretched by how obliquely the ray meets it (the geometric mean
+% of the across and along footprints). An octave too fine to show leaves
+% its mean, so the tone doesn't drift with distance or image size. Every
+% octave is turned its own way and shifted by the coarser ones, so none
+% lines up into a tiling (fc-noise2 repeats every 64 lattice cells).
+% Noise only: no rand, so the bakes' random stream is untouched.
+%
+% Names: this file keeps its temporaries under Mg*.
+
+/MidStraw [ 0.62 0.56 0.36 ] fc-colour    % sRGB: dry straw in the meadow
+/MidLush [ 0.80 0.95 0.70 ] fc-default    % multiplier: lush, deeper green patches
+/MidWrack [ 0.30 0.26 0.20 ] fc-colour    % sRGB: the strandlines' wrack
+/MidTide [ 5 13 ] fc-default              % strandlines, distance from the water (units)
+/MidDamp 4 fc-default                     % damp sand reaches about this far from the water
+/MidWind null fc-default                  % sand streaks run along this (degrees, as WindDir; null: WindDir, or 37)
+
+% octaves: wavelength (units) and turn (degrees); their turns' cos and sin
+/MgGrassO [ 7 0  2.6 41  1.0 83  0.38 127  0.15 19 ] def
+/MgBumpO [ 1.7 23  0.65 67  0.25 111 ] def
+/MgC { [ exch 0 2 2 index length 2 sub { 1 index exch 1 add get cos exch } for pop ] } bind def
+/MgS { [ exch 0 2 2 index length 2 sub { 1 index exch 1 add get sin exch } for pop ] } bind def
+/MgGrassC MgGrassO MgC def /MgGrassS MgGrassO MgS def
+/MgBumpC MgBumpO MgC def /MgBumpS MgBumpO MgS def
+
+% wl -> 0..1: how fully an octave of wavelength wl shows (MgF the footprint)
+/fc-mid-w { MgF div 1 exch 2.5 exch fc-smooth } bind def
+
+% [octs] [cos] [sin] i -> v: octave i at (MgX, MgZ), turned and shifted by
+% MgWu MgWv (the coarser octaves' values), which it then updates
+/fc-mid-oct {
+    /MgI exch def /MgOs exch def /MgOc exch def
+    dup MgI get /MgWl exch def pop
+    /MgCc MgOc MgI 2 idiv get def /MgSs MgOs MgI 2 idiv get def
+    MgX MgCc mul MgZ MgSs mul add MgWl div MgWu add MgI 2.3 mul add
+    MgZ MgCc mul MgX MgSs mul sub MgWl div MgWv add 6.1 add fc-noise2
+    dup 5.3 mul MgWu add /MgWu exch def dup 3.7 mul MgWv add /MgWv exch def
+} bind def
+
+/fc-mid-shade {
+    /MgTx 0 def /MgTz 0 def
+    /MgX Kx TerrOX add def /MgZ Kz TerrOZ add def
+    % the footprint: two pixels, stretched by the ray's grazing angle
+    /MgGr Mx Nx mul My Ny mul add Mz Nz mul add abs 0.02 fc-max def
+    Kt PixAng mul 2 mul MgGr 0.05 fc-max sqrt div /MgF exch def
+    % greenness of what the ground is painted (fc_ground.ps's test, set
+    % higher: pale sand, green over blue by about 1.1, passes that one)
+    Alb 1 get  Alb 0 get Alb 2 get add 0.5 mul 0.0001 add div /MgG exch def
+    1.15 1.35 MgG fc-smooth 1 Ksnow sub mul MidGrass mul /MgG exch def
+    % the beach
+    /XcMw where { pop XcMw XcMd } { 0 1e9 } ifelse
+    /MgD exch def
+    MidSand mul 1 Ksnow sub mul
+    % above the water only: the bed under the shallows is fc_water's
+    /MapSea where { pop -0.05 0.1 Kh MapSea sub fc-smooth mul } if /MgSw exch def
+    /MgG MgG 1 MgSw MidSand 0.001 fc-max div sub mul def   % (sand can pass the test)
+    MgG 0.001 gt { fc-mid-grass } if
+    MgSw 0.001 gt { fc-mid-sand } if
+    MidBump 0 gt MgG MgSw add 0.001 gt and { fc-mid-bump } if
+} bind def
+
+% --- the meadow ---------------------------------------------------------------
+/fc-mid-grass {
+    /MgWu 0 def /MgWv 0 def
+    % broad patches (7 and 2.6 units): lush hollows and drier swathes
+    MgGrassO MgGrassC MgGrassS 0 fc-mid-oct 0.5 sub 7 fc-mid-w mul 0.62 mul
+    MgGrassO MgGrassC MgGrassS 2 fc-mid-oct 0.5 sub 2.6 fc-mid-w mul 0.38 mul add
+    /MgP exch def
+    % lush: deeper, more saturated green
+    0.02 -0.16 MgP fc-smooth 0.7 mul MgG mul /MgL exch def
+    /Alb [ 0 1 2 { dup Alb exch get exch MidLush exch get 1 sub MgL mul 1 add mul } for ] def
+    % dry: toward straw, in swathes, broken by the 1-unit octave
+    MgGrassO MgGrassC MgGrassS 4 fc-mid-oct 0.5 sub 1.0 fc-mid-w mul /MgQ exch def
+    MgP MgQ 0.35 mul add 0.12 0.3 3 -1 roll fc-smooth 0.3 mul MgG mul /MgDy exch def
+    Alb MidStraw MgDy mix3v /Alb exch def
+    % straw tufts and darker clumps (0.38, 0.15 units): their contrast where they
+    % show, their mean where they don't
+    MgGrassO MgGrassC MgGrassS 6 fc-mid-oct /MgN3 exch def
+    MgGrassO MgGrassC MgGrassS 8 fc-mid-oct /MgN4 exch def
+    0.38 fc-mid-w /MgW3 exch def 0.15 fc-mid-w /MgW4 exch def
+    MgN3 0.65 mul MgN4 0.35 mul add /MgT exch def
+    % tufts: the tops of the noise, toward straw
+    0.62 0.74 MgT fc-smooth MgW3 mul 0.05 1 MgW3 sub mul add 0.18 mul MgG mul /MgTu exch def
+    Alb MidStraw MgTu mix3v /Alb exch def
+    % clumps: the bottoms, darker
+    0.42 0.3 MgT fc-smooth MgW3 mul 0.06 1 MgW3 sub mul add 0.2 mul
+    % and a fine mottle
+    MgN4 0.5 sub MgW4 mul 0.2 mul sub
+    MgN3 0.5 sub MgW3 mul 0.12 mul sub
+    MgG mul 1 exch sub /MgK exch def
+    /Alb [ Alb { MgK mul } forall ] def
+} bind def
+
+% --- the beach ----------------------------------------------------------------
+/fc-mid-sand {
+    % wind streaks: a noise stretched along the wind, 3 by 0.6 units, then
+    % 0.8 by 0.15; lighter and darker sand in drifts
+    MidWind null ne { MidWind } { /WindDir where { pop WindDir } { 37 } ifelse } ifelse
+    dup cos /MgWc exch def sin /MgWs exch def
+    /MgU MgX MgWc mul MgZ MgWs mul add def
+    /MgV MgZ MgWc mul MgX MgWs mul sub def
+    MgU 3 div 4.1 add MgV 0.6 div 8.3 add fc-noise2 0.5 sub 0.6 fc-mid-w mul 0.6 mul
+    MgU 0.8 div 1.3 add MgV 0.15 div 2.7 add fc-noise2 0.5 sub 0.15 fc-mid-w mul 0.4 mul add
+    % and close up a grainy mottle (0.06, 0.025 units), turned two ways
+    MgX 0.8 mul MgZ 0.6 mul add 0.06 div 7.7 add MgZ 0.8 mul MgX 0.6 mul sub 0.06 div 1.9 add fc-noise2
+    0.5 sub 0.06 fc-mid-w mul 0.35 mul add
+    MgX 0.5 mul MgZ 0.87 mul sub 0.025 div 3.1 add MgZ 0.5 mul MgX 0.87 mul add 0.025 div 6.6 add fc-noise2
+    0.5 sub 0.025 fc-mid-w mul 0.3 mul add
+    0.5 mul MgSw mul 1 add /MgK exch def
+    % damp sand near the water: darker and a little cooler, its edge wandering
+    MidDamp
+    MgX 0.11 mul 3.3 add MgZ 0.11 mul 9.1 add fc-noise2 0.5 sub 0.8 mul 1 add mul
+    0 fc-max /MgDd exch def
+    % (seen at a glancing angle wet sand mirrors the sky instead: the
+    % darkening fades out there, where fc_ocean's wet band takes over)
+    MgDd MgDd 0.25 mul MgD fc-smooth 0.45 mul MgSw mul 0.02 0.12 MgGr fc-smooth mul /MgWt exch def
+    /Alb [ Alb 0 get 1 MgWt sub mul  Alb 1 get 1 MgWt 1.02 mul sub mul  Alb 2 get 1 MgWt 1.06 mul sub mul ] def
+    /Alb [ Alb { MgK mul } forall ] def
+    % strandlines: a thin wrack line at each tide's reach, wandering and broken
+    MidTide { /MgTd exch def
+        MgTd
+        MgX 0.07 mul MgTd add MgZ 0.07 mul 5.7 add fc-noise2 0.5 sub MgTd 0.3 mul mul add
+        MgX 0.4 mul 2.1 add MgZ 0.4 mul MgTd add fc-noise2 0.5 sub 0.6 mul add
+        MgD sub abs /MgLd exch def
+        % 0.25 units wide; where it is under a footprint, its share of it
+        /MgLw 0.25 def
+        % (a line along the shore is crossed along the ray: the footprint
+        % there is the full stretch, not the mean)
+        MgLw Kt PixAng mul MgGr div fc-max /MgLe exch def
+        MgLe 0 MgLd fc-smooth MgLw MgLe div 1 fc-min mul
+        % broken into clumps and gaps; they run along the line, across the
+        % ray, so they show once 1.1 units span a few pixels across
+        0.45 0.62 MgX 0.9 mul MgTd 3.1 mul add MgZ 0.9 mul 1.7 add fc-noise2 fc-smooth
+        1 2.5 1.1 Kt PixAng mul 2 mul 0.000001 fc-max div fc-smooth
+        dup 3 1 roll mul exch 1 exch sub 0.3 mul add mul
+        0.65 mul MgSw mul /MgLt exch def
+        MgLt 0 gt { Alb MidWrack MgLt mix3v /Alb exch def } if
+    } forall
+} bind def
+
+% --- micro-relief -------------------------------------------------------------
+% three octaves of a height noise (1.7, 0.65, 0.25 units), each as high as
+% MidBump x its wavelength / 10: their slope tilts the normal, and the
+% hollows see a little less sky
+/fc-mid-bump {
+    /MgWu 0 def /MgWv 0 def /MgH 0 def
+    MgG MgSw 1.5 mul add 1.5 fc-min MidBump mul /MgB exch def
+    0 2 MgBumpO length 2 sub { /MgI exch def
+        MgBumpO MgI get /MgWl exch def
+        MgWl fc-mid-w /MgOw exch def
+        MgOw 0 gt {
+            /MgCc MgBumpC MgI 2 idiv get def /MgSs MgBumpS MgI 2 idiv get def
+            MgX MgCc mul MgZ MgSs mul add MgWl div MgWu add MgI 1.9 mul add 3.3 add
+            MgZ MgCc mul MgX MgSs mul sub MgWl div MgWv add 1.7 add fc-noise2d
+            % (the gradient is in the turned frame, per wavelength: turn it back)
+            /MgGz exch def /MgGx exch def
+            MgGx MgCc mul MgGz MgSs mul sub MgOw mul MgB mul 0.1 mul MgTx exch sub /MgTx exch def
+            MgGz MgCc mul MgGx MgSs mul add MgOw mul MgB mul 0.1 mul MgTz exch sub /MgTz exch def
+            dup 0.5 sub MgOw mul MgH add /MgH exch def
+            dup 5.3 mul MgWu add /MgWu exch def 3.7 mul MgWv add /MgWv exch def
+        } if
+    } for
+    % hollows (MgH below 0) see less of the sky, rises a little more
+    /KskyMul KskyMul MgH 0.3 mul MgB mul -0.25 fc-max 0.25 fc-min 1 add mul def
+} bind def
