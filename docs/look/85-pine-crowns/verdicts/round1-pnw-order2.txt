@@ -1,0 +1,6 @@
+REALISM: B
+AESTHETICS: B
+- B’s crowns have more convincing volume and continuous taper.
+- A’s jagged edges read as rendering artifacts more than individual branches.
+- B’s cleaner silhouettes separate the overlapping trees more clearly.
+- Both look stylized, with blocky textures and subdued tonal depth.
