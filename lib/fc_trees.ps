@@ -621,22 +621,28 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
 %               N 3..5 per tree (an integer: no seam in the angle), the
 %               phase turning from whorl to whorl so the notches don't line
 %               up into grooves
-%   FsTipDroop  the branches run out flatter and their tips hang: the
-%               droop along a branch goes as (u/reach)^(2.5 + 1.5 FsTipDroop)
+%   FsTipDroop  the lower branches run out flatter and their tips hang:
+%               the droop along whorl k's branch goes as (u/reach)^p,
+%               p = 2.5 + 2 FsTipDroop (1 - k/FcTiers)^2 (the spire's
+%               whorls hardly change, so the top stays pointed)
 %   FsHoles     the crown is a shell over a core (fc-tree-layer), not solid
 %               all the way down from its top: the shell is the top whorls'
 %               branches, 1.5 / FcTiers deep (and at least 1.5 px across
 %               however steeply they hang); the core is the envelope cone
 %               shrunk to 1 - 0.45 FsHoles of the radius. Where the shell
 %               stands well clear of the core, noise (a quarter of the
-%               crown radius) holes it, up to 60% of it: you see into the
-%               dark inside, and at the rim through the crown to what is
-%               behind. fc-tree-cell takes the part nearest FcY as the
-%               solid, as for a crown of masses.
+%               crown radius, sheared by height so a steep skirt's holes are
+%               blobs, not streaks) holes it, up to 0.6 FsHoles of it: you
+%               see into the dark inside, and at the rim through the crown
+%               to what is behind; not in the spire (above 0.55 of the
+%               height), where a hole would leave the tip floating. The
+%               sun's probes see the solid crown (FcSun), so its shadow
+%               isn't dotted. fc-tree-cell takes the part nearest FcY as
+%               the solid, as for a crown of masses.
 /FcPx 0.01 def
 /FcEnv FsEnv def /FcDroop FsDroop def /FcTiers FsTiers def /FcRag 1 def /FcLobes 1 def
 /FsNearOn FsLobe 0 gt FsTipDroop 0 gt or FsHoles 0 gt or def
-/FcPn 0 def /FcL 0 def /FpP 2.5 def /Fpw 0 def /FpTop 0 def
+/FcPn 0 def /FcL 0 def /FpP 2.5 def /FpTd 0 def /Fpw 0 def /FpTop 0 def
 /fc-tree-prof {
     /Fpz exch def /Fpx exch def
     Fpx dup mul Fpz dup mul add sqrt FcR div /Fpu exch def
@@ -645,7 +651,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
         % (#85) near: notches, hanging tips, holes
         FsNearOn {
             /FcPn FcL 0 gt { FcR FcPx div FsNearPx sub FsNearPx div 0 fc-max 1 fc-min } { 0 } ifelse def
-            /FpP FsTipDroop FcPn mul 1 fc-min 1.5 mul 2.5 add def
+            /FpTd FsTipDroop FcPn mul 1 fc-min 2 mul def /FpP 2.5 def
         } if
         Fpl 0 gt {
             1 Fpu sub FcEnv exp FcDroop add FcTiers mul floor /Fpk exch def
@@ -665,7 +671,8 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
             1 Fpu sub FcEnv exp FcDroop add FcTiers mul floor FcTiers fc-min /Fpk exch def
             Fpk 1 lt { Fps Fpl 1 sub mul } {     % past the lowest whorl: fade out
                 /Fpy Fpk FcTiers div def
-                Fpy  Fpu  1 Fpy FcDroop sub 0 fc-max 1 FcEnv div exp sub div  dup /Fpw exch def FpP exp FcDroop mul  sub
+                Fpy  Fpu  1 Fpy FcDroop sub 0 fc-max 1 FcEnv div exp sub div  dup /Fpw exch def
+                FpTd 0 gt { /FpP 1 Fpy sub dup mul FpTd mul 2.5 add def } if FpP exp FcDroop mul  sub
                 Fps sub Fpl mul Fps add
             } ifelse
         } { Fps } ifelse
@@ -699,7 +706,9 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     } {
         % holes where the shell is a whorl or more clear of the core
         /Fpho false def
-        0.5 FcTiers div 1.5 FcTiers div Fpsb Fpyc 0 fc-max sub fc-smooth FpG mul 0.6 mul /Fpo exch def
+        0.5 FcTiers div 1.5 FcTiers div Fpsb Fpyc 0 fc-max sub fc-smooth FpG mul 0.6 mul
+        % (none in the spire, which would float free)
+        1 0.55 0.75 FpTop fc-smooth sub mul /Fpo exch def
         Fpo 0 gt {
             % (sheared by the shell's height, so that on a steep skirt
             % the holes are blobs, not streaks down it)

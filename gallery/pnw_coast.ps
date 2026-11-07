@@ -78,6 +78,13 @@ Plan { /Erode where { pop } { /Erode false def } ifelse } if
 /FsEdge where { pop } { /FsEdge 1 def } ifelse
 /FsUnder where { pop } { /FsUnder 1 def } ifelse
 /FsHMax where { pop } { /FsHMax 3.5 def } ifelse
+% (#85) the near crowns less like topiary: notches between the branches,
+% the lower branches' tips hanging, and holes into the crown's dark inside
+% (and through it at the rim); only on crowns over 6 px in radius
+/FsLobe where { pop } { /FsLobe 0.3 def } ifelse
+/FsTipDroop where { pop } { /FsTipDroop 1 def } ifelse
+/FsHoles where { pop } { /FsHoles 0.5 def } ifelse
+/FsNearPx where { pop } { /FsNearPx 6 def } ifelse
 
 (lib/fc_presets.ps) run
 [ /PNWCoast ] fc-presets
