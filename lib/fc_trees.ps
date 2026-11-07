@@ -187,19 +187,40 @@ FsSpecies {
 /FsSpHi [ 0 1 FsNsp 1 sub { FsSpecies exch get /hi get } for ] def
 /FsSpBand false def FsSpHi { 999 lt { /FsSpBand true def } if } forall
 
+% (#123) the table flattened, read per pixel without a dictionary get: a
+% tree's species FcSp is its index in FsSpecies, and each field is an
+% array indexed by it (FsSpPalm and FsSpBlob for its /form, FsSpAutOn for
+% a non-null /autumn, whose FsSpAut stands in its alb when it is null)
+/FsSpN FsSpecies length def
+/fc-sp-col { /Fsk exch def [ 0 1 FsSpN 1 sub { FsSpecies exch get Fsk get } for ] } bind def
+/FsSpRad /rad fc-sp-col def /FsSpHmul /hmul fc-sp-col def /FsSpTrunk /trunk fc-sp-col def
+/FsSpBase /base fc-sp-col def /FsSpBaseD /baseDense fc-sp-col def
+/FsSpEnv /env fc-sp-col def /FsSpDroop /droop fc-sp-col def /FsSpTiers /tiers fc-sp-col def
+/FsSpRag /rag fc-sp-col def /FsSpLobes /lobes fc-sp-col def
+/FsSpFronds /fronds fc-sp-col def /FsSpLean /lean fc-sp-col def /FsSpSlim /slim fc-sp-col def
+/FsSpMasses [ /masses fc-sp-col { cvi } forall ] def
+/FsSpMsize /msize fc-sp-col def /FsSpMspread /mspread fc-sp-col def
+/FsSpMflat /mflat fc-sp-col def /FsSpMcore /mcore fc-sp-col def /FsSpMenv /menv fc-sp-col def
+/FsSpAlb /alb fc-sp-col def /FsSpAlb2 /alb2 fc-sp-col def
+/FsSpShade /shade fc-sp-col def /FsSpBark /bark fc-sp-col def
+/FsSpPalm [ /form fc-sp-col { /palm eq } forall ] def
+/FsSpBlob [ /form fc-sp-col { /blob eq } forall ] def
+/FsSpAutOn [ /autumn fc-sp-col { null ne } forall ] def
+/FsSpAut [ 0 1 FsSpN 1 sub { dup FsSpAutOn exch get { FsSpecies exch get /autumn get } { FsSpAlb exch get } ifelse } for ] def
+
 % FcSp -> -: its profile values in globals, which fc-tree-cell reads
 % (with one species they are set here once, not looked up per cell)
 /fc-tree-sp {
-    /FcSrad FcSp /rad get def /FcShmul FcSp /hmul get def /FcStrunk FcSp /trunk get def
-    /FcSbase FcSp /base get def /FcSbaseD FcSp /baseDense get def
-    /FcSenv FcSp /env get def /FcSdroop FcSp /droop get def /FcStiers FcSp /tiers get def
-    /FcSrag FcSp /rag get def /FcSlobes FcSp /lobes get def
-    /FcSpalm FcSp /form get /palm eq def /FcSfronds FcSp /fronds get def /FcSlean FcSp /lean get def
-    /FcSslim FcSp /slim get def /FcSblob FcSp /form get /blob eq def
-    FcSblob {
-        /FcSnm FcSp /masses get cvi def /FcSmsz FcSp /msize get def /FcSmsp FcSp /mspread get def
-        /FcSmfl FcSp /mflat get def /FcSmcore FcSp /mcore get def /FcSmenv FcSp /menv get def
-    } if
+    /FcSrad FsSpRad FcSp get def /FcShmul FsSpHmul FcSp get def /FcStrunk FsSpTrunk FcSp get def
+    /FcSbase FsSpBase FcSp get def /FcSbaseD FsSpBaseD FcSp get def
+    /FcSenv FsSpEnv FcSp get def /FcSdroop FsSpDroop FcSp get def /FcStiers FsSpTiers FcSp get def
+    /FcSrag FsSpRag FcSp get def /FcSlobes FsSpLobes FcSp get def
+    /FcSpalm FsSpPalm FcSp get def /FcSfronds FsSpFronds FcSp get def /FcSlean FsSpLean FcSp get def
+    /FcSslim FsSpSlim FcSp get def /FcSblob FsSpBlob FcSp get def
+    % (the masses' values are read only for a crown of masses; set always,
+    % so they are defined on every path)
+    /FcSnm FsSpMasses FcSp get def /FcSmsz FsSpMsize FcSp get def /FcSmsp FsSpMspread FcSp get def
+    /FcSmfl FsSpMflat FcSp get def /FcSmcore FsSpMcore FcSp get def /FcSmenv FsSpMenv FcSp get def
 } bind def
 % (#40) palms in the stand: their leaning trunks reach FsCell 0.25 from
 % where they stand (only then, so other stands keep their bounds and steps)
@@ -209,7 +230,8 @@ FsSpecies {
 % so the shading asks which tree's solid it is on even without trunks
 /FsBlobOn false def
 0 1 FsNsp 1 sub { dup FsSpecies exch get /form get /blob eq exch FsMix exch get 0 gt and { /FsBlobOn true def } if } for
-/FcSp FsSpecies 0 get def fc-tree-sp
+/FcSp 0 def fc-tree-sp
+/FcISp 0 def /FcBSp 0 def /FcTSp 0 def    % (#123: defined on every path)
 % bounds for fc-tree-cell's early out (#17), over every species (FcHs is
 % at most 1, the 1.001 covers its rounding): the widest trunk (a snag's),
 % the widest anything (a crown is capped at 0.55 cell, a log at 0.6), and
@@ -732,7 +754,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     FpB 0 lt { -1 } { FpB FpMin le { 0 } { FpB 0.94 mul 0.06 add FcH mul } ifelse } ifelse
 } bind def
 
-% -> the species dict of the tree FcK, drawn by FsMix's weights, each
+% -> the species (its index in FsSpecies) of the tree FcK, drawn by FsMix's weights, each
 % faded out above its altitude band
 /fc-tree-species {
     % the ground's altitude at the cell's centre, so a tree is one species
@@ -752,8 +774,8 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
         { Fcsi FsNsp 1 sub ge { exit } if
           Fcsr FsMixWt Fcsi get sub dup /Fcsr exch def 0 lt { exit } if
           /Fcsi Fcsi 1 add def } loop
-        FsSpecies Fcsi get
-    } { FsSpecies 0 get } ifelse
+        Fcsi
+    } { 0 } ifelse
 } bind def
 
 % --- palms (#40) -------------------------------------------------------------
@@ -1274,7 +1296,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
                         /FcTH FcIH def /FcTK FcIK def /FcTSp FcISp def /FcTKind 1 def
                     } {
                         FcIKind 2 eq { /FsKind 2 def } {
-                            FcIb 0.01 gt FcY FcIb sub FcIt FcY sub lt and FcISp /form get /blob ne and { /FsKind 3 def } if
+                            FcIb 0.01 gt FcY FcIb sub FcIt FcY sub lt and FsSpBlob FcISp get not and { /FsKind 3 def } if
                         } ifelse
                     } ifelse
                 } if
@@ -1328,16 +1350,17 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
 } bind def
 
 /fc-tree-shade {                                 % t -> r g b
-    FsKind 0 eq { dup fc-tree-shade-1 { 4 -1 roll pop } { fc-terrain-shade } ifelse } {
+    FsKind 0 eq { dup fc-tree-shade-1 { 4 -1 roll pop } { pop pop pop fc-terrain-shade } ifelse } {
         FsKind 3 eq { fc-tree-shade-under } {
             FsKind 2 eq { fc-tree-shade-log } { fc-tree-shade-trunk } ifelse
         } ifelse
     } ifelse
 } bind def
 
-% t -> r g b true, or false if no crown is there after all (the march's
-% hit and this re-evaluation can disagree at a crown's very edge; the
-% crown record would then belong to some earlier tree)
+% t -> r g b true, or 0 0 0 false if no crown is there after all (the
+% march's hit and this re-evaluation can disagree at a crown's very edge;
+% the crown record would then belong to some earlier tree; #123: the same
+% stack depth either way, so a compiled kernel can take both)
 /fc-tree-shade-1 {
     /Fwt exch def
     /Fwx Mx Fwt mul def /Fwy My Fwt mul CamY add def /Fwz Mz Fwt mul def
@@ -1345,7 +1368,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     Fwx Fwz fc-forest-mapt /Fwhs exch def /Fwd exch def
     FsTrunks FsBlobOn or { /FcY Fwy Fwx Fwz FsO fc-height sub def } if     % (for FcIn)
     Fwx Fwz Fwd Fwhs fc-crowns /Fw0 exch def
-    Fw0 0 lt { false } {
+    Fw0 0 lt { 0 0 0 false } {
     % the crown that was hit, and the hit relative to its trunk
     % (with trunks, or crowns of masses, the tree whose solid the hit is
     % on: under a lifted crown, or in a gap between masses, that need not
@@ -1357,9 +1380,9 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
         /FcH FcBH def /FcR FcBR def /FcK FcBK def /FcSp FcBSp def /FwB FcBB def
     } ifelse
     /FwSp FcSp def                       % (fc-tree-sunvis overwrites FcSp)
-    FwSp /form get /palm eq { fc-tree-shade-palm } {
-    FwSp /form get /blob eq { fc-tree-shade-blob } {
-    /FcEnv FcSp /env get def /FcTiers FcSp /tiers get def
+    FsSpPalm FwSp get { fc-tree-shade-palm } {
+    FsSpBlob FwSp get { fc-tree-shade-blob } {
+    /FcEnv FsSpEnv FcSp get def /FcTiers FsSpTiers FcSp get def
     /Fwdx FcBx def /Fwdz FcBz def
     % normal from the smooth envelope, not by differencing the stepped
     % whorls (across a step that flips at random from pixel to pixel)
@@ -1393,9 +1416,9 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
         0.6 mul 0.4 add Fwlod mul 1 Fwlod sub add Fwwh mul /Fwwh exch def
     } if
     % needles: the species' colour, per tree, and clumps of foliage
-    FcSp /alb get FcSp /alb2 get FsR 1 get FcK get mix3v
-    FcSp /autumn get null ne FsAutumn 0 gt and {
-        FcSp /autumn get FsAutumn FsR 5 get FcK get 0.5 mul 0.75 add mul 1 fc-min mix3v
+    FsSpAlb FcSp get FsSpAlb2 FcSp get FsR 1 get FcK get mix3v
+    FsSpAutOn FcSp get FsAutumn 0 gt and {
+        FsSpAut FcSp get FsAutumn FsR 5 get FcK get 0.5 mul 0.75 add mul 1 fc-min mix3v
     } if
     FsR 2 get FcK get 0.45 mul 0.78 add
     Fwx 6.1 mul Fwz 4.3 mul add 1.3 add Fwy 7.7 mul fc-noise2 0.5 sub 0.6 mul 1 add mul
@@ -1415,7 +1438,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     % warm olive where the sun reaches, blue-green in the shade
     0 1 2 { /Fwi exch def
         Fwa Fwi get SunCol Fwi get Fwl mul 1.5 mul mul
-        Fwa Fwi get FwSp /shade get Fwi get mul FwSp /alb get Fwi get div
+        Fwa Fwi get FsSpShade FwSp get Fwi get mul FsSpAlb FwSp get Fwi get div
             SkyAmb Fwi get Fws mul SkyLight mul Bounce Fwi get Fwb mul 0.35 mul add mul
         add
     } for
@@ -1480,9 +1503,9 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
         0.6 mul 0.4 add Fwlod mul 1 Fwlod sub add Fwwh mul /Fwwh exch def
     } if
     % the species' colour, per tree, and clumps lighter and darker
-    FcSp /alb get FcSp /alb2 get FsR 1 get FcK get mix3v
-    FcSp /autumn get null ne FsAutumn 0 gt and {
-        FcSp /autumn get FsAutumn FsR 5 get FcK get 0.5 mul 0.75 add mul 1 fc-min mix3v
+    FsSpAlb FcSp get FsSpAlb2 FcSp get FsR 1 get FcK get mix3v
+    FsSpAutOn FcSp get FsAutumn 0 gt and {
+        FsSpAut FcSp get FsAutumn FsR 5 get FcK get 0.5 mul 0.75 add mul 1 fc-min mix3v
     } if
     FsR 2 get FcK get 0.4 mul 0.8 add Fwn1 Fwn2 sub 0.5 mul 1 add mul
     /Fwv exch def [ exch { Fwv mul } forall ] /Fwa exch def
@@ -1499,7 +1522,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     /Fwb 1 Fny sub 0.5 mul Fwo mul def
     0 1 2 { /Fwi exch def
         Fwa Fwi get SunCol Fwi get Fwl mul 1.5 mul mul
-        Fwa Fwi get FwSp /shade get Fwi get mul FwSp /alb get Fwi get div
+        Fwa Fwi get FsSpShade FwSp get Fwi get mul FsSpAlb FwSp get Fwi get div
             SkyAmb Fwi get Fws mul SkyLight mul Bounce Fwi get Fwb mul 0.35 mul add mul
         add
     } for
@@ -1523,8 +1546,8 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     /Fnx Fnx Fnn div def /Fny Fny Fnn div def /Fnz Fnz Fnn div def
     % green, yellower in the old drooping fronds and toward the tips; the
     % knob of frond bases is brown
-    FwSp /alb get FwSp /alb2 get FsR 1 get FcK get 0.5 mul FqV 0.35 mul add FqDk 0.25 mul add 1 fc-min mix3v
-    FqV 0.05 lt { FwSp /bark get 0.6 mix3v } if
+    FsSpAlb FwSp get FsSpAlb2 FwSp get FsR 1 get FcK get 0.5 mul FqV 0.35 mul add FqDk 0.25 mul add 1 fc-min mix3v
+    FqV 0.05 lt { FsSpBark FwSp get 0.6 mix3v } if
     FsR 2 get FcK get 0.3 mul 0.85 add Fwn1 0.5 mul 1 add mul
     /Fwv exch def [ exch { Fwv mul } forall ] /Fwa exch def
     % sun: wrapped, and through the leaflets when the sun is behind them
@@ -1536,7 +1559,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     /Fwb 1 Fny sub 0.5 mul def
     0 1 2 { /Fwi exch def
         Fwa Fwi get SunCol Fwi get Fwl mul 1.5 mul mul
-        Fwa Fwi get FwSp /shade get Fwi get mul FwSp /alb get Fwi get div
+        Fwa Fwi get FsSpShade FwSp get Fwi get mul FsSpAlb FwSp get Fwi get div
             SkyAmb Fwi get Fws mul SkyLight mul Bounce Fwi get Fwb mul 0.35 mul add mul
         add
     } for
@@ -1576,13 +1599,13 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     /Fwq Fwg FcTH div 0 fc-max 1 fc-min def      % height up the trunk
     % the normal, straight out from the axis (a palm's leans, #40)
     Fwx FcTcx sub /Fnx exch def Fwz FcTcz sub /Fnz exch def
-    FcTKind 0 eq { FcTSp /form get /palm eq } { false } ifelse {
+    FcTKind 0 eq { FsSpPalm FcTSp get } { false } ifelse {
         Fwg fc-palm-axis /Fnz Fnz 3 -1 roll sub def /Fnx Fnx 3 -1 roll sub def
     } if
     /Fnn Fnx dup mul Fnz dup mul add sqrt 0.0001 fc-max def
     /Fnx Fnx Fnn div def /Fnz Fnz Fnn div def /Fny 0 def
     % bark, or weathered wood: furrows round the trunk, darker and damper low down
-    FcTKind 1 eq { FsSnagCol } { FcTSp /bark get } ifelse
+    FcTKind 1 eq { FsSnagCol } { FsSpBark FcTSp get } ifelse
     Fnz Fnx atan 0.03 mul FcTK 0.31 mul add  Fwg 1.7 mul FcTK 0.11 mul add fc-noise2 0.5 sub 0.5 mul 1 add
     Fwq 0.6 mul 0.7 add 1 fc-min mul
     /Fwv exch def [ exch { Fwv mul } forall ] /Fwa exch def
@@ -1614,7 +1637,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     /Fnx Fwn1 0.8 mul def /Fnz Fwn2 0.8 mul def /Fny -1 def
     /Fnn Fnx Fnx mul Fny Fny mul add Fnz Fnz mul add sqrt def
     /Fnx Fnx Fnn div def /Fny Fny Fnn div def /Fnz Fnz Fnn div def
-    FcISp /shade get
+    FsSpShade FcISp get
     FsR 2 get FcK get 0.45 mul 0.78 add Fwn1 0.6 mul 1 add mul 0.7 mul
     /Fwv exch def [ exch { Fwv mul } forall ] /Fwa exch def
     FsTintOn { Fwx Fwz fc-forest-tint } if                       % (#100)
@@ -1622,8 +1645,8 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     Fnx SunDir 0 get mul Fny SunDir 1 get mul add Fnz SunDir 2 get mul add 0.25 add 1.25 div
     dup 0 lt { pop 0 } if /Fwl exch def
     % a palm's fronds are a single thin layer: the sun shines through them
-    FcISp /form get /palm eq {
-        /Fwa [ FcISp /alb get { 0.8 mul } forall ] def
+    FsSpPalm FcISp get {
+        /Fwa [ FsSpAlb FcISp get { 0.8 mul } forall ] def
         /Fwl SunDir 1 get 0 fc-max 0.45 mul Fwl add def
     } if
     Fwl 0 gt ShadowsOn and { /Fwl Fwl Fwx Fwy Fwz fc-terrain-shadow mul def } if
