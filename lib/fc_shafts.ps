@@ -43,12 +43,30 @@
 %                      step is long beside a cloud's shadow)
 %   ShaftDark   0.8    the share of the haze's light that is direct sun,
 %                      lost in shadow (0: no shafts; 1: shadowed haze black)
+%   ShaftFwd    0      forward scattering toward the sun (#86): the haze's
+%                      direct-sun light is (1 + ShaftFwd p) times the
+%                      closed form's, p a Henyey-Greenstein lobe that is 1
+%                      looking straight at the sun. Lit air toward the sun
+%                      brightens, and shadowed air loses all of it, so the
+%                      shafts gain contrast where they are seen (0: off,
+%                      the #49 shafts exactly)
+%   ShaftG      0.7    the lobe's asymmetry, 0..1: higher is narrower
+%   ShaftEdge   0      sharpen each probe's shadow toward lit or shadowed
+%                      (#86): the probe's transmittance T goes through a
+%                      smoothstep from ShaftEdge/2 to 1 - ShaftEdge/2, so
+%                      the gaps in the clouds cast distinct beams rather
+%                      than the soft, low-octave shading (0: off)
 
 /ShaftSteps 48 fc-default
 /ShaftDark 0.8 fc-default
 /ShaftOct 1 fc-default
 /ShaftJitter 0.2 fc-default
 /ShaftDist HazeDist fc-default
+/ShaftFwd 0 fc-default
+/ShaftG 0.7 fc-default
+/SfF 1 def
+/ShaftEdge 0 fc-default
+/SfEa ShaftEdge 2 div def /SfEw 1 ShaftEdge sub dup 0.000001 lt { pop 0.000001 } if def
 
 /SfTab ShaftSteps 1 add array def
 /SfTT ShaftSteps 1 add array def      % green transmittance at the step ends
@@ -105,7 +123,7 @@
         SfW 0.00002 gt {
             SfI SfJ add SfDt mul /SfS exch def
             Mx SfS mul My SfS mul CamY add Mz SfS mul ShaftOct fc-cloud-shadow-oct
-            1 exch sub SfW mul SfAcc add /SfAcc exch def
+            fc-shaft-edge 1 exch sub SfW mul SfAcc add /SfAcc exch def
         } if
         SfTab SfI 1 add SfAcc put SfTT SfI 1 add SfT1 put
         /SfT0 SfT1 def
@@ -113,10 +131,29 @@
     % the shadowed share of the marched haze, for the rest
     /SfMean 1 SfT0 sub dup 0.00001 gt { SfAcc exch div } { pop 0 } ifelse def
     /SfTE SfT0 def
+    ShaftFwd 0 gt { fc-shaft-fwd } if
+} bind def
+
+% the ray's forward-scatter factor (#86): SfF = 1 + ShaftFwd p, with
+% p = HG(cos) / HG(1) = (1 - g)^3 / (1 + g^2 - 2 g cos)^1.5, cos the angle
+% between the ray and the sun
+/fc-shaft-fwd {                                  % - -> -
+    Mx SunDir 0 get mul My SunDir 1 get mul add Mz SunDir 2 get mul add
+    ShaftG 2 mul mul neg ShaftG ShaftG mul add 1 add 1.5 exp
+    1 ShaftG sub dup dup mul mul exch div
+    ShaftFwd mul 1 add /SfF exch def
 } bind def
 
 /fc-sf-max { 2 copy lt { exch } if pop } bind def
 /fc-sf-min { 2 copy gt { exch } if pop } bind def
+
+% the probe's transmittance through ShaftEdge's smoothstep (or as it is)
+ShaftEdge 0 gt {
+    /fc-shaft-edge {                             % T -> T'
+        SfEa sub SfEw div dup 0 lt { pop 0 } if dup 1 gt { pop 1 } if
+        dup dup mul exch 2 mul 3 exch sub mul
+    } bind def
+} { /fc-shaft-edge { } def } ifelse
 
 % the shadowed in-scatter up to distance t on the table's ray; within a
 % step it is interpolated by transmittance, not distance, so it never
@@ -153,6 +190,42 @@
         } for pop
     } { SfR SfG SfB } ifelse
 } bind def
+
+% with ShaftFwd: the direct-sun haze is SfF times the closed form's, so
+% lit air gains HazeCol ShaftDark (SfF - 1) (1 - T) and shadowed air loses
+% HazeCol ShaftDark SfF L: in green units, L' = SfF L - (SfF - 1)(1 - T),
+% which is negative (a gain) in lit air. Shadowed haze keeps at least
+% HazeCol (1 - ShaftDark) (1 - T), as before
+/fc-shaft-sub-fwd {                              % r g b t L -> r g b
+    SfF mul exch dup fc-shaft-tr 1 exch sub SfF 1 sub mul
+    3 -1 roll exch sub
+    ShaftDark mul /SfL exch def
+    fc-shaft-tr /SfTg exch def
+    /SfB exch def /SfG exch def /SfR exch def
+    1 SfTg sub 0.000001 gt {
+        /SfS0 0 fc-shaft-chan def /SfS1 1 fc-shaft-chan def /SfS2 2 fc-shaft-chan def
+        % a loss is cut, in every channel alike, so that no channel loses
+        % more than ShaftDark of its value: shadowed haze keeps (1 - ShaftDark)
+        % of its light, so the bound only bites where the colour holds less
+        % haze than the closed form gives (the sky, whose own model has the
+        % haze), which would otherwise lose its warm channels and go blue
+        SfL 0 gt {
+            /SfK 1 def
+            SfS0 SfR ShaftDark mul gt { SfR ShaftDark mul SfS0 div SfK fc-sf-min /SfK exch def } if
+            SfS1 SfG ShaftDark mul gt { SfG ShaftDark mul SfS1 div SfK fc-sf-min /SfK exch def } if
+            SfS2 SfB ShaftDark mul gt { SfB ShaftDark mul SfS2 div SfK fc-sf-min /SfK exch def } if
+            SfR SfS0 SfK mul sub SfG SfS1 SfK mul sub SfB SfS2 SfK mul sub
+        } {
+            SfR SfS0 sub SfG SfS1 sub SfB SfS2 sub
+        } ifelse
+    } { SfR SfG SfB } ifelse
+} bind def
+% channel c's share of SfL: HazeCol_c SfL (1 - T^(w_c/w_g)) / (1 - T)
+/fc-shaft-chan {                                 % c -> s
+    dup HazeCol exch get SfL mul exch
+    1 SfTg HazeW 4 -1 roll get HazeW 1 get div exp sub 1 SfTg sub div mul
+} bind def
+ShaftFwd 0 gt { /fc-shaft-sub /fc-shaft-sub-fwd load def } if
 
 /fc-shaft-key { SfOk { Mx SfKx eq My SfKy eq and Mz SfKz eq and CamY SfKc eq and } { false } ifelse } bind def
 
