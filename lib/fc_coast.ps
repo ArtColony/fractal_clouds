@@ -269,8 +269,10 @@
 % [ add reach top ] fades it out up to `top`, [ add reach top taper ] lowers
 % that top toward the reach.
 /fc-coast-fog {
-    pop /XfY exch def
-    TerrOZ add /XfZ exch def TerrOX add /XfX exch def
+    % (x y z oct: #79, it read z as the height and y as z before, so the
+    % bank followed a line through the camera and its top ran across the
+    % frame, cutting it off hard along the view's centre)
+    pop TerrOZ add /XfZ exch def /XfY exch def TerrOX add /XfX exch def
     XfX XfZ fc-coast-dist pop abs
     % the reach wanders (two octaves), so the bank's edge breaks into lobes
     XfX 0.016 mul 3.7 add XfZ 0.016 mul 8.1 add fc-noise2 0.5 sub
@@ -280,7 +282,7 @@
     1 XfS sub CoastFog 0 get mul
     % and, with a third number, it thins out toward that height (a soft top);
     % with a fourth, `taper`, that top comes down toward the bank's edge,
-    % to MapSea at the reach with taper 1 (#79): the bank thins out to a
+    % to MapSea at the reach with taper 1, sooner with more (#79): the bank thins to a
     % layer on the water instead of standing as a wall
     CoastFog length 2 gt {
         CoastFog length 3 gt {
