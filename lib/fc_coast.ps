@@ -265,7 +265,9 @@
 % x y z oct -> dd: a cloud layer's Shape (docs/settings.md, Cloud layers)
 % that thickens it near the coastline, over land or water, so fog fills
 % coves and lies along the shore, thinning out to sea and inland:
-% CoastFog [ add reach ] adds `add` at the coastline, fading to 0 at `reach`.
+% CoastFog [ add reach ] adds `add` at the coastline, fading to 0 at `reach`;
+% [ add reach top ] fades it out up to `top`, [ add reach top taper ] lowers
+% that top toward the reach.
 /fc-coast-fog {
     pop /XfY exch def
     TerrOZ add /XfZ exch def TerrOX add /XfX exch def
@@ -274,9 +276,18 @@
     XfX 0.016 mul 3.7 add XfZ 0.016 mul 8.1 add fc-noise2 0.5 sub
     XfX 0.05 mul 1.3 add XfZ 0.05 mul 6.2 add fc-noise2 0.5 sub 0.5 mul add
     CoastFog 1 get 1.2 mul mul add
-    0 CoastFog 1 get 3 -1 roll fc-smooth 1 exch sub CoastFog 0 get mul
-    % and, with a third number, it thins out toward that height (a soft top)
-    CoastFog length 2 gt { MapSea CoastFog 2 get XfY fc-smooth 1 exch sub mul } if
+    0 CoastFog 1 get 3 -1 roll fc-smooth /XfS exch def
+    1 XfS sub CoastFog 0 get mul
+    % and, with a third number, it thins out toward that height (a soft top);
+    % with a fourth, `taper`, that top comes down toward the bank's edge,
+    % to MapSea at the reach with taper 1 (#79): the bank thins out to a
+    % layer on the water instead of standing as a wall
+    CoastFog length 2 gt {
+        CoastFog length 3 gt {
+            MapSea  CoastFog 2 get MapSea sub 1 XfS CoastFog 3 get mul sub 0.05 fc-max mul MapSea add
+        } { MapSea CoastFog 2 get } ifelse
+        XfY fc-smooth 1 exch sub mul
+    } if
 } bind def
 
 % --- beaches ---------------------------------------------------------------------

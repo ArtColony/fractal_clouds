@@ -918,7 +918,7 @@ sea (their load is lost).
 | `CoastDrift` | 0 | Driftwood along the top of the beach, 0–1 (#40): logs 0.8–1.8 units long and 0.1–0.2 across, lying at any angle, a third sunk in the sand, one candidate per 2.5-unit cell kept by noise (half of them at 1) (more with a higher value; the random stream is untouched). A heightfield bump, so near detail only (more than five terrain octaves), on low shores only (cliffedness under 0.5). | 1 (`/PNWCoast`) |
 | `CoastDriftBand` | [8 24] | `lo hi`: the band of (wobbled) distance from the water the logs lie in: the high-tide line at the back of the beach. | |
 | `CoastDriftCol` | [0.60 0.57 0.52] | Bleached wood, sRGB, darker along the grain. | |
-| `CoastFog` | [0.25 40] | `add reach` for `fc-coast-fog` (below), and optionally a third number, `top`: the added fog thins out from `MapSea` up to that height. | [0.25 40 20] (`/PNWCoast`) |
+| `CoastFog` | [0.25 40] | `add reach` for `fc-coast-fog` (below), and optionally a third number, `top`: the added fog thins out from `MapSea` up to that height, and a fourth, `taper` (0–1, #79): that top comes down toward the bank's edge, by `taper` of its height at the reach (never below 5%), so the bank slopes down to a layer on the water instead of ending in a wall. | [0.25 40 20] (`/PNWCoast`) |
 
 `x y z oct fc-coast-fog dd` is a cloud layer's `Shape` (see Cloud layers):
 it adds `add` to the layer's density at the coastline (by `fc-coast-dist`,
