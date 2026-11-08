@@ -644,6 +644,7 @@ single layer, `CloudLayers` null, keeps its old cut-off).
 | `RainDens` | 0.15 | Their density, as a fraction of the cloud's. |
 | `Shape` | null | A procedure `x y z oct → dd` (`oct`: the octaves the sample wants, fewer with distance) added to the density before the gain: a positive value adds cloud, a negative one cuts it. Only called inside the band (`Lo < y < Hi`), so a placed object needs a band tall enough to hold it. For placed objects such as a cumulonimbus (#15). Costs a call per sample. It is called before the noise: a value of −1 or less means nothing is there, and the noise is skipped (keep the threshold and coverage such that the noise can't lift −1 above 0). |
 | `RainShafts` | 0 | Above 0: the rain is broken into shafts by 2-D noise with this many cells per unit (the storm uses 0.06); 0 is the old solid curtain. |
+| `ShapeMul` | false | True: the `Shape` also sets `FcShapeMul` on every call, a factor on the density there (after the gain): a placed object's thin parts, as the storm's anvil (#137). |
 | `Bounds` | null | `[x0 z0 x1 z1]`, world x and z (the camera stands at x = z = 0): the layer is empty outside this box, and each ray marches only the part of the band inside it, with all its `Steps`. For a placed object, so a tall band doesn't make every sky ray march its whole height. |
 | `RainDriftX`, `RainDriftZ` | 0, 0 | The rain is blown this far in world x and z per unit it falls: a rain sample reads the cloud (and `RainShafts` and `RainMask`) that far upwind, where its rain left the base, so the whole curtain leans (#134). |
 | `RainMask` | null | A procedure `x z → 0..1` multiplying the rain (after `RainShafts`); the sample's own height is in `ClRainY` while it runs. With a drift, x and z are already where the rain left the base. A layer with one also lights its rain with `AmbBot`, as under the base, rather than the ambient a quarter of the way up. The storm uses it to fade the rain toward the edge of the tower's foot. |
@@ -696,15 +697,19 @@ it in front of `CloudLayers`. Set them, like every setting, before the run lines
 | `StormBulge`, `StormBulgeScale` | 0, 0.03 | Above 0: the tower's radius swells and shrinks by up to this fraction in lobes of a 3-D noise with `StormBulgeScale` cells per unit: the cauliflower outline (#134). | 0.4 |
 | `StormLean` | 0.15 | The tower leans downwind this much per unit height. | 0.12 |
 | `StormWind` | 0 | Where the anvil spreads, degrees from +x (as a layer's `Wind`). | 200 |
-| `AnvilBot` | 152 | The anvil's underside at the tower: it is `StormTop − AnvilBot` thick there and thins outward, its underside rising (#134: a wedge, not a slab). | 250 |
+| `AnvilBot` | 152 | The anvil's underside at the tower: it is `StormTop − AnvilBot` thick there and thins outward, its underside rising to the level top at the outline (#134, #137). | 250 |
 | `AnvilR` | 170 | How far it reaches downwind from the tower top. | 300 |
 | `AnvilW` | 0.4 | Its half-width grows by this fraction of `AnvilR` downwind (a fan), on top of the overhang. | 0.2 |
 | `AnvilRoot` | 1.6 | The overhang round the tower top, in the tower's radius: the anvil caps the tower on every side, with an underside upwind too. | 1.4 |
 | `AnvilBack` | 0.1 | How far it reaches upwind past the overhang, as a fraction of `AnvilR`. | 0.05 |
-| `AnvilThin` | 6 | Its thickness at the far edge. | |
-| `AnvilFlare` | 1.5 | How fast it thins away from the tower: thickness goes as (1 − reach)^`AnvilFlare`. | 1.2 |
-| `AnvilTilt` | 0 | Its top falls this much per unit downwind. | 0.03 |
-| `AnvilFiber` | 0 | Above 0: streaks of a 3-D noise stretched along the wind fray it, this strong. | 0.3 |
+| `AnvilThin` | 6 | A last layer of ice near the edge, thinning to nothing on the outline, so the edge fades instead of ending in a rim. | |
+| `AnvilFlare` | 1.5 | How fast it thins away from the tower: the thickness goes as (1 − r)^`AnvilFlare`, r 0 at the tower and 1 on the outline. | 2 |
+| `AnvilTopSoft`, `AnvilBotSoft` | 1.5, 8 | Softness of its top and of its underside, in units: a sharp, level top, a soft underside. | |
+| `AnvilTilt` | 0 | Its top falls this much per unit downwind (0: level, as at the tropopause). | 0 |
+| `AnvilFiber` | 0 | Above 0: the outline is frayed by a 3-D noise stretched along the wind, this strong (in plan units, more toward the edge): fibrous cirrus streaks. | 0.7 |
+| `AnvilDens` | 1 | Its density, as a share of the tower's (the layer's `ShapeMul`): thin ice, so the underside is lit and the edge translucent (#137). | 0.2 |
+| `AnvilShade`, `AnvilAmbOcc` | 1, 1 | Its share of `StormShade` (the shadow it casts on the storm) and of `StormAmbOcc` (the sky it takes from the samples under it). | 0.5, 0.5 |
+| `AnvilMamma` | 0 | Above 0: mammatus, rounded pouches this deep hanging from its underside where it is thick, near the tower. | 12 |
 | `DomeR` | 34 | Radius of the overshooting dome, centred on the tower top, so it rises `DomeR` over the anvil (seen from below, the anvil's near edge hides the lower part: the piece needs 60); 0 for none. | 60 |
 | `StormEdge` | 2 | Gain of the envelope against the noise: higher is a tighter, smoother outline, lower more ragged, with turrets breaking the tower's sides. | 1.2 |
 | `AnvilEdge` | 4 | The anvil's gain relative to the tower's (smoother). | |
@@ -717,15 +722,16 @@ it in front of `CloudLayers`. Set them, like every setting, before the run lines
 | `StormRainDens` | 0.3 | Their density, as a fraction of the cloud's; the rain is masked by `fc-storm-rainmask` (fades toward the edge of the tower's foot, broad shafts streaked by a finer noise). | 0.45 |
 | `StormRainSlant` | 0 | The rain is blown downwind this much per unit it falls (the layer's `RainDriftX`, `RainDriftZ`), so the curtain leans. | 0.6 |
 | `StormRainSoft` | 0 | The rain fades out this far past the edge of the tower's foot, in envelope units (0.5: half a radius), so the curtain's sides are soft. | 0.5 |
+| `StormRainSpread` | 0 | Above 0: those soft sides widen from nothing at the base to `StormRainSoft` this many units below it, so under the base the rain stays inside the cloud's outline rather than a flat-topped block, and flares out lower down (#137). | 40 |
 | `StormRainFine` | 0 | Above 0: fine streaks in the shafts, this strong (0..1). | 0.45 |
 | `StormAmbOcc`, `StormAmbStep` | 0.1, 5 | The sky light a sample loses to the cloud above it (the layer's `AmbShade`): this share of the optical depth one probe `StormAmbStep` straight up, so the billows' undersides, the base and the anvil's underside go dark. | 0.25 |
-| `StormBaseDark`, `StormBaseDarkH` | 0.3, 0.5 | Times a ramp of the sky light from `StormBaseDark` at the base to 1 at `StormBaseDarkH` of the way up the tower. | 0.15 |
+| `StormBaseDark`, `StormBaseDarkH` | 0.3, 0.5 | Times a ramp of the sky light from `StormBaseDark` at the base to 1 at `StormBaseDarkH` of the way up the tower. | 0.08 |
 | `StormSkyDim` | 0.85 | The share of its sky light the ground loses under the storm, falling off with distance (half at `StormSkyR · StormR` from the tower's axis or the anvil's middle). It wraps `fc-cloud-sky`, so it acts only where `CloudSkyDim` > 0. A storm this size hides a broad part of the sky, which the straight-up probes don't see. | |
 | `StormSkyR` | 5 | That falloff distance, in `StormR`. | |
 | `StormGloom` | 0 | Above 0: the air under the storm is in shade. Rays crossing a column of radius `StormGloomR · StormR` below the base fade toward `StormGloomCol`, by this extinction per unit length, weighted by depth below the base and closeness to the axis (it wraps `fc-landscape-grade`). | 0.02 |
 | `StormGloomR` | 2 | That column's radius, in `StormR`. | 1.5 |
 | `StormGloomCol` | [0.10 0.11 0.13] | The shaded air's colour (sRGB). | |
-| `StormLayer` | `<< >>` | Overrides for the storm layer's keys (the cloud-layer keys above), e.g. `<< /Steps 160 >>`. | |
+| `StormLayer` | `<< >>` | Overrides for the storm layer's keys (the cloud-layer keys above), e.g. `<< /Steps 160 >>`. | `<< /StepGrow 0.002 /Steps 160 /Refine 4 >>` (without `Refine` the thin anvil speckled, #137) |
 
 `x y z oct fc-storm-shape` is the layer's `Shape`; `fc-storm-layer` builds
 the layer dict, `fc-storm-bounds` its `Bounds`.
