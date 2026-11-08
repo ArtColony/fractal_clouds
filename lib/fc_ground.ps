@@ -30,7 +30,7 @@
 /BoulderCell 2.6 fc-default          % boulder grid cell, world units (~10 m)
 /BoulderDens 0.22 fc-default         % mean share of cells with a boulder
 /BoulderSize 0.42 fc-default         % biggest boulder radius
-/BoulderH 0.6 fc-default             % mean height above the ground at its centre / radius
+/BoulderH 0.85 fc-default             % mean height above the ground at its centre / radius
 /StoneCell 0.55 fc-default           % stone (and shrub) grid cell
 /StoneDens 0.3 fc-default
 /StoneSize 0.11 fc-default
@@ -328,17 +328,17 @@
     GnE 0 gt {
         0 GnBH 0.03 mul GnE fc-smooth GnW mul /GnBw exch def
         % snow stays only on the flattest tops
-        Ksnow 0.82 0.95 Ny fc-smooth mul /GnSn exch def
+        Ksnow 0.9 0.98 Ny fc-smooth mul 0.7 mul /GnSn exch def
         % each boulder its own tone, mottled with lichen, darker toward
         % its foot and in the crevice where it meets the ground
-        0 0.4 GnE GnBH div fc-smooth /GnCv exch def
+        0 0.15 GnE GnBH div fc-smooth /GnCv exch def
         Rock Rock2 GnT mix3v
         Kx GnR div 2.3 mul 7.7 add Kz GnR div 2.3 mul 1.9 add fc-noise2 0.5 sub 0.5 mul 1 add
-        GnCv 0.45 mul 0.55 add mul
+        GnCv 0.3 mul 0.7 add mul
         /GnM exch def [ exch { GnM mul } forall ]
         Alb exch GnBw 1 GnSn sub mul mix3v /Alb exch def
         /Ksnow Ksnow 1 GnBw sub mul GnSn GnBw mul add def
-        /KskyMul KskyMul 1 1 GnCv sub 0.5 mul GnBw mul sub mul def
+        /KskyMul KskyMul 1 1 GnCv sub 0.3 mul GnBw mul sub mul def
         /KbMul KbMul 1 GnBw 0.5 mul sub mul def
     } if
     % contact: ground close to a boulder's faces sees less sky and bounce,
