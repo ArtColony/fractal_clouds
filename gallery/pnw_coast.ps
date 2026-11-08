@@ -11,7 +11,7 @@
 % Framing: DPI=36 scripts/render.sh gallery/pnw_coast.ps
 % Preview (gallery/previews/pnw_coast-640x400.png), three bands, one core each:
 %   DPI=144 scripts/render_bands.sh gallery/pnw_coast.ps 0.5 0.7 -- -D ErN=512 -D ErDrops=80000
-%   bands 1119 s, 1233 s, 1075 s (Apple silicon, Mac); 320x200 at DPI 72 about 12 min
+%   bands 486 s, 517 s, 486 s (Apple silicon, Mac, bake cache on; #79)
 
 /Plan where { pop } { /Plan false def } ifelse
 /Seed where { pop } { /Seed 31 def } ifelse
@@ -74,6 +74,9 @@ View 2 eq {
 /MidGrass where { pop } { /MidGrass 1 def } ifelse
 /MidBump where { pop } { /MidBump 1 def } ifelse
 Plan { /Erode where { pop } { /Erode false def } ifelse } if
+% (#79) the sea fog wider, thinner and lower than the preset's, its top
+% coming down toward the bank's edge, so it lies on the water as a layer
+/CoastFog where { pop } { /CoastFog [ 0.32 60 14 2 ] def } ifelse
 % (#100) variety in the stand: age patches, per-tree tint, edges standing
 % tallest (the trees a little taller, to keep the stand's mean height),
 % and the ground between near crowns in their shade

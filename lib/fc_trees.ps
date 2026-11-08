@@ -1189,13 +1189,16 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
 } bind def
 
 % x z t density height-scale -> canopy height above the ground: crowns
-% near, their mean height far, blended by fc-forest-w (left in FnW)
+% near, their mean height far, blended by fc-forest-w (left in FnW; the
+% far layer's part in FnSl)
+/FnSl 0 def
 /fc-canopy {
     /FnHs exch def /FnD exch def /FnT exch def /FnZ exch def /FnX exch def
     /FcHc 0 def /FcPx FnT PixAng mul def /FnW 0 def
     FnD 0.001 lt { 0 } {
         FnT fc-forest-w /FnW exch def
         FnD FsHMin FsHMax add 0.5 mul mul FnHs mul 0.55 mul 1 FnW sub mul
+        FsPalmOn { dup /FnSl exch def } if
         FnW 0 gt {
             FnX FnZ FnD FnHs fc-crowns dup 0 lt { pop 0 } if FnW mul add
         } if
@@ -1204,6 +1207,13 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
 
 % --- marching ----------------------------------------------------------------
 /FsTop TerrTop FsHMax add def
+
+% (#79) palms: the gap under a crown stays open while the crowns blend
+% into the far layer too (FnW under 1), above that layer's part, or each
+% small palm stands as a solid green column from the ground to its crown
+% (the far palms' green boxes); its trunk, under a pixel wide there, isn't
+% drawn. Reads FnW FnSl FcY; -> bool
+/fc-palm-gap { FnW 0 gt FcY FnSl gt and } bind def
 
 % t -> ray height minus ground and canopy there (negative = inside a tree
 % or the ground; positive in the gap under a lifted crown)
@@ -1214,7 +1224,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     TreesOn {
         /FcY Ffg def
         Ffg Ffx Ffz Fft Ffx Ffz fc-forest-mapt fc-canopy sub
-        dup 0 lt Ffg 0 gt and FnW 1 ge and FcIn 0 gt and { pop FcIn } if
+        dup 0 lt Ffg 0 gt and FnW 1 ge FsPalmOn { fc-palm-gap or } if and FcIn 0 gt and { pop FcIn } if
     } { Ffg } ifelse
 } bind def
 
@@ -1242,7 +1252,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
         } {
             /FcY FsGap def
             /FsC FsGap FsX FsZ FsT FsD FsHsc fc-canopy sub def
-            FsC 0 lt FsGap 0 gt and FnW 1 ge and FcIn 0 gt and {
+            FsC 0 lt FsGap 0 gt and FnW 1 ge FsPalmOn { fc-palm-gap or } if and FcIn 0 gt and {
                 % under a lifted crown: the clearance to the base above (or
                 % the ground below) is the safe step
                 /FsS FcIn 0.15 mul FsGap 0.5 mul FsMin fc-max fc-min FsMin fc-max def
