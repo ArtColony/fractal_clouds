@@ -38,7 +38,7 @@ cases() {
     echo "$n|$p|Res=$(res_for "$n")"
   done
   echo "alpine_forest_crop|gallery/alpine_forest.ps|Crop=[0.35 0.72 0.5 0.86]"
-  echo "tropical_island_crop|gallery/tropical_island.ps|Crop=[0.82 0.1 0.94 0.3]"
+  echo "tropical_island_crop|gallery/tropical_island.ps|Crop=[0.62 0.52 0.78 0.68]"
   echo "pnw_coast_crop|gallery/pnw_coast.ps|View=2;Crop=[0.15 0.52 0.5 0.66]"
   echo "golden_coast_crop|gallery/golden_coast.ps|Crop=[0.36 0.40 0.52 0.56]"
   # (#85) the near crowns' notches, hanging tips and holes; FsNearPx 3 so
