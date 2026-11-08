@@ -85,6 +85,8 @@
     /Rain 0                          % rain shafts this far below the base
     /RainDens 0.15                   % their density, as a fraction of the base's
     /RainShafts 0                    % > 0: break the rain into shafts this many per unit (#15)
+    /RainDriftX 0 /RainDriftZ 0      % the rain is blown this far in x and z per unit it falls:
+                                     % it is read from the cloud that far upwind (#134)
     /RainMask null                   % { x z -> 0..1 } scales the rain; its rain is then lit
                                      % with AmbBot, as under the base (#15)
     /Shape null                      % { x y z oct -> dd } added to the density (#15)
@@ -150,6 +152,8 @@
     /ClLo ClD /Lo get def /ClHi ClD /Hi get def /ClDy ClHi ClLo sub def
     /ClRain ClD /Rain get def /ClRainD ClD /RainDens get def /ClRainSh ClD /RainShafts get def
     /ClRainM ClD /RainMask get def /ClRainMd ClD /RainMask get null ne def
+    /ClRainDx ClD /RainDriftX get def /ClRainDz ClD /RainDriftZ get def
+    /ClRainDr ClRainDx 0 ne ClRainDz 0 ne or def
     /ClMLo ClLo ClRain sub def                   % the march starts here
     ClD /Profile get aload pop                   % (a layer key, not the
     /ClPb exch def /ClPa exch def                %  fc_landscape setting)
@@ -191,6 +195,7 @@
     64 dict begin
     /ClLo CloudLo def /ClHi CloudHi def /ClDy CloudHi CloudLo sub def
     /ClRain 0 def /ClRainD 0 def /ClRainSh 0 def /ClRainMd false def /ClMLo CloudLo def
+    /ClRainDx 0 def /ClRainDz 0 def /ClRainDr false def
     /ClPa 6 def /ClPb 1.6 def /ClPamp 0.35 def
     /ClBillow false def
     /ClScale NoiseScale def /ClSx 1 def /ClSy 1.6 def /ClSz 1 def
@@ -340,6 +345,12 @@
     ClLo Dy sub ClRain div
     dup 1 ge { pop 0 } {
         1 exch sub ClRainD mul
+        % blown rain: read the cloud (and the shafts and mask) where it left
+        % the base, upwind of the sample
+        ClRainDr {
+            /Dx Dx ClLo Dy sub ClRainDx mul sub def
+            /Dz Dz ClLo Dy sub ClRainDz mul sub def
+        } if
         Dx ClLo ClDy 0.25 mul add Dz Doct fc-layer-density mul
         ClRainSh 0 gt {
             Dx ClRainSh mul 17.3 add Dz ClRainSh mul 4.1 add fc-noise2 0.35 sub 2 mul
