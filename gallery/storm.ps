@@ -3,12 +3,14 @@
 %%Title: Oncoming storm
 % Status: draft
 % fractal_clouds#15: a cumulonimbus over the range of gallery/alpine_forest.ps,
-% seen from a shoulder above the valley: a flat dark base with a rain
-% curtain and dark air under it, the anvil spreading left from the top with
-% an overshooting dome, virga under it, and the range in its shadow, backlit.
+% seen from a shoulder above the valley: a tall tower bulging in lobes over
+% a ragged dark base, a slanted, soft-edged rain curtain and dark air under
+% it, a thin anvil capping the tower and flaring far to the left, an
+% overshooting dome over it (#134), and the range in its shadow, backlit.
 % The storm is lib/fc_storm.ps, loaded after the landscape.
 % Preview: DPI=36 scripts/render.sh gallery/storm.ps; 640x400 (gallery/previews/storm-640x400.png):
-% DPI=144 scripts/render_bands.sh gallery/storm.ps 0.4 0.62 (about 5 minutes).
+% DPI=144 scripts/render_bands.sh gallery/storm.ps 0.4975 0.6875 0.7775 (bands 2.2, 2.0,
+% 1.3 and 1.8 minutes, 2.6 minutes wall).
 
 /Seed where { pop } { /Seed 5 def } ifelse
 /AA where { pop } { /AA true def } ifelse
@@ -30,11 +32,32 @@
 /CloudSkyDim where { pop } { /CloudSkyDim 0.75 def } ifelse
 % the storm (lib/fc_storm.ps): ahead and a little right of centre, the
 % anvil drifting left
-/StormDist where { pop } { /StormDist 460 def } ifelse
+/StormDist where { pop } { /StormDist 700 def } ifelse
 /StormAzim where { pop } { /StormAzim -5 def } ifelse
 /StormWind where { pop } { /StormWind 200 def } ifelse
 % the base high enough over the ridge for the rain under it to show (#101)
-/StormBase where { pop } { /StormBase 84 def } ifelse
+/StormBase where { pop } { /StormBase 100 def } ifelse
+% a towering cumulonimbus, not a drum (#134): a tall, narrower tower that
+% bulges in lobes over a ragged base, under a thin anvil flaring far downwind
+/StormTop where { pop } { /StormTop 290 def } ifelse
+/StormR where { pop } { /StormR 55 def } ifelse
+/StormFootR where { pop } { /StormFootR 1 def } ifelse
+/StormFlare where { pop } { /StormFlare -0.2 def } ifelse
+/StormLean where { pop } { /StormLean 0.12 def } ifelse
+/StormBulge where { pop } { /StormBulge 0.4 def } ifelse
+/StormBaseRag where { pop } { /StormBaseRag 20 def } ifelse
+/AnvilBot where { pop } { /AnvilBot 250 def } ifelse
+/AnvilR where { pop } { /AnvilR 300 def } ifelse
+/AnvilW where { pop } { /AnvilW 0.2 def } ifelse
+/AnvilFlare where { pop } { /AnvilFlare 1.2 def } ifelse
+/AnvilBack where { pop } { /AnvilBack 0.05 def } ifelse
+/AnvilRoot where { pop } { /AnvilRoot 1.4 def } ifelse
+/AnvilFiber where { pop } { /AnvilFiber 0.3 def } ifelse
+% virga off: the 2-D streak noise hung as lit square patches under the
+% raised underside (#134)
+/Virga where { pop } { /Virga 0 def } ifelse
+/AnvilTilt where { pop } { /AnvilTilt 0.03 def } ifelse
+/DomeR where { pop } { /DomeR 60 def } ifelse
 % the shaded air under it: dark round the rain, not a wide wall along the
 % horizon (#101: at 0.03 and 2.2 it hid the rain and tinted the horizon)
 /StormGloom where { pop } { /StormGloom 0.02 def } ifelse
@@ -46,9 +69,13 @@
 /StormBaseDark where { pop } { /StormBaseDark 0.15 def } ifelse
 % the rain: denser, blown downwind as it falls, finely streaked
 /StormRainDens where { pop } { /StormRainDens 0.45 def } ifelse
-/StormRainSlant where { pop } { /StormRainSlant 0.3 def } ifelse
-% (#113: 0.6 aliased along the march into a salt-and-pepper speckle)
-/StormRainFine where { pop } { /StormRainFine 0.3 def } ifelse
+/StormRainSlant where { pop } { /StormRainSlant 0.6 def } ifelse
+/StormRain where { pop } { /StormRain 100 def } ifelse
+% soft sides: the curtain fades out half a radius past the tower's foot (#134)
+/StormRainSoft where { pop } { /StormRainSoft 0.5 def } ifelse
+% (#113: 0.6 aliased along the march into a salt-and-pepper speckle; #134:
+% 0.45 streaks the slanted curtain)
+/StormRainFine where { pop } { /StormRainFine 0.45 def } ifelse
 % shorter march steps far off: at the default StepGrow (0.012) a step at
 % the storm's distance was over 5 units, and the per-pixel jitter of where
 % it fell turned the anvil's thin rim and the rain into speckle (#113).

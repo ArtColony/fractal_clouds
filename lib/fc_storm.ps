@@ -5,7 +5,7 @@
 % Load it after lib/fc_landscape.ps (it needs fc_clouds.ps and fc_noise2.ps):
 % it puts one storm layer in front of CloudLayers (any other layers must lie
 % wholly above the storm's band, StormTop + DomeR). The storm is a cloud
-% layer whose band runs from the flat base to the top of the dome; its
+% layer whose band runs from the base to the top of the dome; its
 % Shape (fc-storm-shape) is a signed field, positive inside the envelope,
 % that the layer's billow noise breaks into turrets; its Bounds box keeps
 % the march (and the noise) to the storm's neighbourhood. Rain shafts are
@@ -19,15 +19,26 @@
 
 /StormDist 420 fc-default            % ground distance from the camera to the tower's foot
 /StormAzim 0 fc-default              % its bearing, degrees: 0 is +z, 90 is +x (as SunAzim)
-/StormBase 70 fc-default             % the flat, dark base
-/StormTop 180 fc-default             % the anvil's flat top
+/StormBase 70 fc-default             % the dark base
+/StormTop 180 fc-default             % the anvil's top at the tower
 /StormR 55 fc-default                % tower radius at the base
 /StormFlare 0.3 fc-default           % the tower is this much wider at the top
 /StormLean 0.15 fc-default           % the tower leans downwind this much per unit height
 /StormWind 0 fc-default              % where the anvil spreads, degrees from +x (as a layer's Wind)
-/AnvilBot 152 fc-default             % where the anvil starts to spread from the tower
+/AnvilBot 152 fc-default             % the anvil's underside at the tower (it thins outward)
 /AnvilR 170 fc-default               % how far it spreads downwind (upwind: a third of it)
 /AnvilW 0.4 fc-default              % its half-width across the wind, as a fraction of AnvilR
+/AnvilRoot 1.6 fc-default            % its overhang round the tower top, in the tower's radius
+/AnvilBack 0.1 fc-default            % how far it reaches upwind past that, as a fraction of AnvilR
+/AnvilFiber 0 fc-default             % > 0: streaks along the wind fray it, this strong
+/AnvilThin 6 fc-default              % its thickness at the far edge (AnvilBot to StormTop at the tower)
+/AnvilFlare 1.5 fc-default            % how fast it thins away from the tower (higher: its underside
+                                     % sweeps up from the tower sooner, a flared trumpet)
+/AnvilTilt 0 fc-default              % its top falls this much per unit downwind
+/StormFootR 0.8 fc-default           % the tower's radius at the base, as a fraction of StormR
+/StormBulge 0 fc-default             % > 0: the tower bulges in lobes this strong (fraction of R)
+/StormBulgeScale 0.03 fc-default     % those lobes, cells per unit
+/StormBaseRag 0 fc-default           % > 0: the base fades in over this many units, unevenly
 /DomeR 34 fc-default                 % the overshooting dome above the top; 0 for none
 /StormEdge 2 fc-default              % envelope gain: higher = smoother, tighter outline
 /Virga 0.3 fc-default                % strength of the streaks under the anvil; 0 for none
@@ -36,6 +47,8 @@
 /StormRain 84 fc-default             % rain shafts this far below the base (the layer's Rain)
 /StormRainDens 0.3 fc-default       % their density, as a fraction of the cloud's
 /StormRainSlant 0 fc-default         % the rain is blown downwind this much per unit it falls
+/StormRainSoft 0 fc-default          % the rain fades out this far past the tower's foot (in envelope
+                                     % units: 0.5 is half a radius), so the curtain has soft sides
 /StormRainFine 0 fc-default          % > 0: fine streaks in the shafts, this strong (0..1)
 /AnvilEdge 4 fc-default              % the anvil's envelope gain, relative to the tower's
 /StormShade 0.25 fc-default          % optical depth per unit length of envelope toward the sun
@@ -67,16 +80,52 @@
 /StTopU StormLean StH mul def                % the tower top's offset downwind
 /StAh StormTop AnvilBot sub 1 fc-max def
 /StRa AnvilR StormR add def                  % the anvil's widest reach
+/StRt StormR StormFlare 1 add mul StormFootR 1 add 0.5 mul mul def   % the tower top's radius (about)
+/StRo StRt AnvilRoot mul def                 % the anvil's overhang round it
 
-% the anvil at height y: how far inside its outline (u w) lies, 1 at the
-% centre line, 0 on the edge; it widens with height above AnvilBot
+% the tower's radius at height h above the base: StormFootR of StormR at the
+% base, swelling to StormR (times the flare) a little over half way up and
+% drawing in under the anvil, so the column bulges; then broken into
+% cauliflower lobes by a 3-D noise of StormBulgeScale cells per unit,
+% StormBulge strong (#134: a straight column read as a drum)
+/fc-storm-towerr {                               % x y z h -> R
+    StH div 0 fc-max 1 fc-min /SmT exch def
+    SmT 153 mul sin 1 StormFootR sub mul StormFootR add
+    SmT StormFlare mul 1 add mul StormR mul
+    StormBulge 0 gt {
+        4 1 roll StormBulgeScale mul 3.7 add exch StormBulgeScale mul 0.8 mul 1.3 add
+        3 -1 roll StormBulgeScale mul 6.1 add fc-noise3 0.5 sub 2 mul StormBulge mul 1 add mul
+    } { 4 1 roll pop pop pop } ifelse
+} bind def
+
+% the anvil at height y: how far inside its outline (u w) lies, > 0 inside,
+% about 1 at its root. In plan it caps the tower, overhanging it by
+% AnvilRoot of its radius all round, and fans out downwind to AnvilR, its
+% half-width growing by AnvilW of AnvilR; upwind it reaches AnvilBack of
+% AnvilR past the overhang. In section it is thick (AnvilBot to StormTop)
+% at the tower and thins to AnvilThin at the far edge, AnvilFlare setting
+% how soon; its top falls AnvilTilt per unit downwind. Streaks along the
+% wind (AnvilFiber) fray it. A thin flared wedge, not a slab (#134). Leaves
+% the plan value in SmAp and the underside's height in SmAb (for virga).
 /fc-storm-anvil {                                % u w y -> s
-    AnvilBot sub StAh div dup 0 le { pop pop pop -9 } {
-        0.35 exp AnvilR mul StormR add /SmRa exch def
-        /SmAw exch def
-        StTopU sub dup 0 lt { SmRa 0.35 mul } { SmRa } ifelse div dup mul
-        SmAw SmRa AnvilW mul StormR fc-max div dup mul add sqrt 1 exch sub
-    } ifelse
+    /SmAy exch def /SmAw exch def
+    StTopU sub /SmAu exch def
+    SmAu 0 ge {
+        SmAu StRo AnvilR fc-max div /SmAa exch def
+        SmAu AnvilR div 2 mul 1 fc-min sqrt AnvilR AnvilW mul mul StRo add
+    } {
+        SmAu neg StRo AnvilR AnvilBack mul add div /SmAa exch def StRo
+    } ifelse /SmAW exch def
+    1 SmAa dup mul SmAw SmAW div dup mul add sqrt sub /SmAp exch def
+    StormTop SmAu 0 fc-max AnvilTilt mul sub /SmAt exch def
+    1 SmAa 1 fc-min sub AnvilFlare exp StAh AnvilThin sub mul AnvilThin add /SmAh exch def
+    /SmAb SmAt SmAh sub def
+    SmAy SmAb sub SmAt SmAy sub fc-min
+    SmAh 0.5 mul 8 fc-min div                    % section: 1 mid-thickness, 0 at top and underside
+    SmAp fc-min
+    AnvilFiber 0 gt {
+        SmAu 0.012 mul 4.7 add SmAy 0.12 mul SmAw 0.05 mul 2.2 add fc-noise3 0.5 sub AnvilFiber mul add
+    } if
 } bind def
 
 % the envelope without noise: > 0 inside, 1 on the axis (sets SmX SmY SmZ
@@ -86,32 +135,41 @@
     /SmU SmX StWc mul SmZ StWs mul add def
     /SmW SmZ StWc mul SmX StWs mul sub def
     /SmH SmY StormBase sub def
-    % tower: a leaning, flaring column, ending at the top
+    % tower: a leaning column that bulges in lobes, ending at the top
     SmY StormTop gt { -9 } {
         SmU SmH StormLean mul sub dup mul SmW dup mul add sqrt
-        StormR SmH StTw mul add div 1 exch sub
+        SmX SmY SmZ SmH fc-storm-towerr div 1 exch sub
+        % a ragged base: toward the tower's edge the bottom StormBaseRag
+        % units fade in over a noise, so the base frays there, not a flat
+        % lid; toward the axis it stays solid down to the rain (frayed
+        % there too, it left a lit gap of sky between the cloud and the rain)
+        StormBaseRag 0 gt {
+            dup 0.8 mul SmH StormBaseRag div add
+            SmX 0.08 mul 2.3 add SmY 0.08 mul SmZ 0.08 mul 9.1 add fc-noise3 0.6 mul sub
+            fc-min
+        } if
     } ifelse
-    % anvil: flat on top, smoother than the tower (AnvilEdge)
+    % anvil: smoother than the tower (AnvilEdge)
     SmY AnvilBot gt {
-        SmU SmW SmY fc-storm-anvil StormTop SmY sub 8 div fc-min AnvilEdge mul fc-max
+        SmU SmW SmY fc-storm-anvil AnvilEdge mul fc-max
     } if
-    % overshooting dome over the tower top
+    % overshooting dome over the tower top, rising DomeR above the anvil
     DomeR 0 gt { SmY StormTop DomeR sub gt {
-        SmU StTopU sub dup mul SmW dup mul add SmY StormTop DomeR 0.2 mul add sub dup mul add sqrt
-        DomeR div 1 exch sub fc-max
+        SmU StTopU sub dup mul SmW dup mul add SmY StormTop sub dup mul add sqrt
+        DomeR div 1 exch sub 2 mul fc-max
     } if } if
 } bind def
 
 /fc-storm-shape {                                % x y z oct -> dd
     pop fc-storm-env StormEdge mul
-    % virga: streaks under the anvil, fading down to VirgaLen below it. The
-    % anvil's value VirgaLen higher is > 0 within VirgaLen under it, and
-    % larger nearer it: a soft curtain hanging from the underside, streaked
-    % by a 2-D noise of VirgaScale cells per unit (#101: the old hard patches
-    % of a coarser noise hung as separate puffs)
+    % virga: a soft curtain hanging from the anvil's underside (SmAb), as
+    % deep as VirgaLen, densest at the underside and where the anvil is
+    % thick in plan, streaked by a 2-D noise of VirgaScale cells per unit
+    % (#101; #134: measured from the underside of the wedge)
     Virga 0 gt { SmY AnvilBot VirgaLen sub gt SmY StormTop lt and { dup 0.2 lt {
-        SmU SmW SmY VirgaLen add StormTop fc-min fc-storm-anvil dup 0 gt {
-            2 mul 1 fc-min
+        SmU SmW SmY fc-storm-anvil pop
+        SmAb SmY sub dup 0 gt SmAp 0 gt and {
+            VirgaLen div 1 exch sub SmAp 3 mul 1 fc-min mul
             0.3 0.7 SmX VirgaScale mul 3.1 add SmZ VirgaScale mul 8.7 add fc-noise2 fc-smooth mul
             Virga mul 0.15 sub fc-max
         } { pop } ifelse
@@ -145,16 +203,14 @@
 } bind def
 
 % the rain under the base (the layer's RainMask): fades out toward the edge
-% of the tower's foot, in broad shafts streaked by a finer noise. The mask
-% is read where the rain left the base: StormRainSlant downwind per unit
-% fallen (from the sample's height, ClRainY), so the shafts lean
+% of the tower's foot, softly (StormRainSoft), in broad shafts streaked by a
+% finer noise. The layer reads the rain where it left the base, StormRainSlant
+% upwind per unit fallen (its RainDriftX, RainDriftZ), so x z here are
+% already there and the whole curtain leans (#134: the mask alone leaned
+% inside a straight column)
 /fc-storm-rainmask {                             % x z -> 0..1
     /SrZ exch def /SrX exch def
-    StormRainSlant 0 ne {
-        StormBase ClRainY sub 0 fc-max StormRainSlant mul /SrD exch def
-        /SrX SrX StWc SrD mul sub def /SrZ SrZ StWs SrD mul sub def
-    } if
-    0 0.6 SrX StormBase 10 add SrZ fc-storm-env fc-smooth
+    StormRainSoft neg 0.6 SrX StormBase 10 add SrZ fc-storm-env fc-smooth
     0.3 0.7 SrX 0.05 mul 17.3 add SrZ 0.05 mul 4.1 add fc-noise2 fc-smooth mul
     SrX 0.25 mul 2.9 add SrZ 0.25 mul 11.7 add fc-noise2 0.7 mul 0.3 add mul
     StormRainFine 0 gt {
@@ -166,10 +222,10 @@
 % the storm's box: the envelope with room for the noise to push it out
 /fc-storm-bounds {                               % - -> [x0 z0 x1 z1]
     /SbE 1 1 StormEdge div add def
-    /SbT StormR StormFlare 1 add mul StTopU add SbE mul def
-    /SbU0 SbT neg StTopU StRa 0.35 mul SbE mul sub fc-min def
+    /SbT StormR StormFlare 1 add mul StormBulge 1 add mul StTopU add SbE mul def
+    /SbU0 SbT neg StTopU AnvilR AnvilBack mul StRo add SbE mul sub fc-min def
     /SbU1 StTopU StRa SbE mul add SbT fc-max def
-    /SbW StRa AnvilW mul StormR fc-max SbE mul SbT fc-max def
+    /SbW AnvilR AnvilW mul StRo add SbE mul SbT fc-max def
     /SbX0 1e9 def /SbX1 -1e9 def /SbZ0 1e9 def /SbZ1 -1e9 def
     [ SbU0 SbW neg  SbU0 SbW  SbU1 SbW neg  SbU1 SbW ] /SbC exch def
     0 2 6 { /SbI exch def
@@ -190,6 +246,7 @@
        /DensOct 5 /ShadOct 3 /ShadStep 3 /Steps 110
        /AmbTop [ 0.40 0.44 0.53 ] /AmbBot [ 0.06 0.065 0.08 ]
        /Rain StormRain /RainDens StormRainDens /RainMask { fc-storm-rainmask }
+       /RainDriftX StWc StormRainSlant mul /RainDriftZ StWs StormRainSlant mul
        /Shape { fc-storm-shape } /LightDepth { fc-storm-depth }
        /AmbShade { fc-storm-amb }
        /Bounds fc-storm-bounds /Probes 8   % 8: probes land in the anvil, so it shades the ground (#101)
