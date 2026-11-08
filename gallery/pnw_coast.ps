@@ -74,6 +74,9 @@ View 2 eq {
 /MidGrass where { pop } { /MidGrass 1 def } ifelse
 /MidBump where { pop } { /MidBump 1 def } ifelse
 Plan { /Erode where { pop } { /Erode false def } ifelse } if
+% (#79) the sea fog wider, thinner and lower than the preset's, its top
+% coming down toward the bank's edge, so it lies on the water as a layer
+/CoastFog where { pop } { /CoastFog [ 0.32 60 14 2 ] def } ifelse
 % (#100) variety in the stand: age patches, per-tree tint, edges standing
 % tallest (the trees a little taller, to keep the stand's mean height),
 % and the ground between near crowns in their shade
