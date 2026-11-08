@@ -90,6 +90,8 @@
     /RainMask null                   % { x z -> 0..1 } scales the rain; its rain is then lit
                                      % with AmbBot, as under the base (#15)
     /Shape null                      % { x y z oct -> dd } added to the density (#15)
+    /ShapeMul false                  % true: the Shape also sets FcShapeMul, a factor on the
+                                     % density there (a placed object's thin parts, #137)
     /Bounds null                     % [ x0 z0 x1 z1 ]: the layer is empty outside this
                                      % box (world x z), and rays march only its inside (#15)
     /Probes 1                        % density probes for ground shadow and sky dimming (#15)
@@ -171,6 +173,7 @@
     /ClSteps ClD /Steps get def /ClGrow ClD /StepGrow get def /ClRefine ClD /Refine get def
     /ClAmbT ClD /AmbTop get def /ClAmbB ClD /AmbBot get def
     /ClShape ClD /Shape get def /ClShaped ClD /Shape get null ne def
+    /ClShMul ClD /ShapeMul get ClShaped and def
     ClD /Bounds get dup null eq {                % (the box is defined either way: every
         pop /ClBoxed false def                   %  layer binds the same names, #122)
         /ClBx0 0 def /ClBz0 0 def /ClBx1 0 def /ClBz1 0 def
@@ -205,7 +208,7 @@
     /ClDOct DensOct def /ClSOct ShadOct def /ClSStep ShadStep def
     /ClSteps CloudSteps def /ClGrow CloudStepGrow def /ClRefine 0 def
     /ClAmbT AmbTop def /ClAmbB AmbBot def
-    /ClShape null def /ClShaped false def
+    /ClShape null def /ClShaped false def /ClShMul false def
     /ClBoxed false def /ClProbes 1 def /ClLDeep false def /ClAmbSd false def
     /ClFade false def /ClF0 0 def /ClF1 0 def
     currentdict end
@@ -360,6 +363,8 @@
     } ifelse
 } bind def
 
+/FcShapeMul 1 def                                % set by a ShapeMul layer's Shape (#137)
+
 /fc-layer-density {                              % x y z oct -> d   (bound layer)
     /Doct exch def /Dz exch def /Dy exch def /Dx exch def
     ClBoxed { Dx ClBx0 lt Dx ClBx1 gt or Dz ClBz0 lt or Dz ClBz1 gt or } { false } ifelse { 0 } {
@@ -391,7 +396,7 @@
         ClThr sub 1 Dprof sub ClPamp mul sub
         ClCovA 0 gt { Dcov add } if
         ClShaped { Dsh add } if
-        dup 0 lt { pop 0 } { ClFloor 0 ne { ClFloor add } if ClGain mul } ifelse
+        dup 0 lt { pop 0 } { ClFloor 0 ne { ClFloor add } if ClGain mul ClShMul { FcShapeMul mul } if } ifelse
         } ifelse
     } ifelse } ifelse
     } ifelse

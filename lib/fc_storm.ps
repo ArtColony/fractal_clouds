@@ -31,7 +31,13 @@
 /AnvilRoot 1.6 fc-default            % its overhang round the tower top, in the tower's radius
 /AnvilBack 0.1 fc-default            % how far it reaches upwind past that, as a fraction of AnvilR
 /AnvilFiber 0 fc-default             % > 0: streaks along the wind fray it, this strong
-/AnvilThin 6 fc-default              % its thickness at the far edge (AnvilBot to StormTop at the tower)
+/AnvilThin 6 fc-default              % the ice near its edge, thinning to nothing on the outline
+/AnvilTopSoft 1.5 fc-default         % its level top's softness, units (small: a sharp, flat top)
+/AnvilBotSoft 8 fc-default           % its underside's softness, units
+/AnvilMamma 0 fc-default             % > 0: mammatus pouches this deep under it, near the tower
+/AnvilDens 1 fc-default              % its density, as a share of the tower's (thin ice)
+/AnvilShade 1 fc-default             % its share of StormShade (< 1: thin ice lets the sun through)
+/AnvilAmbOcc 1 fc-default            % its share of StormAmbOcc (< 1: its underside keeps more sky)
 /AnvilFlare 1.5 fc-default            % how fast it thins away from the tower (higher: its underside
                                      % sweeps up from the tower sooner, a flared trumpet)
 /AnvilTilt 0 fc-default              % its top falls this much per unit downwind
@@ -49,6 +55,8 @@
 /StormRainSlant 0 fc-default         % the rain is blown downwind this much per unit it falls
 /StormRainSoft 0 fc-default          % the rain fades out this far past the tower's foot (in envelope
                                      % units: 0.5 is half a radius), so the curtain has soft sides
+/StormRainSpread 0 fc-default        % > 0: the soft sides widen to StormRainSoft over this many units
+                                     % below the base (0: at once)
 /StormRainFine 0 fc-default          % > 0: fine streaks in the shafts, this strong (0..1)
 /AnvilEdge 4 fc-default              % the anvil's envelope gain, relative to the tower's
 /StormShade 0.25 fc-default          % optical depth per unit length of envelope toward the sun
@@ -98,15 +106,18 @@
     } { 4 1 roll pop pop pop } ifelse
 } bind def
 
-% the anvil at height y: how far inside its outline (u w) lies, > 0 inside,
-% about 1 at its root. In plan it caps the tower, overhanging it by
-% AnvilRoot of its radius all round, and fans out downwind to AnvilR, its
-% half-width growing by AnvilW of AnvilR; upwind it reaches AnvilBack of
-% AnvilR past the overhang. In section it is thick (AnvilBot to StormTop)
-% at the tower and thins to AnvilThin at the far edge, AnvilFlare setting
-% how soon; its top falls AnvilTilt per unit downwind. Streaks along the
-% wind (AnvilFiber) fray it. A thin flared wedge, not a slab (#134). Leaves
-% the plan value in SmAp and the underside's height in SmAb (for virga).
+% the anvil at height y: how far inside its outline (u w) lies, > 0 inside.
+% In plan it caps the tower, overhanging it by AnvilRoot of its radius all
+% round, and fans out downwind to AnvilR, its half-width growing by AnvilW
+% of AnvilR; upwind it reaches AnvilBack of AnvilR past the overhang. Its
+% top is level at StormTop (the tropopause; AnvilTilt lowers it downwind)
+% and sharp (AnvilTopSoft units); its underside rises from AnvilBot at the
+% tower to the top at the edge, as (1 - r)^AnvilFlare of the thickness (r:
+% 0 at the tower, 1 on the outline), with a last AnvilThin of ice that
+% thins to nothing there; the underside is soft (AnvilBotSoft units). So
+% the edge fades rather than ending in a rounded rim (#137). Streaks along
+% the wind (AnvilFiber), strongest toward the edge, fray it into cirrus.
+% Leaves the plan value in SmAp and the underside's height in SmAb.
 /fc-storm-anvil {                                % u w y -> s
     /SmAy exch def /SmAw exch def
     StTopU sub /SmAu exch def
@@ -116,20 +127,31 @@
     } {
         SmAu neg StRo AnvilR AnvilBack mul add div /SmAa exch def StRo
     } ifelse /SmAW exch def
-    1 SmAa dup mul SmAw SmAW div dup mul add sqrt sub /SmAp exch def
-    StormTop SmAu 0 fc-max AnvilTilt mul sub /SmAt exch def
-    1 SmAa 1 fc-min sub AnvilFlare exp StAh AnvilThin sub mul AnvilThin add /SmAh exch def
-    /SmAb SmAt SmAh sub def
-    SmAy SmAb sub SmAt SmAy sub fc-min
-    SmAh 0.5 mul 8 fc-min div                    % section: 1 mid-thickness, 0 at top and underside
-    SmAp fc-min
+    SmAa dup mul SmAw SmAW div dup mul add sqrt /SmAr exch def
+    /SmAp 1 SmAr sub def
+    % cirrus: the outline frayed into streaks along the wind, more toward the
+    % edge (AnvilFiber)
     AnvilFiber 0 gt {
-        SmAu 0.012 mul 4.7 add SmAy 0.12 mul SmAw 0.05 mul 2.2 add fc-noise3 0.5 sub AnvilFiber mul add
+        /SmAp SmAp SmAu 0.007 mul 4.7 add SmAy 0.03 mul SmAw 0.04 mul 2.2 add fc-noise3 0.5 sub
+        SmAr 1 fc-min mul AnvilFiber mul add def
     } if
+    StormTop SmAu 0 fc-max AnvilTilt mul sub /SmAt exch def
+    SmAp 0 fc-max /SmAh exch def
+    SmAh AnvilFlare exp StAh mul SmAh 0.3 exp AnvilThin mul add /SmAh exch def
+    /SmAb SmAt SmAh sub def
+    % mammatus: rounded pouches hanging from the underside where the anvil
+    % is thick, near the tower, as deep as AnvilMamma
+    AnvilMamma 0 gt {
+        /SmAb SmAb 0.45 0.85 SmX 0.08 mul 1.1 add SmZ 0.08 mul 7.3 add fc-noise2 fc-smooth
+        0.3 0.7 SmAp fc-smooth mul AnvilMamma mul sub def
+    } if
+    SmAy SmAb sub AnvilBotSoft div SmAt SmAy sub AnvilTopSoft div fc-min
+    SmAp 0 lt { SmAp 10 mul add } if             % outside the outline: none
 } bind def
 
 % the envelope without noise: > 0 inside, 1 on the axis (sets SmX SmY SmZ
-% SmU SmW, relative to the storm)
+% SmU SmW, relative to the storm; the tower's and dome's value in SmTs, the
+% anvil's in SmAs)
 /fc-storm-env {                                  % x y z -> s
     StCz sub /SmZ exch def /SmY exch def StCx sub /SmX exch def
     /SmU SmX StWc mul SmZ StWs mul add def
@@ -144,24 +166,29 @@
         % lid; toward the axis it stays solid down to the rain (frayed
         % there too, it left a lit gap of sky between the cloud and the rain)
         StormBaseRag 0 gt {
-            dup 0.8 mul SmH StormBaseRag div add
+            dup 1.5 mul SmH StormBaseRag div add
             SmX 0.08 mul 2.3 add SmY 0.08 mul SmZ 0.08 mul 9.1 add fc-noise3 0.6 mul sub
             fc-min
         } if
     } ifelse
-    % anvil: smoother than the tower (AnvilEdge)
-    SmY AnvilBot gt {
-        SmU SmW SmY fc-storm-anvil AnvilEdge mul fc-max
-    } if
     % overshooting dome over the tower top, rising DomeR above the anvil
     DomeR 0 gt { SmY StormTop DomeR sub gt {
         SmU StTopU sub dup mul SmW dup mul add SmY StormTop sub dup mul add sqrt
         DomeR div 1 exch sub 2 mul fc-max
     } if } if
+    /SmTs exch def
+    % anvil: smoother than the tower (AnvilEdge)
+    SmY AnvilBot AnvilMamma sub gt SmY StormTop 1 add lt and {
+        SmU SmW SmY fc-storm-anvil AnvilEdge mul
+    } { -9 } ifelse /SmAs exch def
+    SmTs SmAs fc-max
 } bind def
 
 /fc-storm-shape {                                % x y z oct -> dd
     pop fc-storm-env StormEdge mul
+    % the anvil is thin ice: AnvilDens of the tower's density, ramping up to
+    % the tower's inside it (the layer's ShapeMul, #137)
+    /FcShapeMul -0.6 0.2 SmTs fc-smooth 1 AnvilDens sub mul AnvilDens add def
     % virga: a soft curtain hanging from the anvil's underside (SmAb), as
     % deep as VirgaLen, densest at the underside and where the anvil is
     % thick in plan, streaked by a 2-D noise of VirgaScale cells per unit
@@ -185,7 +212,7 @@
     0 0 1 StormShadeN 1 sub {
         StormShadeStep mul ClSStep 2 mul add /SdT exch def
         SdX SunDir 0 get SdT mul add SdY SunDir 1 get SdT mul add SdZ SunDir 2 get SdT mul add
-        fc-storm-env dup 0 gt { 1 fc-min add } { pop } ifelse
+        fc-storm-env pop SmTs SmAs AnvilShade mul fc-max dup 0 gt { 1 fc-min add } { pop } ifelse
     } for
     StormShadeStep mul StormShade mul
 } bind def
@@ -197,7 +224,8 @@
 /fc-storm-amb {                                  % x y z -> 0..1
     /SaZ exch def /SaY exch def /SaX exch def
     SaX SaY StormAmbStep add SaZ ClSOct fc-layer-density
-    ClSig mul StormAmbStep mul StormAmbOcc mul neg 2.71828 exch exp
+    ClSig mul StormAmbStep mul StormAmbOcc mul SaY AnvilBot gt { AnvilAmbOcc mul } if
+    neg 2.71828 exch exp
     StormBase StormBase StH StormBaseDarkH mul add SaY fc-smooth
     1 StormBaseDark sub mul StormBaseDark add mul
 } bind def
@@ -210,7 +238,12 @@
 % inside a straight column)
 /fc-storm-rainmask {                             % x z -> 0..1
     /SrZ exch def /SrX exch def
-    StormRainSoft neg 0.6 SrX StormBase 10 add SrZ fc-storm-env fc-smooth
+    % the soft sides widen as the rain falls: right under the base the rain
+    % stays inside the base's outline, so it doesn't stick out past the
+    % cloud in a flat-topped block (#137), and flares out lower down
+    StormRainSpread 0 gt { 0 StormRainSpread StormBase ClRainY sub fc-smooth } { 1 } ifelse
+    StormRainSoft mul neg
+    0.6 SrX StormBase 10 add SrZ fc-storm-env fc-smooth
     0.3 0.7 SrX 0.05 mul 17.3 add SrZ 0.05 mul 4.1 add fc-noise2 fc-smooth mul
     SrX 0.25 mul 2.9 add SrZ 0.25 mul 11.7 add fc-noise2 0.7 mul 0.3 add mul
     StormRainFine 0 gt {
@@ -248,7 +281,7 @@
        /Rain StormRain /RainDens StormRainDens /RainMask { fc-storm-rainmask }
        /RainDriftX StWc StormRainSlant mul /RainDriftZ StWs StormRainSlant mul
        /Shape { fc-storm-shape } /LightDepth { fc-storm-depth }
-       /AmbShade { fc-storm-amb }
+       /AmbShade { fc-storm-amb } /ShapeMul true
        /Bounds fc-storm-bounds /Probes 8   % 8: probes land in the anvil, so it shades the ground (#101)
     >>
     StormLayer { 2 index 3 1 roll put } forall

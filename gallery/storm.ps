@@ -5,12 +5,13 @@
 % fractal_clouds#15: a cumulonimbus over the range of gallery/alpine_forest.ps,
 % seen from a shoulder above the valley: a tall tower bulging in lobes over
 % a ragged dark base, a slanted, soft-edged rain curtain and dark air under
-% it, a thin anvil capping the tower and flaring far to the left, an
-% overshooting dome over it (#134), and the range in its shadow, backlit.
+% it, a thin, level-topped anvil of lit ice capping the tower, mammatus
+% under it, fraying into cirrus far to the left, an
+% overshooting dome over it (#134, #137), and the range in its shadow, backlit.
 % The storm is lib/fc_storm.ps, loaded after the landscape.
 % Preview: DPI=36 scripts/render.sh gallery/storm.ps; 640x400 (gallery/previews/storm-640x400.png):
-% DPI=144 scripts/render_bands.sh gallery/storm.ps 0.4975 0.6875 0.7775 (bands 2.2, 2.0,
-% 1.3 and 1.8 minutes, 2.6 minutes wall).
+% DPI=144 scripts/render_bands.sh gallery/storm.ps 0.4825 0.685 0.775 (bands 2.3, 2.1,
+% 1.4 and 1.9 minutes, 2.6 minutes wall).
 
 /Seed where { pop } { /Seed 5 def } ifelse
 /AA where { pop } { /AA true def } ifelse
@@ -49,14 +50,20 @@
 /AnvilBot where { pop } { /AnvilBot 250 def } ifelse
 /AnvilR where { pop } { /AnvilR 300 def } ifelse
 /AnvilW where { pop } { /AnvilW 0.2 def } ifelse
-/AnvilFlare where { pop } { /AnvilFlare 1.2 def } ifelse
+/AnvilFlare where { pop } { /AnvilFlare 2 def } ifelse
 /AnvilBack where { pop } { /AnvilBack 0.05 def } ifelse
 /AnvilRoot where { pop } { /AnvilRoot 1.4 def } ifelse
-/AnvilFiber where { pop } { /AnvilFiber 0.3 def } ifelse
+/AnvilFiber where { pop } { /AnvilFiber 0.7 def } ifelse
 % virga off: the 2-D streak noise hung as lit square patches under the
 % raised underside (#134)
 /Virga where { pop } { /Virga 0 def } ifelse
-/AnvilTilt where { pop } { /AnvilTilt 0.03 def } ifelse
+/AnvilTilt where { pop } { /AnvilTilt 0 def } ifelse
+% thin ice, not a slab (#137): a fifth of the tower's density, so its
+% underside is lit and its edge goes translucent; mammatus near the tower
+/AnvilDens where { pop } { /AnvilDens 0.2 def } ifelse
+/AnvilShade where { pop } { /AnvilShade 0.5 def } ifelse
+/AnvilAmbOcc where { pop } { /AnvilAmbOcc 0.5 def } ifelse
+/AnvilMamma where { pop } { /AnvilMamma 12 def } ifelse
 /DomeR where { pop } { /DomeR 60 def } ifelse
 % the shaded air under it: dark round the rain, not a wide wall along the
 % horizon (#101: at 0.03 and 2.2 it hid the rain and tinted the horizon)
@@ -66,21 +73,25 @@
 /StormEdge where { pop } { /StormEdge 1.2 def } ifelse
 % the billows' undersides and the base lose the sky above them
 /StormAmbOcc where { pop } { /StormAmbOcc 0.25 def } ifelse
-/StormBaseDark where { pop } { /StormBaseDark 0.15 def } ifelse
+/StormBaseDark where { pop } { /StormBaseDark 0.08 def } ifelse
 % the rain: denser, blown downwind as it falls, finely streaked
 /StormRainDens where { pop } { /StormRainDens 0.45 def } ifelse
 /StormRainSlant where { pop } { /StormRainSlant 0.6 def } ifelse
 /StormRain where { pop } { /StormRain 100 def } ifelse
 % soft sides: the curtain fades out half a radius past the tower's foot (#134)
 /StormRainSoft where { pop } { /StormRainSoft 0.5 def } ifelse
+% ...widening over the top 40 units, so under the base it stays inside the
+% cloud's outline instead of a flat-topped block (#137)
+/StormRainSpread where { pop } { /StormRainSpread 40 def } ifelse
 % (#113: 0.6 aliased along the march into a salt-and-pepper speckle; #134:
 % 0.45 streaks the slanted curtain)
 /StormRainFine where { pop } { /StormRainFine 0.45 def } ifelse
 % shorter march steps far off: at the default StepGrow (0.012) a step at
 % the storm's distance was over 5 units, and the per-pixel jitter of where
 % it fell turned the anvil's thin rim and the rain into speckle (#113).
-% About 50% more time in the cloud
-/StormLayer where { pop } { /StormLayer << /StepGrow 0.002 /Steps 160 >> def } ifelse
+% About 50% more time in the cloud. Refine 4 (#137): the thin, translucent
+% anvil's edges and level top speckled with the jitter of where a step fell
+/StormLayer where { pop } { /StormLayer << /StepGrow 0.002 /Steps 160 /Refine 4 >> def } ifelse
 
 (lib/fc_landscape.ps) run
 (lib/fc_storm.ps) run
