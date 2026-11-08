@@ -272,7 +272,8 @@
 % the bare ground, near enough for rocks to show, its step is at most 0.6
 % of the radius of the smallest rock tall enough to reach it (and of the
 % smallest that shows at all). Wraps the march's step hook, which the
-% forest march calls too.
+% forest march calls too. (It also takes the stair steps out of ridge
+% silhouettes seen at a grazing angle, which the 0.2 step used to cut.)
 /GnBand BoulderSize BoulderH mul 1.6 mul def
 /GnStepMin BoulderSize 0.12 mul def
 /fc-ground-step-base /fc-terrain-step load def
