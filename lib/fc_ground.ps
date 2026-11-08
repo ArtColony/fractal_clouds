@@ -5,12 +5,13 @@
 % fc_terrain.ps loads this file at its end when GroundOn is true (set it
 % before loading, like every setting). It
 %
-%   - wraps fc-height: x z oct fc-height h now adds two layers of rounded
-%     rocks (boulders and stones) standing on the ground, so the march,
-%     the normals and the water all see them;
+%   - wraps fc-height: x z oct fc-height h now includes boulders, faceted
+%     solids standing on the ground (#84), so the march, the normals and
+%     the water all see them, and clamps the march's step near the ground
+%     so grazing rays don't step over them;
 %   - adds fc-ground-shade, which fc-terrain-shade calls after the material
-%     hook: rock colour on the rocks, a contact shadow and a sun shadow
-%     beside each boulder, stones on green ground turned into dark shrubs,
+%     hook: rock colour on the boulders (darker toward the foot, snow only
+%     on flat tops), contact occlusion and a sun shadow beside each, stones on green ground turned into dark shrubs,
 %     and a clumpy grass texture (albedo and normal) on green ground;
 %   - lets fc-terrain-oct go GroundOct octaves past TerrOct (fc_terrain.ps
 %     reads GroundOct), so near ground keeps getting finer instead of going
@@ -19,9 +20,9 @@
 % Each layer is a jittered grid, one candidate rock per cell, kept where a
 % hash of the cell is under a density that two smooth noises gather into
 % patches. Every per-rock number comes from an integer hash of its cell
-% (no rand: the random stream the bakes use is untouched). A rock is a
-% flattened, tilted ellipsoid, partly buried, with a lumpy outline from a
-% noise in its own frame. Detail follows distance: a layer is skipped once
+% (no rand: the random stream the bakes use is untouched). A stone is a
+% flattened ellipsoid in the shading only; a boulder is described at
+% fc-ground-boulder. Detail follows distance: a layer is skipped once
 % its biggest rock is under about a pixel across, and each rock fades in
 % as its radius grows from about 1 px to about 3.3 px. The grass texture
 % shows only within the same near band.
@@ -29,7 +30,7 @@
 /BoulderCell 2.6 fc-default          % boulder grid cell, world units (~10 m)
 /BoulderDens 0.22 fc-default         % mean share of cells with a boulder
 /BoulderSize 0.42 fc-default         % biggest boulder radius
-/BoulderH 0.6 fc-default             % mean height / radius
+/BoulderH 0.6 fc-default             % mean height above the ground at its centre / radius
 /StoneCell 0.55 fc-default           % stone (and shrub) grid cell
 /StoneDens 0.3 fc-default
 /StoneSize 0.11 fc-default
@@ -104,16 +105,117 @@
     } { 0 } ifelse
 } bind def
 
-% x z oct -> h: the boulders (0 at the camera's own probe, 0 0). Only
-% boulders are geometry: stones are smaller than the march's shortest step
-% near the camera, so they are shading only (fc-ground-shade)
-/fc-ground-rocks {
-    fc-ground-foot /GnF exch def
-    /GnPz exch def /GnPx exch def
-    GnPx 0 eq GnPz 0 eq and { 0 } {
-        GnPx GnPz BoulderCell BoulderDens BoulderSize 0 fc-ground-layer
-        GroundRough 0 gt GnF GroundFar lt and { fc-ground-rough add } if
-    } ifelse
+% Boulders (#84) are solids standing on the ground, not bumps added to
+% it: each has an absolute top, its own ground height at its centre (the
+% plain terrain at TerrOct, so the rock is the same at every distance)
+% plus a faceted profile, and the surface is the higher of the ground and
+% that top. On a slope a boulder is buried on its uphill side and stands
+% proud on its downhill side, and it meets the ground in a real contact
+% line. The profile is the lowest of a tilted top face and six side faces
+% at hashed angles, slopes and distances (an irregular, angular outline),
+% with two octaves of displacement once they span a few pixels. Faces
+% carry on down past the outline, so a downhill face reaches the ground
+% instead of ending in a ledge.
+
+% (cache of the last rock centre's ground height: the normals and the
+% sun probes ask for the same rock again and again)
+/GnCi -2147483647 def /GnCj -2147483647 def /GnCh 0 def /GnCg 0 def
+% -> h: the plain ground at the rock centre GnRx GnRz (cell GbI GbJ);
+% leaves GnCg, the ground's slope there (rise per unit run, from the
+% heights a radius away along x and z)
+/fc-ground-hc {
+    GbI GnCi eq GbJ GnCj eq and not {
+        GnRx GnRz TerrOct fc-height-base /GnCh exch def
+        GnRx GnR add GnRz TerrOct fc-height-base GnCh sub
+        GnRx GnRz GnR add TerrOct fc-height-base GnCh sub
+        dup mul exch dup mul add sqrt GnR div /GnCg exch def
+        /GnCi GbI def /GnCj GbJ def
+    } if
+    GnCh
+} bind def
+
+% x z -> top: the boulder of the cell under x z, as an absolute height
+% (-1e9 where there is none). Reads GnF, the two-pixel footprint. Leaves
+% GnR (radius), GnRx GnRz (centre), GnDx GnDz (offset from it), GnT (a
+% 0..1 tone), GnW (distance fade), GnBH (height scale) and GnBr2 (squared
+% distance from the centre, in radii, in the rock's own stretched frame;
+% 9 if no rock).
+/GnR 0 def /GnW 0 def /GnT 0 def /GnBH 1 def /GnBr2 9 def
+/GnRx 0 def /GnRz 0 def /GnDx 0 def /GnDz 0 def
+/fc-ground-boulder {
+    /GbZ exch def /GbX exch def
+    /GnW 0 def /GnR 0 def /GnBr2 9 def
+    -1e9
+    GnF BoulderSize 2 mul lt {
+        GbX BoulderCell div floor cvi /GbI exch def  GbZ BoulderCell div floor cvi /GbJ exch def
+        GbI GbJ 0 fc-ground-hash /GbQ exch def
+        GbQ 255 and 255 div BoulderDens 2 mul lt {
+        % rocks gather in patches, with open ground between
+        GroundPatch 0 gt {
+            GbX 0.035 mul 17.3 add GbZ 0.035 mul 5.1 add fc-noise2 0.65 mul
+            GbX 0.13 mul 2.9 add GbZ 0.13 mul 11.7 add fc-noise2 0.35 mul add
+            0.5 GroundPatch 0.25 mul sub  0.5 GroundPatch 0.25 mul add  3 -1 roll fc-smooth
+            GroundPatch mul 1 GroundPatch sub 0.5 mul add
+        } { 0.5 } ifelse 2 mul BoulderDens mul
+        GbQ 255 and 255 div gt {
+            % many small rocks, few big ones
+            /GnR GbQ -23 bitshift 255 and 255 div dup mul 0.65 mul 0.35 add BoulderSize mul def
+            % fade in as the radius grows from 1 px (2 R = GnF) to 3.3 px (0.6 R = GnF)
+            /GnW GnR 2 mul GnR 0.6 mul GnF fc-smooth def
+            GnW 0 gt {
+                GbI GbJ 7 fc-ground-hash /GbQ2 exch def
+                GbI GbJ 13 fc-ground-hash /GbQ3 exch def
+                /GnT GbQ2 -23 bitshift 255 and 255 div def
+                % the centre, jittered as far as the whole rock (1.6
+                % radii, stretched 1.3) still fits its cell
+                1 GnR 4.2 mul BoulderCell div sub 0 fc-max /GbJit exch def
+                /GnRx GbI 0.5 add GbQ -8 bitshift 255 and 255 div 0.5 sub GbJit mul add BoulderCell mul def
+                /GnRz GbJ 0.5 add GbQ -16 bitshift 255 and 255 div 0.5 sub GbJit mul add BoulderCell mul def
+                /GnDx GbX GnRx sub def /GnDz GbZ GnRz sub def
+                % elongated up to 1.3 : 0.7, turned its own way
+                /GbA GbQ2 255 and 255 div 180 mul def
+                /GbE GbQ2 -8 bitshift 255 and 255 div 0.3 mul def
+                /GbAc GbA cos def /GbAs GbA sin def
+                /GbU GnDx GbAc mul GnDz GbAs mul add GnR 1 GbE add mul div def
+                /GbV GnDz GbAc mul GnDx GbAs mul sub GnR 1 GbE sub mul div def
+                /GnBr2 GbU dup mul GbV dup mul add def
+                /GnBH GnR BoulderH mul 0.75 div GbQ3 -16 bitshift 255 and 255 div 0.5 mul 0.75 add mul def
+                GnBr2 2.56 lt {
+                    pop
+                    % the top face, tilted up to 0.15 each way
+                    1 GbU GbQ3 255 and 255 div 0.5 sub 0.3 mul mul add
+                      GbV GbQ3 -8 bitshift 255 and 255 div 0.5 sub 0.3 mul mul add
+                    % six side faces, about 60 degrees apart: slope 1.3..2.5 (heights
+                    % per radius), reaching the base level 0.8..1.15 radii out
+                    /GbA0 GbQ3 -24 bitshift 127 and 127 div 60 mul def
+                    0 1 5 { /GbK exch def
+                        GbI GbJ GbK 20 add fc-ground-hash /GbH exch def
+                        GbK 60 mul GbA0 add GbH 255 and 255 div 0.5 sub 34 mul add /GbTh exch def
+                        GbH -16 bitshift 255 and 255 div 0.35 mul 0.8 add
+                        GbU GbTh cos mul GbV GbTh sin mul add sub
+                        GbH -8 bitshift 255 and 255 div 1.2 mul 1.3 add mul
+                        fc-min
+                    } for
+                    % displacement: lumps on the faces and the outline, each
+                    % octave once its wavelength spans 2.5 footprints
+                    GbU 1.6 mul GnT 37 mul add GbV 1.6 mul GbI 0.37 mul add fc-noise2 0.5 sub 0.3 mul
+                    1.25 3 GnR 1.6 div GnF div fc-smooth mul add
+                    GbU 4.1 mul GbJ 0.29 mul add GbV 4.1 mul GnT 19 mul add fc-noise2 0.5 sub 0.14 mul
+                    1.25 3 GnR 4.1 div GnF div fc-smooth mul add
+                    % a quarter of the height buried; the faces sink out of
+                    % reach toward 1.6 radii
+                    % a quarter of the height buried, less on a slope (where
+                    % the uphill side buries it anyway)
+                    0.25 sub GnBH mul fc-ground-hc add GnCg 0.35 mul GnR mul add
+                    1.44 2.56 GnBr2 fc-smooth GnBH 4 mul mul sub
+                    % none rest on ground steeper than about 40 degrees
+                    % (and a face never runs away down a slope steeper than it)
+                    /GnW GnW 1 0.65 0.9 GnCg fc-smooth sub mul def
+                } if
+            } if
+        } if
+        } if
+    } if
 } bind def
 
 % -> h: rough ground at GnPx GnPz, octaves of value noise from about a
@@ -143,9 +245,47 @@
 % below this many octaves the footprint is over twice the biggest boulder
 % and over GroundFar, and nothing shows: skip the layer without the exp
 /GnOctMin 1 BoulderSize 2 mul GroundFar 2 copy lt { exch } if pop TerrScale mul div ln 2 ln div def
+% what the last fc-height call leaves for the step clamp: the bare ground
+% there and whether rocks can show there
+/GnHq 0 def /GnNear false def /GnF 1 def
 /fc-height-base /fc-height load def
 /fc-height {                                     % x z oct -> h
-    dup GnOctMin gt { 3 copy fc-height-base 4 1 roll fc-ground-rocks add } { fc-height-base } ifelse
+    dup GnOctMin gt {
+        /GnHo exch def /GnPz exch def /GnPx exch def
+        GnHo fc-ground-foot /GnF exch def
+        % the rock first: the query's own fc-height-base comes last, so
+        % what it leaves (the snow fill, the coast's clearances) is the query's
+        % (nothing at the camera's own probe, 0 0)
+        GnPx 0 eq GnPz 0 eq and { -1e9 /GnW 0 def } { GnPx GnPz fc-ground-boulder } ifelse
+        GnPx GnPz GnHo fc-height-base
+        GroundRough 0 gt GnF GroundFar lt and GnW 0 gt GnPx 0 ne or GnPz 0 ne or and { fc-ground-rough add } if
+        dup /GnHq exch def
+        % the higher of the ground and the rock, the rock fading in
+        exch 1 index sub 0 fc-max GnW mul add
+        /GnNear true def
+    } { fc-height-base dup /GnHq exch def /GnNear false def } ifelse
+} bind def
+
+% Grazing rays and small rocks: the march's shortest step near the camera
+% (0.2 units) is longer than most boulders are wide, so a ray skimming the
+% ground could step over one. While a ray is within the rocks' height of
+% the bare ground, near enough for rocks to show, its step is at most 0.6
+% of the radius of the smallest rock tall enough to reach it (and of the
+% smallest that shows at all). Wraps the march's step hook, which the
+% forest march calls too.
+/GnBand BoulderSize BoulderH mul 1.6 mul def
+/GnStepMin BoulderSize 0.12 mul def
+/fc-ground-step-base /fc-terrain-step load def
+/fc-terrain-step {                               % t s -> s'
+    /GnQs exch def /GnQt exch def
+    GnNear {
+        My GnQt mul CamY add GnHq sub /GnQc exch def
+        GnQc GnBand lt {
+            GnQc BoulderH 1.3 mul div  BoulderSize 0.35 mul GnF 0.5 mul fc-max  fc-max
+            0.6 mul GnStepMin fc-max GnQs fc-min /GnQs exch def
+        } if
+    } if
+    GnQt GnQs fc-ground-step-base
 } bind def
 
 % the grass octaves: wavelength (units) and turn (degrees), and the turns'
@@ -176,33 +316,52 @@
         /GnTx GnDx GnR div GnSw mul 0.9 mul def
         /GnTz GnDz GnR div GnSw mul 0.9 mul def
     } if
-    % boulders: rock colour on top, a dark ring where they meet the ground
-    Kx Kz BoulderCell BoulderDens BoulderSize 0 fc-ground-layer
-    /GnBh exch def
-    GnBh 0 gt {
-        GnR 0.15 mul GnBh fc-ground-sat 1 Ksnow 0.8 mul sub mul /GnBw exch def
-        % each boulder its own tone, mottled with lichen
+    % boulders (#84): how far the rock stands above the bare ground here
+    % (GnE: positive on the rock, negative beside it)
+    Kx Kz fc-ground-boulder /GnTop exch def
+    GnTop -1e8 gt {
+        /GnPx Kx def /GnPz Kz def
+        Kx Kz Ko fc-height-base
+        GroundRough 0 gt GnF GroundFar lt and { fc-ground-rough add } if
+        GnTop exch sub
+    } { -1e9 } ifelse /GnE exch def
+    GnE 0 gt {
+        0 GnBH 0.03 mul GnE fc-smooth GnW mul /GnBw exch def
+        % snow stays only on the flattest tops
+        Ksnow 0.82 0.95 Ny fc-smooth mul /GnSn exch def
+        % each boulder its own tone, mottled with lichen, darker toward
+        % its foot and in the crevice where it meets the ground
+        0 0.4 GnE GnBH div fc-smooth /GnCv exch def
         Rock Rock2 GnT mix3v
         Kx GnR div 2.3 mul 7.7 add Kz GnR div 2.3 mul 1.9 add fc-noise2 0.5 sub 0.5 mul 1 add
+        GnCv 0.45 mul 0.55 add mul
         /GnM exch def [ exch { GnM mul } forall ]
-        Alb exch GnBw mix3v /Alb exch def
+        Alb exch GnBw 1 GnSn sub mul mix3v /Alb exch def
+        /Ksnow Ksnow 1 GnBw sub mul GnSn GnBw mul add def
+        /KskyMul KskyMul 1 1 GnCv sub 0.5 mul GnBw mul sub mul def
         /KbMul KbMul 1 GnBw 0.5 mul sub mul def
     } if
-    % contact shadow: ground just outside a boulder sees less sky
-    GnD2 9 lt GnBh GnR 0.05 mul lt and {
-        1  1 0.9 1.9 GnD2 fc-smooth sub 0.5 mul GnW mul sub
-        dup KskyMul mul /KskyMul exch def KbMul mul /KbMul exch def
+    % contact: ground close to a boulder's faces sees less sky and bounce,
+    % most where it runs in under them, a little out to 1.6 radii
+    GnE 0 le GnW 0 gt and {
+        1 0 0.6 GnE neg GnBH div fc-smooth sub 0.6 mul
+        1 1 2.6 GnBr2 fc-smooth sub 0.2 mul fc-max GnW mul
+        1 exch sub
+        dup KskyMul mul /KskyMul exch def dup KbMul mul /KbMul exch def
+        0.3 mul 0.7 add /GnM exch def /Alb [ Alb { GnM mul } forall ] def
     } if
-    % and the boulder's own sun shadow: is the boulder above the sun ray
-    % at two points toward the sun?
-    GnBh GnR 0.05 mul le SunDir 1 get 0.02 gt and {        % (le: rock-free cells too)
+    % and the boulders' sun shadows: is a boulder above the sun ray at
+    % four points toward the sun, out to the longest shadow one can cast?
+    GnE GnBH 0.03 mul le SunDir 1 get 0.02 gt and {        % (rock-free cells too)
         SunDir 0 get dup mul SunDir 2 get dup mul add sqrt 0.0001 fc-max /GnSh exch def
+        /GnStan SunDir 1 get GnSh div def
+        BoulderSize BoulderH mul 1.6 mul GnStan div BoulderSize 2.5 mul fc-min /GnSL exch def
         /GnSs 1 def
-        [ 0.12 0.3 ] { BoulderSize mul /GnSd exch def
+        [ 0.12 0.3 0.55 0.85 ] { GnSL mul /GnSd exch def
             Kx SunDir 0 get GnSh div GnSd mul add  Kz SunDir 2 get GnSh div GnSd mul add
-            BoulderCell BoulderDens BoulderSize 0 fc-ground-layer
-            GnSd SunDir 1 get mul GnSh div sub BoulderSize 0.06 mul div
-            0 1 3 -1 roll fc-smooth 1 exch sub GnSs fc-min /GnSs exch def
+            fc-ground-boulder
+            Kh GnSd GnStan mul add sub BoulderSize 0.05 mul div
+            0 1 3 -1 roll fc-smooth GnW mul 1 exch sub GnSs fc-min /GnSs exch def
         } forall
         /KlMul KlMul GnSs mul def
     } if
