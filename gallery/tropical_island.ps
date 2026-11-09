@@ -10,7 +10,7 @@
 % Framing: DPI=36 scripts/render.sh gallery/tropical_island.ps
 % Preview (gallery/previews/tropical_island-640x400.png), three bands, one core each:
 %   DPI=144 scripts/render_bands.sh gallery/tropical_island.ps 0.475 0.6325 -- -D ErN=512 -D ErDrops=80000
-%   bands 930 s, 796 s, 803 s (Apple silicon, Mac, bake cache on; #118)
+%   bands 856 s, 705 s, 719 s (Apple silicon, Mac, bake cache on; #118)
 
 /Plan where { pop } { /Plan false def } ifelse
 /Seed where { pop } { /Seed 23 def } ifelse
@@ -48,11 +48,11 @@
 % the relief carries tone: swells and hummocks with darker troughs, wind
 % ripples near the camera, the berm's crest with a darker, damper foreshore
 % below it, and damp sand that stays dark at a glancing angle
-/CoastSand where { pop } { /CoastSand [ 0.74 0.68 0.55 ] def } ifelse
+/CoastSand where { pop } { /CoastSand [ 0.77 0.70 0.55 ] def } ifelse
 /MidSwell where { pop } { /MidSwell 0.6 def } ifelse
 /MidSwellK where { pop } { /MidSwellK 1 def } ifelse
-/MidRipple where { pop } { /MidRipple 0.5 def } ifelse
-/MidRippleK where { pop } { /MidRippleK 0.5 def } ifelse
+/MidRipple where { pop } { /MidRipple 0.3 def } ifelse
+/MidRippleK where { pop } { /MidRippleK 0.2 def } ifelse
 /MidBerm where { pop } { /MidBerm [ 12 3 0.5 0.2 ] def } ifelse
 /MidDamp where { pop } { /MidDamp 6 def } ifelse
 /MidDampGraze where { pop } { /MidDampGraze 0.5 def } ifelse
