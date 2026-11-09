@@ -2,7 +2,8 @@
 % fc_midground.ps -- meadow and beach texture at every distance
 % (fractal_clouds#103): patches of different greens, dry straw, darker
 % clumps on grass; wind streaks, damp sand, strandlines and hummocks on
-% the beach; and a micro-relief normal and sky occlusion on both.
+% the beach; and a micro-relief normal and sky occlusion on both. Larger
+% relief on the beach (#118): swells, the berm, wind ripples (fc-mid-relief).
 %
 % fc_terrain.ps loads this file at its end when MidGrass, MidSand or
 % MidBump is above 0 (set them before loading, like every setting), and
@@ -33,6 +34,14 @@
 /MidTide [ 5 13 ] fc-default              % strandlines, distance from the water (units)
 /MidDamp 4 fc-default                     % damp sand reaches about this far from the water
 /MidWind null fc-default                  % sand streaks run along this (degrees, as WindDir; null: WindDir, or 37)
+% (#118) larger relief on the beach, shading only (all off by default)
+/MidSwell 0 fc-default                    % broad swells and hummocks on the dry sand: their slope
+/MidBerm null fc-default                  % [ d w s k ]: berm crest d from the water, face w wide, slope s, foreshore darker by k
+/MidRipple 0 fc-default                   % wind ripples on the dry sand: their slope
+/MidRippleL 0.4 fc-default                % ... their wavelength (units)
+/MidSwellK 0 fc-default                   % the swells' troughs darker by this (heavy grains and damp collect there)
+/MidRippleK 0 fc-default                  % the ripples' troughs darker by this
+/MidDampGraze 0 fc-default                % damp sand keeps this much of its darkening at a grazing angle
 
 % octaves: wavelength (units) and turn (degrees); their turns' cos and sin
 /MgGrassO [ 7 0  2.6 41  1.0 83  0.38 127  0.15 19 ] def
@@ -132,7 +141,7 @@
     0 fc-max /MgDd exch def
     % (seen at a glancing angle wet sand mirrors the sky instead: the
     % darkening fades out there, where fc_ocean's wet band takes over)
-    MgDd MgDd 0.25 mul MgD fc-smooth 0.45 mul MgSw mul 0.02 0.12 MgGr fc-smooth mul /MgWt exch def
+    MgDd MgDd 0.25 mul MgD fc-smooth 0.45 mul MgSw mul 0.02 0.12 MgGr fc-smooth MidDampGraze fc-max mul /MgWt exch def
     /Alb [ Alb 0 get 1 MgWt sub mul  Alb 1 get 1 MgWt 1.02 mul sub mul  Alb 2 get 1 MgWt 1.06 mul sub mul ] def
     /Alb [ Alb { MgK mul } forall ] def
     % strandlines: a thin wrack line at each tide's reach, wandering and broken
@@ -155,6 +164,84 @@
         0.65 mul MgSw mul /MgLt exch def
         MgLt 0 gt { Alb MidWrack MgLt mix3v /Alb exch def } if
     } forall
+    MidSwell 0 gt MidRipple 0 gt or MidBerm null ne or { fc-mid-relief } if
+} bind def
+
+% --- larger relief on the beach (#118) ------------------------------------------
+% Shading only, like fc-mid-bump: each term tilts the normal (MgTx MgTz, the
+% negative gradient of a height) and fades out as it nears the footprint.
+% The sun stands high and behind the camera in a tropical midday, so relief
+% has to be steep to show at all: these slopes are 0.2 to 0.5, against
+% fc-mid-bump's 0.1. Even so, pale sand in that light sits on the tone
+% curve's shoulder, where a fifth less light is a few code values, so the
+% swells' and ripples' troughs can also be darker (MidSwellK, MidRippleK)
+% and the foreshore below the berm darker (MidBerm's k): tone is what
+% shows at preview size. Reads MgU MgV MgWc MgWs (the wind frame), MgD MgDd.
+/fc-mid-relief {
+    % dry sand: landward of the damp sand
+    MgDd MgDd 1.5 mul 1 add MgD fc-smooth MgSw mul /MgDw exch def
+    /MgHh 0 def /MgHu 0 def /MgHv 0 def          % height (relative), d/dU, d/dV
+    /MgHt 0 def /MgHr 0 def                      % the swells' and ripples' height, unscaled, for the troughs' tone
+    /MgOw 0 def /MgRp 0 def /MgBp 0 def /MgBw 0 def /MgBx 0 def /MgBz 0 def /MgBs 0 def /MgBk 0 def
+    % swells and hummocks: 10 units across the wind by 18 along, and 3.5 by 5
+    MidSwell 0 gt {
+        MgU 18 div 5.5 add MgV 10 div 2.2 add fc-noise2d
+        10 fc-mid-w MidSwell mul MgDw 0.75 mul 0.25 add mul MgSw mul /MgOw exch def
+        MgOw mul /MgHv exch def  MgOw 10 18 div mul mul /MgHu exch def
+        0.5 sub MgOw mul /MgHh exch def
+        MgU 5 div 1.7 add MgHv 2 mul add MgV 3.5 div 9.4 add fc-noise2d
+        3.5 fc-mid-w MidSwell mul 0.45 mul MgDw mul MgSw mul /MgOw exch def
+        MgOw mul MgHv add /MgHv exch def  MgOw 3.5 5 div mul mul MgHu add /MgHu exch def
+        0.5 sub MgOw mul 0.35 mul MgHh add /MgHh exch def
+        MgHh MidSwell div /MgHt exch def
+    } if
+    % wind ripples: crests across the wind, wandering, in patchy fields;
+    % a gentle stoss and a steeper lee
+    MidRipple 0 gt {
+        MidRippleL fc-mid-w MidRipple mul MgDw mul
+        0.42 0.66 MgX 0.083 mul 4.4 add MgZ 0.083 mul 0.7 add fc-noise2 fc-smooth mul
+        /MgOw exch def
+        MgOw 0 gt {
+            MgU MgV 0.6 div 3.1 add MgU 0.4 div 1.2 add fc-noise2 0.5 sub 0.8 mul
+            MgV 2.3 div 6.2 add MgU 4.1 div 2.8 add fc-noise2 0.5 sub 6 mul add MidRippleL mul add
+            MidRippleL div 360 mul /MgRp exch def
+            MgRp cos MgRp 2 mul cos 0.45 mul add 1.45 div MgOw mul MgHu add /MgHu exch def
+            MgRp sin MgOw MidRipple div mul 0.6 mul /MgHr exch def
+        } if
+    } if
+    % turn (d/dU, d/dV) back to (d/dx, d/dz)
+    MgHu MgWc mul MgHv MgWs mul sub MgTx exch sub /MgTx exch def
+    MgHu MgWs mul MgHv MgWc mul add MgTz exch sub /MgTz exch def
+    % the berm: a steeper face up to a crest, a gentle backslope behind it
+    MidBerm null ne {
+        MidBerm 0 get
+        MgX 0.031 mul 1.3 add MgZ 0.031 mul 7.7 add fc-noise2 0.5 sub MidBerm 1 get 1.5 mul mul add
+        MgD exch sub /MgBp exch def              % distance past the crest
+        MidBerm 1 get /MgBw exch def
+        MgBw 0.5 mul fc-mid-w MgSw mul /MgOw exch def
+        MgOw 0 gt MgBp MgBw -1.5 mul gt and MgBp MgBw 4 mul lt and {
+            % the distance's gradient, by differences
+            MgX 0.5 add MgZ fc-coast-dist pop MgD sub
+            MgX MgZ 0.5 add fc-coast-dist pop MgD sub
+            2 copy dup mul exch dup mul add sqrt 0.0001 fc-max
+            dup 3 1 roll div /MgBz exch def div /MgBx exch def
+            MgBw -1.3 mul MgBw -0.6 mul MgBp fc-smooth 1 MgBw -0.15 mul MgBw 0.15 mul MgBp fc-smooth sub mul
+            0 MgBw 0.4 mul MgBp fc-smooth 1 MgBw 2 mul MgBw 3.5 mul MgBp fc-smooth sub mul 0.25 mul sub
+            MidBerm 2 get mul MgOw mul /MgBs exch def
+            MgTx MgBs MgBx mul sub /MgTx exch def
+            MgTz MgBs MgBz mul sub /MgTz exch def
+        } if
+        % the foreshore below the crest: moister, darker
+        MidBerm 3 get MgSw mul 1 MgBw -0.3 mul MgBw 0.3 mul MgBp fc-smooth sub mul /MgBk exch def
+        /Alb [ Alb 0 get 1 MgBk sub mul  Alb 1 get 1 MgBk 1.03 mul sub mul  Alb 2 get 1 MgBk 1.08 mul sub mul ] def
+    } if
+    % troughs a little darker
+    MidSwellK 0 gt MidRippleK 0 gt or {
+        MgHt -0.6 fc-max 0.6 fc-min MidSwellK mul MgHr MidRippleK mul add 1 add /MgK exch def
+        /Alb [ Alb { MgK mul } forall ] def
+    } if
+    % hollows see less of the sky
+    /KskyMul KskyMul MgHh 0.6 mul -0.2 fc-max 0.2 fc-min 1 add mul def
 } bind def
 
 % --- micro-relief -------------------------------------------------------------

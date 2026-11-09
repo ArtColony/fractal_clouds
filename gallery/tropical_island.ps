@@ -10,7 +10,7 @@
 % Framing: DPI=36 scripts/render.sh gallery/tropical_island.ps
 % Preview (gallery/previews/tropical_island-640x400.png), three bands, one core each:
 %   DPI=144 scripts/render_bands.sh gallery/tropical_island.ps 0.475 0.6325 -- -D ErN=512 -D ErDrops=80000
-%   bands 899 s, 780 s, 778 s (Apple silicon, Mac, bake cache on; #79)
+%   bands 856 s, 705 s, 719 s (Apple silicon, Mac, bake cache on; #118)
 
 /Plan where { pop } { /Plan false def } ifelse
 /Seed where { pop } { /Seed 23 def } ifelse
@@ -42,6 +42,20 @@
 /MidGrass where { pop } { /MidGrass 1 def } ifelse
 /MidSand where { pop } { /MidSand 1 def } ifelse
 /MidBump where { pop } { /MidBump 1 def } ifelse
+% (#118) the beach reads as sand at preview size: a high sun behind the camera
+% puts pale sand on the tone curve's shoulder, where relief alone hardly
+% changes the tone, so the sand is a little darker (below the shoulder) and
+% the relief carries tone: swells and hummocks with darker troughs, wind
+% ripples near the camera, the berm's crest with a darker, damper foreshore
+% below it, and damp sand that stays dark at a glancing angle
+/CoastSand where { pop } { /CoastSand [ 0.77 0.70 0.55 ] def } ifelse
+/MidSwell where { pop } { /MidSwell 0.6 def } ifelse
+/MidSwellK where { pop } { /MidSwellK 1 def } ifelse
+/MidRipple where { pop } { /MidRipple 0.3 def } ifelse
+/MidRippleK where { pop } { /MidRippleK 0.2 def } ifelse
+/MidBerm where { pop } { /MidBerm [ 12 3 0.5 0.2 ] def } ifelse
+/MidDamp where { pop } { /MidDamp 6 def } ifelse
+/MidDampGraze where { pop } { /MidDampGraze 0.5 def } ifelse
 % the /Tropical preset's cumulus, with finer steps far off and the edge found by
 % bisection, so the distant cumulus come out clean instead of speckled (#120;
 % /Floor, as golden_coast has it, made them a third heavier here)
