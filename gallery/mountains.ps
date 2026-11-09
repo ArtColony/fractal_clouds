@@ -4,6 +4,8 @@
 % Status: draft
 % fractal_clouds#1: ridged-fBm mountains under a ray-marched cumulus layer,
 % one ray per pixel. Preview: DPI=144 scripts/render.sh -D Res=0.25.
+% 640x400 (gallery/previews/mountains-640x400.png): DPI=144 scripts/render_bands.sh
+%   gallery/mountains.ps --auto 3; bands 2.6, 2.1, 2.3 min CPU (Apple silicon, Mac, #84)
 % Large: DPI=288 scripts/render.sh -D ErN=1024 -D ErDrops=240000 (1280x800, ~40 min).
 
 /Seed where { pop } { /Seed 5 def } ifelse
