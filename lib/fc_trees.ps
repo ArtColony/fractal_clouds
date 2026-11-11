@@ -182,7 +182,6 @@ FsSpecies {
 } forall
 /FsNsp FsMix length FsSpecies length fc-min def
 /FsMixed FsNsp 1 gt def
-/FsMixWt FsNsp array def
 /FsSpLo [ 0 1 FsNsp 1 sub { FsSpecies exch get /lo get } for ] def
 /FsSpHi [ 0 1 FsNsp 1 sub { FsSpecies exch get /hi get } for ] def
 /FsSpBand false def FsSpHi { 999 lt { /FsSpBand true def } if } forall
@@ -755,24 +754,26 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
 } bind def
 
 % -> the species (its index in FsSpecies) of the tree FcK, drawn by FsMix's weights, each
-% faded out above its altitude band
+% faded out above its altitude band. The weights go in a fresh array per call, not a
+% shared one: a write to an array made outside the pixel is a side effect, which keeps
+% pscat's kernelimage from compiling the pixel (#117)
 /fc-tree-species {
     % the ground's altitude at the cell's centre, so a tree is one species
     % across its whole crown (only needed when some species has a band)
     FsSpBand { Fci 0.5 add FsCell mul Fcj 0.5 add FsCell mul fc-forest-alt /Fcal exch def } if
-    /Fcsw 0 def
+    /Fcsw 0 def /FcsWt FsNsp array def
     0 1 FsNsp 1 sub { /Fcsi exch def
         FsMix Fcsi get
         FsSpHi Fcsi get 999 lt { FsSpLo Fcsi get FsSpHi Fcsi get Fcal fc-smooth 1 exch sub mul } if
         dup Fcsw add /Fcsw exch def
-        FsMixWt Fcsi 3 -1 roll put
+        FcsWt Fcsi 3 -1 roll put
     } for
     % (#53: where every weight has faded to nothing, a spruce)
     Fcsw 0 gt {
         /Fcsr FsR 6 get FcK get Fcsw mul def
         /Fcsi 0 def
         { Fcsi FsNsp 1 sub ge { exit } if
-          Fcsr FsMixWt Fcsi get sub dup /Fcsr exch def 0 lt { exit } if
+          Fcsr FcsWt Fcsi get sub dup /Fcsr exch def 0 lt { exit } if
           /Fcsi Fcsi 1 add def } loop
         Fcsi
     } { 0 } ifelse
