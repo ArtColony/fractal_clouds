@@ -1,0 +1,384 @@
+<title>Kernelimage Field Report</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="fractal_clouds #117: how all eight gallery scenes came to run through pscat's compiled kernelimage, 22–77× faster and byte-identical, why the GPU path was parked, and the GPU approaches nobody tried.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column (65ch prose) on the repo's cool "paper" palette, with wide figures and tables breaking out to 1120px. */
+:root {
+  --paper: #eef1f2;
+  --paper-2: #e3e8ea;
+  --ink: #1a2329;
+  --ink-2: #4c5a63;
+  --ink-3: #6f7d86;
+  --rule: #c5cfd4;
+  --accent: #2b5a74;
+  --glow: #a3505c;
+  --code-bg: #e2e7e9;
+  --code-ink: #1d2a31;
+  --ok: #2f6a4f;
+  --part: #8a5a14;
+  --no: #a3505c;
+  --serif: "Newsreader", Georgia, "Times New Roman", Times, serif;
+  --display: "Instrument Serif", "Newsreader", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #12191e; --paper-2: #1a2329; --ink: #dde4e8; --ink-2: #a9b6be; --ink-3: #87959e;
+    --rule: #2d3a42; --accent: #8db9d2; --glow: #e0939c; --code-bg: #1c262d; --code-ink: #d6e0e6;
+    --ok: #8fcfaf; --part: #e2b56a; --no: #e0939c;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #12191e; --paper-2: #1a2329; --ink: #dde4e8; --ink-2: #a9b6be; --ink-3: #87959e;
+  --rule: #2d3a42; --accent: #8db9d2; --glow: #e0939c; --code-bg: #1c262d; --code-ink: #d6e0e6;
+  --ok: #8fcfaf; --part: #e2b56a; --no: #e0939c;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: 18px;
+  line-height: 1.55;
+}
+.page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 80px;
+}
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code {
+  font-family: var(--mono); font-size: 0.82em;
+  background: var(--code-bg); color: var(--code-ink);
+  padding: 0.05em 0.3em; border-radius: 2px; overflow-wrap: anywhere;
+}
+h1, h2, h3 { font-family: var(--display); font-weight: 400; text-wrap: balance; line-height: 1.1; margin: 0; }
+h1 { font-size: clamp(2.6rem, 6vw, 4.2rem); }
+h2 { font-size: clamp(1.9rem, 4vw, 2.6rem); margin-top: 2.6em; padding-top: 0.6em; border-top: 1px solid var(--rule); }
+h3 { font-size: 1.45rem; margin-top: 1.6em; }
+.eyebrow {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ink-3);
+}
+.prose { max-width: 65ch; }
+.prose > * + * { margin-top: 0.85em; }
+.prose p, .prose ul, .prose ol { margin-bottom: 0; }
+.prose ul, .prose ol { padding-left: 1.2em; }
+.prose li + li { margin-top: 0.35em; }
+.lede { font-size: 1.2rem; color: var(--ink-2); max-width: 60ch; margin-top: 0.8em; }
+.meta { font-family: var(--mono); font-size: 13px; color: var(--ink-3); margin-top: 1.2em; }
+
+/* Scene strip */
+.strip {
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px 12px;
+  margin-top: 2em;
+}
+.strip figure { margin: 0; min-width: 0; }
+.strip img { width: 100%; height: auto; display: block; image-rendering: pixelated; border-radius: 2px; }
+.strip figcaption {
+  display: flex; justify-content: space-between; gap: 8px; margin-top: 5px;
+  font-family: var(--mono); font-size: 12.5px; color: var(--ink-2);
+}
+.strip figcaption b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.note { font-family: var(--mono); font-size: 12.5px; color: var(--ink-3); margin-top: 10px; max-width: 80ch; }
+@media (max-width: 640px) { .strip { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* Tables */
+.tbl { overflow-x: auto; margin-top: 1.2em; }
+table { border-collapse: collapse; font-size: 15px; min-width: 100%; }
+th, td { padding: 7px 12px 7px 0; text-align: left; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+td.k { font-family: var(--mono); font-size: 13px; color: var(--ink-2); white-space: nowrap; }
+.x { color: var(--accent); font-weight: 600; }
+.tag { font-family: var(--mono); font-size: 12px; padding: 1px 6px; border-radius: 3px; border: 1px solid currentColor; white-space: nowrap; }
+.tag.ok { color: var(--ok); } .tag.part { color: var(--part); } .tag.no { color: var(--no); }
+
+/* Timeline */
+.steps { list-style: none; padding: 0; margin: 1.4em 0 0; display: grid; gap: 0; max-width: 78ch; }
+.steps li { display: grid; grid-template-columns: 9.5em minmax(0, 1fr); gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--rule); }
+.steps .when { font-family: var(--mono); font-size: 13px; color: var(--ink-3); padding-top: 3px; }
+.steps .what > * + * { margin-top: 0.4em; }
+.steps p { margin: 0; }
+@media (max-width: 560px) { .steps li { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
+
+/* Wide figure */
+.wide { margin: 2em 0 0; }
+.wide img { width: 100%; height: auto; display: block; border-radius: 2px; }
+.wide figcaption { font-size: 15px; color: var(--ink-2); margin-top: 8px; max-width: 80ch; }
+
+/* Pipeline diagrams */
+.pipe { margin-top: 1.4em; display: grid; gap: 18px; }
+.pipe-row { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; }
+.pipe-label { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); width: 100%; }
+.stage {
+  flex: 1 1 120px; min-width: 0; background: var(--paper-2); border: 1px solid var(--rule);
+  padding: 8px 10px; font-size: 14.5px; line-height: 1.35;
+}
+.stage b { display: block; font-family: var(--mono); font-size: 12.5px; font-weight: 500; }
+.stage .cost { display: block; font-family: var(--mono); font-size: 12px; margin-top: 4px; color: var(--ink-3); }
+.stage.bad { border-color: var(--no); }
+.stage.bad .cost { color: var(--no); }
+.stage.good { border-color: var(--ok); }
+.stage.good .cost { color: var(--ok); }
+.arrow { align-self: center; color: var(--ink-3); font-family: var(--mono); }
+@media (max-width: 640px) { .arrow { display: none; } .stage { flex-basis: 45%; } }
+
+/* Idea list */
+.ideas { display: grid; gap: 0; margin-top: 1.2em; max-width: 80ch; }
+.idea { padding: 18px 0; border-bottom: 1px solid var(--rule); }
+.idea h3 { margin-top: 0; }
+.idea .verdict { font-family: var(--mono); font-size: 12.5px; color: var(--ink-3); margin-top: 6px; }
+.idea > p, .idea > ul { margin: 0.6em 0 0; }
+.idea ul { padding-left: 1.2em; }
+.callout {
+  margin-top: 1.4em; padding: 14px 18px; background: var(--paper-2);
+  border-left: 3px solid var(--accent); max-width: 75ch;
+}
+.callout p { margin: 0; }
+.callout p + p { margin-top: 0.6em; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+
+<div class="page">
+
+<header>
+  <p class="eyebrow">fractal_clouds #117 · pscat compute kernels · November 2026</p>
+  <h1>Kernelimage Field Report</h1>
+  <p class="lede">All eight gallery scenes now run through pscat's compiled <code>kernelimage</code>. Each one is 22–77× faster than the interpreter, and its output matches byte for byte. This report covers how we got there, what we learned, why the GPU path was parked, and the GPU options nobody has tried.</p>
+  <p class="meta">Apple M4 · macOS 15.7.7 · fractal_clouds ea18d58 · pscat compute-kernels CI build 7afa9f9 (run 42959822321) · written by the fractal_clouds Claude Code session</p>
+</header>
+
+<section aria-label="The eight scenes">
+  <div class="strip">
+    <figure><img src="thumb_mountains.png" width="320" height="200" alt="mountains at 160 by 100"><figcaption><span>mountains</span><b>59×</b></figcaption></figure>
+    <figure><img src="thumb_storm.png" width="320" height="200" alt="storm at 160 by 100"><figcaption><span>storm</span><b>77×</b></figcaption></figure>
+    <figure><img src="thumb_charted_range.png" width="320" height="200" alt="charted_range at 160 by 100"><figcaption><span>charted_range</span><b>73×</b></figcaption></figure>
+    <figure><img src="thumb_alpine_forest.png" width="320" height="200" alt="alpine_forest at 160 by 100"><figcaption><span>alpine_forest</span><b>45×</b></figcaption></figure>
+    <figure><img src="thumb_evening_lake.png" width="320" height="200" alt="evening_lake at 160 by 100"><figcaption><span>evening_lake</span><b>40×</b></figcaption></figure>
+    <figure><img src="thumb_golden_coast.png" width="320" height="200" alt="golden_coast at 160 by 100"><figcaption><span>golden_coast</span><b>22×</b></figcaption></figure>
+    <figure><img src="thumb_pnw_coast.png" width="320" height="200" alt="pnw_coast at 160 by 100"><figcaption><span>pnw_coast</span><b>26×</b></figcaption></figure>
+    <figure><img src="thumb_tropical_island.png" width="320" height="200" alt="tropical_island at 160 by 100"><figcaption><span>tropical_island</span><b>32×</b></figcaption></figure>
+  </div>
+  <p class="note">The test frames from the CI build: 160×100 kernels, drawn at 320×200 with antialiasing off. Each is <code>cmp</code>-identical to a fresh <code>/interpret .kernelmode</code> render. The number is the compiled speedup over that interpreted render.</p>
+</section>
+
+<h2>What kernelimage does</h2>
+<div class="prose">
+  <p><code>w h matrix proc ncomp kernelimage</code> takes a per-pixel procedure, here fractal_clouds' <code>fc-pixel</code> ray marcher, and compiles it into a register IR. A lane-batched executor then runs that IR on all ten cores. Each IR instruction runs as one loop over a batch of 16 pixels, and branches become masks. Pixels the compiler can't handle "retire" to the interpreter. The default path computes exactly what the interpreter computes, in the same order, so the PNG bytes match.</p>
+  <p>For this repo that changes how looks get tuned. A golden_coast frame at 640×400 took 9 minutes interpreted and takes 7–9 seconds compiled.</p>
+</div>
+
+<h2>How all eight got there</h2>
+<ol class="steps">
+  <li><span class="when">Test 1 · b959248</span><div class="what">
+    <p><b>6 of 8 compile.</b> pnw_coast retired 5,596 pixels to the interpreter and tropical_island all 16,000. Both had the same cause: <code>fc-tree-species</code> wrote its species weights into a shared global array (<code>FsMixWt … put</code>). That is a real per-pixel side effect, so pscat was right to refuse it.</p>
+    <p>With that write removed in an experiment, both scenes then hit the 400,000-instruction size cap instead.</p></div></li>
+  <li><span class="when">fractal_clouds #142</span><div class="what">
+    <p>Species weights moved to a fresh per-call array. The output didn't change (regress 14/14, every PNG identical).</p></div></li>
+  <li><span class="when">pscat build1 · 747ccee</span><div class="what">
+    <p>The cap had been counting code <em>before</em> dead-code removal: about 870k counted for a kernel that ends up at 251k. The <code>/auto</code> sharing heuristic then kept the wrong pass. build1 gave the shared pass its own 2M cap.</p>
+    <p>It also added IEEE-exact SIMD for division, square root, compares and rounding (#1099).</p></div></li>
+  <li><span class="when">fractal_clouds #143</span><div class="what">
+    <p>In <code>fc-tree-shade-trunk</code>, one branch of an <code>if</code> left an array and the other a table row. The kernel compiler needs both branches to leave the same stack shape, so both now leave three numbers. On tropical_island, the 185 pixels that took this branch had sent the whole frame to the interpreter. Output unchanged.</p></div></li>
+  <li><span class="when">build1 at ea18d58</span><div class="what">
+    <p><b>8 of 8 compile, nothing retires, all byte-identical.</b></p></div></li>
+  <li><span class="when">CI build · 7afa9f9</span><div class="what">
+    <p>build1's code plus review fixes. The review removed build1's extra purity-scan rules as unsound, which costs nothing here because no scene needs them. Same kernels, same bytes. This is the build <code>fastrender.sh</code> uses now.</p></div></li>
+</ol>
+
+<h2>The numbers</h2>
+<h3>All eight scenes, 160×100 (CI build 7afa9f9)</h3>
+<div class="tbl"><table>
+  <thead><tr><th>scene</th><th>kernel</th><th class="n">compile</th><th class="n">run</th><th class="n">compiled</th><th class="n">interpreted</th><th class="n">speedup</th></tr></thead>
+  <tbody>
+    <tr><td>mountains</td><td class="k">103,130 instr · 96 regs</td><td class="n">72 ms</td><td class="n">246 ms</td><td class="n">0.32 s</td><td class="n">18.8 s</td><td class="n x">59×</td></tr>
+    <tr><td>storm</td><td class="k">140,521 instr · 96 regs</td><td class="n">102 ms</td><td class="n">170 ms</td><td class="n">0.28 s</td><td class="n">21.2 s</td><td class="n x">77×</td></tr>
+    <tr><td>charted_range</td><td class="k">35,690 instr · 116 subs</td><td class="n">172 ms</td><td class="n">301 ms</td><td class="n">0.48 s</td><td class="n">34.9 s</td><td class="n x">73×</td></tr>
+    <tr><td>alpine_forest</td><td class="k">42,421 instr · 128 subs</td><td class="n">284 ms</td><td class="n">439 ms</td><td class="n">0.72 s</td><td class="n">32.8 s</td><td class="n x">45×</td></tr>
+    <tr><td>evening_lake</td><td class="k">91,866 instr · 140 subs</td><td class="n">500 ms</td><td class="n">363 ms</td><td class="n">0.87 s</td><td class="n">34.5 s</td><td class="n x">40×</td></tr>
+    <tr><td>golden_coast</td><td class="k">169,959 instr · 222 subs</td><td class="n">917 ms</td><td class="n">347 ms</td><td class="n">1.27 s</td><td class="n">28.1 s</td><td class="n x">22×</td></tr>
+    <tr><td>pnw_coast</td><td class="k">251,190 instr · 235 subs</td><td class="n">1,299 ms</td><td class="n">700 ms</td><td class="n">2.01 s</td><td class="n">52.0 s</td><td class="n x">26×</td></tr>
+    <tr><td>tropical_island</td><td class="k">232,109 instr · 207 subs</td><td class="n">1,235 ms</td><td class="n">1,083 ms</td><td class="n">2.33 s</td><td class="n">74.1 s</td><td class="n x">32×</td></tr>
+  </tbody>
+</table></div>
+<p class="note">"subs" are shared subroutines: code that pscat keeps once and calls, rather than inlining at every call site. At this size compile time is a large share of the total, so the speedups here understate the large-frame gains.</p>
+
+<h3>Frames at the sizes we tune at (build1, same code)</h3>
+<div class="tbl"><table>
+  <thead><tr><th>scene</th><th>kernel size</th><th class="n">compile</th><th class="n">compiled total</th><th class="n">interpreted</th><th class="n">peak memory</th></tr></thead>
+  <tbody>
+    <tr><td>mountains</td><td class="k">640×400</td><td class="n">74–78 ms</td><td class="n">4.3–5.1 s</td><td class="n">405 s · <span class="x">80–94×</span></td><td class="n">89 MB</td></tr>
+    <tr><td>mountains</td><td class="k">1280×800</td><td class="n">70 ms</td><td class="n">14.9 s</td><td class="n">~27 min (scaled)</td><td class="n">90 MB</td></tr>
+    <tr><td>golden_coast</td><td class="k">640×400</td><td class="n">0.94–1.06 s</td><td class="n">6.6–8.6 s</td><td class="n">539 s · <span class="x">63–81×</span></td><td class="n">335–398 MB</td></tr>
+    <tr><td>golden_coast</td><td class="k">1280×800</td><td class="n">1.04 s</td><td class="n">27.7 s</td><td class="n">~36 min (scaled)</td><td class="n">344 MB</td></tr>
+  </tbody>
+</table></div>
+<p class="note">Both 640×400 frames are byte-identical to their interpreted renders. The 1280×800 interpreted times are scaled from the 640×400 runs, not measured. The machine's load average was 4–11 during these runs.</p>
+
+<figure class="wide">
+  <img src="golden_coast_1280.jpg" width="1600" height="1000" alt="golden_coast: a sunset sea with two rock stacks and a forested cliff on the right" loading="lazy">
+  <figcaption>golden_coast from a 1280×800 kernel, compiled, in 27.7 seconds. The interpreter would take about 36 minutes for the same frame. (JPEG copy for this page.)</figcaption>
+</figure>
+
+<h2>What we learned</h2>
+<div class="prose">
+  <h3>About writing PostScript for kernels</h3>
+  <ul>
+    <li><b>No writes to shared arrays from a pixel.</b> A <code>put</code> into an array defined outside the pixel procedure is a side effect that one pixel leaves for the next. Allocate a fresh array per call instead.</li>
+    <li><b>Both arms of an <code>if</code>/<code>ifelse</code> must leave the same stack shape.</b> "An array" on one side and "a table row" on the other counts as different, even when the caller only reads three numbers from either.</li>
+    <li><b>One rare branch can sink a frame.</b> 185 pixels on tropical_island took the trunk branch, and before per-pixel fallback that sent all 16,000 to the interpreter. <code>PSCAT_KERNEL_TIMING=1</code> names each cause with a count.</li>
+    <li><b>Scene content drives kernel size.</b> The faceted boulders (#84) took mountains from 35,636 to 103,130 instructions. It still compiles in 72 ms, but size limits are about scene content as well as library code.</li>
+  </ul>
+
+  <h3>About pscat (reported upstream)</h3>
+  <ul>
+    <li>The size cap measured code before dead-code removal, so big scenes failed for size they didn't have. Fixed in build1.</li>
+    <li>The <code>/auto</code> sharing choice compared the wrong things and kept the unshared pass. Fixed alongside the cap.</li>
+    <li>The purity scan behind per-pixel fallback is strict. build1 loosened it, review showed those rules unsound, and they were removed. Once our two fixes landed, no scene needed them.</li>
+    <li><b>Where large-frame time goes:</b> almost all of it is in the executor's main loop. <code>pow</code>, <code>log</code>, <code>sin</code> and <code>cos</code> together are under 4%, so approximate maths can't help much. 16-pixel batches beat both 8 and 32; 32 was 1.4–2× slower, because these ray marchers branch a lot.</li>
+    <li>Peak memory rose to about 400 MB with the bigger caps. That's acceptable on this machine.</li>
+  </ul>
+
+  <h3>About the setup</h3>
+  <ul>
+    <li>The first run after the external drive mounts is a few seconds slow, because the binary's pages load from USB. A rerun is back to normal.</li>
+    <li>"Looks the same" is now the bar for test builds: PSNR ≥ 40 dB, 99.9th-percentile channel delta ≤ 8, mean ≤ 1.5. Every build so far has cleared it trivially by being byte-identical.</li>
+  </ul>
+</div>
+
+<h2>Why the GPU path was parked</h2>
+<div class="prose">
+  <p>pscat has an opt-in GPU backend (<code>--gpu-preview</code>, a build feature). It turns the compiled kernel into WGSL shader text and hands it to wgpu. wgpu's naga translates it to Metal Shading Language, Metal compiles that, and the image runs in f32. On pscat's own gallery pieces it is another 23–68× over the CPU kernels, so it looked like the next step. The pscat-gpu session tried it on our scenes and hit three separate walls.</p>
+</div>
+
+<div class="pipe" role="img" aria-label="The GPU path as built: kernel IR to WGSL text, naga parse taking 5 to 12 seconds, Metal compile, then a 20 millisecond dispatch">
+  <div class="pipe-row">
+    <span class="pipe-label">The GPU path as built, per frame</span>
+    <div class="stage"><b>kernel IR</b>calls inlined, constants written in as literals</div><span class="arrow">→</span>
+    <div class="stage bad"><b>WGSL text</b>one huge function<span class="cost">≤ 1,048,576 instr, or refused</span></div><span class="arrow">→</span>
+    <div class="stage bad"><b>naga</b>parse and translate<span class="cost">5–12 s per process</span></div><span class="arrow">→</span>
+    <div class="stage bad"><b>Metal compile</b>MSL to GPU code<span class="cost">&gt;10 min with real functions</span></div><span class="arrow">→</span>
+    <div class="stage good"><b>dispatch</b>f32 on the GPU<span class="cost">20 ms (mountains, 160×100)</span></div>
+  </div>
+</div>
+
+<div class="ideas">
+  <div class="idea">
+    <h3>1. The big scenes don't fit</h3>
+    <p>The GPU lowering can't call a subroutine. It inlines every call, and refuses a kernel that grows past 2<sup>20</sup> (about a million) instructions. That's fine for mountains and storm, which have no shared subroutines. The other six (golden_coast, pnw_coast, tropical_island, evening_lake, alpine_forest and charted_range) only fit on the CPU <em>because</em> pscat shares their subroutines. Inlined, they blow past the limit. They are also the slow scenes.</p>
+  </div>
+  <div class="idea">
+    <h3>2. Keeping calls made Metal stall</h3>
+    <p>The obvious fix is to emit subroutines as real WGSL functions. pscat-gpu tried that, with the functions sharing registers through <code>var&lt;private&gt;</code> state. Metal's shader compiler ran for over 10 minutes on golden_coast before it was stopped, and the change was reverted.</p>
+  </div>
+  <div class="idea">
+    <h3>3. Every process pays a 5–12 second toll</h3>
+    <p>Mountains does run on the GPU. It passes our look test easily (PSNR 55.5 dB, mean delta 0.013), and its dispatch is 20 ms against about 200 ms on the CPU. But building the shader costs 5–12 s each time pscat starts, nearly all of it in naga's WGSL parser (<code>Typifier::grow</code>), not in Metal.</p>
+    <p>This repo starts one pscat process per frame. <code>render.sh</code>, the previews and <code>fastrender.sh</code> all work that way, and banded renders use several processes for one frame. So the toll is paid on every frame.</p>
+  </div>
+  <div class="idea">
+    <h3>The decision</h3>
+    <p>What was left was a mountains-and-storm-only GPU build. At 2560×1600 it would take a mountains frame from about 60 s on the CPU to roughly 10–17 s. I declined it: the slow scenes couldn't use it, look work moves across all eight, and the next CPU step (#1101) helps every scene. pscat-gpu agreed and parked the GPU. Looking back, the declined build was still about a 4× win on two scenes, and I underweighted that. If the owner spends a stretch on mountains or storm, it is worth asking for again.</p>
+  </div>
+</div>
+
+<h2>GPU approaches we didn't consider</h2>
+<div class="prose">
+  <p>All three walls come from one design choice: <b>each kernel becomes its own shader.</b> That makes shader size grow with scene size, makes every look tweak a new shader, and puts a compiler on every frame's critical path. The ideas below mostly attack that choice. None of them has been built or measured. They are ranked by how much of the problem each one removes.</p>
+</div>
+
+<div class="callout">
+  <p><b>A correction to the record first.</b> pscat's notes say the two real fixes, building naga IR directly and keeping calls out of line in MSL, are "not in reach through wgpu today". The pinned wgpu 30.0.1 source has both:</p>
+  <p><code>ShaderSource::Naga</code> behind the <code>naga-ir</code> feature takes a naga module and skips the WGSL parser. <code>Features::PASSTHROUGH_SHADERS</code> lists Metal and takes <code>msl</code> text or a precompiled <code>metallib</code>, skipping naga entirely. wgpu's own <code>PIPELINE_CACHE</code> is Vulkan-only, but Metal keeps its own system shader cache. pscat's #742 notes measured that cache: 75–660 ms cold, 17–25 ms warm.</p>
+</div>
+
+<div class="pipe" role="img" aria-label="Alternative: kernel IR encoded as bytecode in a buffer, run by one fixed interpreter shader compiled once and cached">
+  <div class="pipe-row">
+    <span class="pipe-label">Idea A: one fixed shader that runs the IR as data</span>
+    <div class="stage"><b>kernel IR</b>subroutines kept, constants kept as data</div><span class="arrow">→</span>
+    <div class="stage good"><b>bytecode buffer</b>a memcpy<span class="cost">~ms, any size</span></div><span class="arrow">→</span>
+    <div class="stage good"><b>interpreter shader</b>same for every scene<span class="cost">compiled once, cached by the OS</span></div><span class="arrow">→</span>
+    <div class="stage"><b>dispatch</b>f32 on the GPU<span class="cost">slower than compiled · unmeasured</span></div>
+  </div>
+</div>
+
+<div class="ideas">
+  <div class="idea">
+    <h3>A. A fixed GPU interpreter for the kernel IR</h3>
+    <p class="verdict">Removes all three walls · biggest unknown is speed · untested</p>
+    <p>Instead of translating each kernel into a shader, write <em>one</em> compute shader that interprets pscat's kernel IR, read from a storage buffer. pscat's CPU executor is already this kind of machine: a masked, structured interpreter over 16 lanes. A GPU version runs the same program per thread, and the hardware handles the masking.</p>
+    <ul>
+      <li><b>Size:</b> any kernel fits. Subroutines are real calls on a small per-thread return stack, so there's no inlining and no million-instruction limit.</li>
+      <li><b>Compile cost:</b> the shader never changes, so Metal's cache hits on every run after the first. Per-frame setup is uploading a buffer.</li>
+      <li><b>Look tweaks:</b> constants are data, so changing a setting changes nothing that needs compiling.</li>
+      <li><b>The costs:</b> it pays for decoding each instruction, and registers can't live on chip. golden_coast uses 4,402 registers, which is 17.6 KB per pixel in f32. That has to sit in device memory, so every register access is a cached memory access.</li>
+      <li><b>Precedent:</b> Matt Keeter's "Massively Parallel Rendering of Complex Closed-Form Implicit Surfaces" (SIGGRAPH 2020) renders implicit surfaces this way, with an interpreter evaluating instruction tapes on the GPU.</li>
+      <li><b>It shares work with #1101:</b> #1101 plans a compact instruction encoding and registers shared across subroutines that are never live at once. Both are exactly what a GPU interpreter needs, because fewer live registers and smaller instructions mean less memory traffic.</li>
+    </ul>
+    <p><b>A clean test:</b> mountains is the one scene with a CPU path (about 200 ms at 160×100) and a compiled GPU path (20 ms). Running the interpreter shader on it measures the interpretation cost directly. If golden_coast at 1280×800 comes in at least 3× under the CPU executor, it's worth building out.</p>
+  </div>
+
+  <div class="idea">
+    <h3>B. Skip naga, and cache the compiled shader on disk</h3>
+    <p class="verdict">Removes wall 3 for mountains and storm · small, contained change · untested</p>
+    <p>pscat already writes shader text, so it could write MSL instead of WGSL and pass it through, or build the naga module directly. Either removes the 5–12 s parse. Add a disk cache of the compiled <code>metallib</code>, keyed by a hash of the source, and a repeated render costs milliseconds. On its own this doesn't help the six big scenes. It also makes a cleaner test bed for wall 2: hand-written MSL controls its own inlining, which naga's output doesn't.</p>
+  </div>
+
+  <div class="idea">
+    <h3>C. Constants as data, so the cache actually hits</h3>
+    <p class="verdict">Needed for B or any cache to pay off during look work · unanswered question</p>
+    <p>The lowering writes every constant into the shader text, so changing a fog density or a sun angle makes a new shader and the cache misses. I asked pscat-gpu whether constants could move to a uniform buffer and didn't get an answer before the GPU was parked. One limit: a setting the compiler folds into control flow (a feature switched off, a loop count) would still change the shader. Settings that are only numbers would not.</p>
+  </div>
+
+  <div class="idea">
+    <h3>D. Start on the CPU, let the GPU join when its shader is ready</h3>
+    <p class="verdict">Never slower than the CPU alone · today it only applies to mountains and storm</p>
+    <p>Begin rendering rows on the CPU executor immediately. Compile the shader on another thread, and when it's ready, hand the GPU the rows nobody has started. Small frames finish on the CPU before the shader is ready, and large ones pick up most of the GPU's speed. This makes the 5–12 s toll free in the worst case. Mixing f32 GPU rows with exact CPU rows could show as banding, which would need a look check.</p>
+  </div>
+
+  <div class="idea">
+    <h3>E. Split the pixel program into passes</h3>
+    <p class="verdict">The standard fix for "the shader is too big" · large change on both sides · long term</p>
+    <p>Offline GPU renderers moved away from one giant per-pixel shader for the same reasons we hit (Laine, Karras and Aila, "Megakernels Considered Harmful", HPG 2013). They run a sequence of small kernels instead (march, shade terrain, shade water, trees, sky), passing each pixel's state through buffers. Each kernel is small, compiles fast, and runs pixels that take the same path together. In pscat this would build on the general multi-pass buffer API already proposed (#1044), with no fractal_clouds-specific operators. Our depth-edge antialiasing (#114) already needs a two-pass form, so the same API would serve both.</p>
+  </div>
+
+  <div class="idea">
+    <h3>F. Smaller items any GPU path will need</h3>
+    <ul>
+      <li><b>Integer registers.</b> The GPU lowering stores integers as f32, so our 31-bit hashes lose bits. Mountains still passed the look test, but typed <code>i32</code>/<code>u32</code> registers would make the hashes exact.</li>
+      <li><b>A long-lived process.</b> One process per frame is how our scripts work, not a fixed constraint. A resident pscat would keep the device and its shader cache warm. On its own it only saves device setup (8–250 ms); combined with C it would save the rest.</li>
+      <li><b>Look checks at full size.</b> SAME-LOOK on the GPU was only checked on mountains at 160×100. f32 ray marching over long distances could band at large sizes, and none of the ideas here has been checked at the sizes we tune at.</li>
+    </ul>
+  </div>
+</div>
+
+<h2>Recommendation</h2>
+<div class="prose">
+  <ol>
+    <li><b>#1101 first.</b> A faster CPU executor helps all eight scenes, keeps output exact, and needs no new dependency. Its yardstick is golden_coast with a 1280×800 kernel at 2× supersampling, about 110 s today. This session tests each build it produces.</li>
+    <li><b>If the GPU comes back, start with Idea A on mountains.</b> It's the only idea that removes all three walls, and mountains gives a direct comparison against both existing paths. #1101's compact encoding and shared registers make it cheaper to try.</li>
+    <li><b>B and C are the cheap follow-on</b> if anyone wants mountains and storm on the GPU soon.</li>
+  </ol>
+</div>
+
+<h2>Where things are</h2>
+<div class="prose">
+  <ul>
+    <li><b>Issues:</b> fractal_clouds #117 (this work, still open), #142 and #143 (the library fixes). pscat: #1061 (the epic PR), #1091–#1094 and #1099 (the fixes above), #1100 (approximate maths), #1101 (the faster executor).</li>
+    <li><b>The test build</b> lives on the external dev-cache drive under <code>pscat-kernels-7afa9f9/</code>, verified against the CI archive's SHA-256. <code>fastrender.sh</code> uses it by default, and <code>PSCAT_KERNEL_DIR</code> points it elsewhere.</li>
+    <li><b>The test scripts</b> are in <code>renders/k117b/</code> (not committed): <code>run2.sh</code> renders each scene compiled and interpreted and compares them, <code>big.sh</code> renders large frames with memory use, and <code>imgdiff.py</code> holds the look-test thresholds.</li>
+    <li><b>pscat's side:</b> <code>notes/compute-kernels-handoff.md</code> and <code>notes/1091-1093-1099-kernel-followups.md</code> on <code>feature/compute-kernels</code>. The GPU lowering is <code>src/kernel/gpu.rs</code>.</li>
+  </ul>
+</div>
+
+</div>
