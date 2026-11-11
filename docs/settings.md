@@ -242,6 +242,7 @@ heights in `/Clear`, `/Overcast` and `/Storm` assume the standard terrain
 | Setting | Default | What it does | Used |
 |---|---|---|---|
 | `Seed` | 5 | Seeds everything: both noises, the trees and the erosion. A new seed is a new range. (The cloud march's jitter is read from a blue-noise tile at the pixel, not seeded: the same in every band or crop.) | 5 |
+| `NativeNoise` | true where pscat has the operators | The 2D and 3D noises use pscat's native operators (`vnoise2`, `gnoise2`, `gnoise2d`, `vnoise3`, `vfbm3`, pscat 0.7), which are much faster and compile in kernels as one instruction each (#16). Their lattice differs from the PostScript noise, so `false` gives the older landscapes for the same `Seed`. Set it before loading the libraries. | true, false |
 | `TreesOn` | false | Loads `lib/fc_trees.ps` and marches the forest. It also turns off `fc_terrain`'s painted forest (`TreeLine` −1000) unless the piece sets `TreeLine`. | false, true |
 | `Erode` | true | Bakes droplet erosion over the view (`fc_erode.ps`). Off skips the bake (about 1.5 min at `ErN` 1024); valleys then lack drainage channels and debris fans. | true |
 | `CamLift` | 0 | If above 0, the camera sits at this fraction of `TerrTop`, but at least `CamAbove` over the ground below it (a high viewpoint). | 0, 0.72 |
