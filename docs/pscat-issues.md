@@ -619,3 +619,23 @@ Only `languagelevel` exists (it returns 2). Ghostscript gives `(3010)`,
 **Effect here:** `lib/fc_passes.ps` can't tell whether `setalpha` applies to
 images (pscat#830), because PostScript can't read pixels back to probe it.
 So soft compositing just documents that it needs pscat 0.7.0-rc.4 or later.
+
+## 23. A compiled kernel can only paint 8-bit pixels, not fill an array of numbers
+
+- **Kind:** feature request (compute-kernels test build, PR PSCatLabs/pscat#1061)
+- **Status:** filed PSCatLabs/pscat#1102
+- **Found:** 2026-11-11, compute-kernels CI build 809f906 (#117, #145)
+
+`kernelimage` compiles a per-pixel procedure, but quantises its results to
+8 bits and paints them, so a program can't read them back. A numeric grid
+built by a nested `for … put` loop gets no speedup, even when its body is
+pure and would compile. The request is `w h proc n kernelarray array`, with
+the same exactness contract as `kernelimage` (each entry `eq` to what the
+interpreted loop stores). Reading earlier arrays already works: `get` on a
+captured array compiles to a gather from a snapshot table.
+
+**Effect here:** on a bake-cache miss, the erosion grid sample (about 8 s)
+and the forest bake (about 7.5 s) stay interpreted. That is 16 s of a 23 s
+`fastrender.sh` run of golden_coast at 320×200 with ss2, whose warm-cache
+time is 5.5 s. #145 moves the data-parallel passes onto the operator once
+it exists, with the released-pscat loops kept as the fallback.
