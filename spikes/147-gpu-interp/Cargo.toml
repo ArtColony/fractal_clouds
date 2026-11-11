@@ -1,0 +1,22 @@
+# Proof of concept for fractal_clouds#147, idea A: one fixed GPU interpreter
+# shader for a flat kernel bytecode, instead of one generated WGSL shader per
+# kernel. Standalone crate; not part of any build or CI. See README.md.
+[package]
+name = "gpu-interp-poc"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[workspace]
+
+[dependencies]
+# The same wgpu and naga versions as pscat's feature/compute-kernels branch
+# (Cargo.lock copied from it), so `cargo build --offline` resolves from cache.
+wgpu = { version = "30.0.1", default-features = false, features = ["std", "wgsl", "naga-ir", "metal", "parking_lot"] }
+naga = { version = "30.0.1", features = ["wgsl-in"] }
+pollster = "1.0.1"
+bytemuck = "1"
+png = "0.17"
+
+[profile.release]
+debug = false

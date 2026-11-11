@@ -1,0 +1,44 @@
+# Wed Nov 11 09:22:49 PST 2026 Apple M4 15.7.7 load 8.48 6.64 4.74
+## fixed interpreter: compile cost (does not depend on the kernel)
+interp file=Private nregs=128 wgsl_bytes=4142 naga_parse_ms=0.3 naga_validate_ms=0.0 pipeline_from_wgsl_ms=86.1 pipeline_from_wgsl_again_ms=0.6 pipeline_from_naga_ir_ms=45.2
+interp file=Private nregs=1024 wgsl_bytes=4143 naga_parse_ms=0.3 naga_validate_ms=0.0 pipeline_from_wgsl_ms=103.4 pipeline_from_wgsl_again_ms=0.6 pipeline_from_naga_ir_ms=77.6
+interp file=Private nregs=4608 wgsl_bytes=4143 naga_parse_ms=0.3 naga_validate_ms=0.0 pipeline_from_wgsl_ms=68.9 pipeline_from_wgsl_again_ms=0.6 pipeline_from_naga_ir_ms=43.4
+interp file=Storage nregs=128 wgsl_bytes=4204 naga_parse_ms=0.3 naga_validate_ms=0.1 pipeline_from_wgsl_ms=71.4 pipeline_from_wgsl_again_ms=0.6 pipeline_from_naga_ir_ms=45.3
+interp file=Storage nregs=1024 wgsl_bytes=4204 naga_parse_ms=0.3 naga_validate_ms=0.0 pipeline_from_wgsl_ms=73.3 pipeline_from_wgsl_again_ms=0.6 pipeline_from_naga_ir_ms=47.0
+interp file=Storage nregs=4608 wgsl_bytes=4204 naga_parse_ms=0.3 naga_validate_ms=0.0 pipeline_from_wgsl_ms=72.3 pipeline_from_wgsl_again_ms=0.7 pipeline_from_naga_ir_ms=46.2
+interp file=Workgroup nregs=128 wgsl_bytes=4172 naga_parse_ms=0.3 naga_validate_ms=0.0 pipeline_from_wgsl_ms=74.2 pipeline_from_wgsl_again_ms=0.6 pipeline_from_naga_ir_ms=46.9
+## straight-line shaders, pscat's current shape: compile cost against size
+straight n=1000 nregs=96 wgsl_bytes=29434 naga_parse_ms=1.9 naga_validate_ms=0.1 pipeline_from_wgsl_ms=59.3 pipeline_from_wgsl_again_ms=2.8 pipeline_from_naga_ir_ms=29.9
+straight n=4000 nregs=96 wgsl_bytes=110610 naga_parse_ms=12.6 naga_validate_ms=0.5 pipeline_from_wgsl_ms=143.4 pipeline_from_wgsl_again_ms=14.9 pipeline_from_naga_ir_ms=99.5
+straight n=16000 nregs=96 wgsl_bytes=435285 naga_parse_ms=124.9 naga_validate_ms=2.1 pipeline_from_wgsl_ms=655.8 pipeline_from_wgsl_again_ms=137.8 pipeline_from_naga_ir_ms=418.1
+straight n=64000 nregs=96 wgsl_bytes=1734035 naga_parse_ms=1751.7 naga_validate_ms=11.0 pipeline_from_wgsl_ms=4186.1 pipeline_from_wgsl_again_ms=1802.2 pipeline_from_naga_ir_ms=2284.4
+straight n=1000 nregs=4608 wgsl_bytes=142035 naga_parse_ms=12.2 naga_validate_ms=0.3 pipeline_from_wgsl_ms=101.8 pipeline_from_wgsl_again_ms=14.2 pipeline_from_naga_ir_ms=60.5
+straight n=4000 nregs=4608 wgsl_bytes=239213 naga_parse_ms=29.1 naga_validate_ms=0.7 pipeline_from_wgsl_ms=212.6 pipeline_from_wgsl_again_ms=34.0 pipeline_from_naga_ir_ms=163.7
+straight n=16000 nregs=4608 wgsl_bytes=627939 naga_parse_ms=171.4 naga_validate_ms=2.6 pipeline_from_wgsl_ms=907.5 pipeline_from_wgsl_again_ms=186.1 pipeline_from_naga_ir_ms=637.3
+straight n=64000 nregs=4608 wgsl_bytes=2183047 naga_parse_ms=1920.3 naga_validate_ms=10.5 pipeline_from_wgsl_ms=5281.8 pipeline_from_wgsl_again_ms=2001.6 pipeline_from_naga_ir_ms=3166.1
+
+thread 'main' (148938548) panicked at /Users/jeromebanks/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wgpu-30.0.1/src/backend/wgpu_core.rs:1565:26:
+wgpu error: Validation Error
+
+Caused by:
+  In Device::create_compute_pipeline, label = 'poc'
+    Internal error: Metal: Compiler encountered an internal error
+
+
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+TIMEOUT or failure (rc=101) after cap 900s: /Volumes/YOTUO/dev-cache/fractal_clouds/gpu-interp-target/release/gpu-interp-poc straight 256000 96
+## the synthetic terrain on the interpreter vs the CPU reference
+run w=1280 h=800 file=Private nregs=128 prog_instrs=270 prog_regs=121 octaves=8 lane_instrs=6140287752 per_px=5996 compile_ms=0.6 gpu_ms=470.3 gpu_glane_per_s=13.06 cpu_f64_ms=3250.5 cpu_f32_ms=3266.4 gpu_vs_f64: psnr=58.89 p999=1 mean=0.012 same_look=true cpu_f32_vs_f64: psnr=59.04 p999=1 mean=0.012 same_look=true
+run w=1280 h=800 file=Private nregs=1024 prog_instrs=270 prog_regs=121 octaves=8 lane_instrs=6140287752 per_px=5996 compile_ms=128.4 gpu_ms=488.2 gpu_glane_per_s=12.58 cpu_f64_ms=4192.8 cpu_f32_ms=3389.1 gpu_vs_f64: psnr=58.89 p999=1 mean=0.012 same_look=true cpu_f32_vs_f64: psnr=59.04 p999=1 mean=0.012 same_look=true
+run w=1280 h=800 file=Private nregs=4608 prog_instrs=270 prog_regs=121 octaves=8 lane_instrs=6140287752 per_px=5996 compile_ms=87.5 gpu_ms=830.6 gpu_glane_per_s=7.39 cpu_f64_ms=3342.0 cpu_f32_ms=3334.3 gpu_vs_f64: psnr=58.89 p999=1 mean=0.012 same_look=true cpu_f32_vs_f64: psnr=59.04 p999=1 mean=0.012 same_look=true
+run w=1280 h=800 file=Storage nregs=128 prog_instrs=270 prog_regs=121 octaves=8 lane_instrs=6140287752 per_px=5996 compile_ms=72.6 gpu_ms=425.3 gpu_glane_per_s=14.44 cpu_f64_ms=3208.6 cpu_f32_ms=3171.7 gpu_vs_f64: psnr=58.89 p999=1 mean=0.012 same_look=true cpu_f32_vs_f64: psnr=59.04 p999=1 mean=0.012 same_look=true
+run w=1280 h=800 file=Storage nregs=1024 prog_instrs=270 prog_regs=121 octaves=8 lane_instrs=6140287752 per_px=5996 compile_ms=0.6 gpu_ms=497.3 gpu_glane_per_s=12.35 cpu_f64_ms=3194.6 cpu_f32_ms=3211.8 gpu_vs_f64: psnr=58.89 p999=1 mean=0.012 same_look=true cpu_f32_vs_f64: psnr=59.04 p999=1 mean=0.012 same_look=true
+run w=1280 h=800 file=Storage nregs=4608 prog_instrs=270 prog_regs=121 octaves=8 lane_instrs=6140287752 per_px=5996 compile_ms=0.6 gpu_ms=736.8 gpu_glane_per_s=8.33 cpu_f64_ms=3491.4 cpu_f32_ms=3322.1 gpu_vs_f64: psnr=58.89 p999=1 mean=0.012 same_look=true cpu_f32_vs_f64: psnr=59.04 p999=1 mean=0.012 same_look=true
+run w=1280 h=800 file=Workgroup nregs=128 prog_instrs=270 prog_regs=121 octaves=8 lane_instrs=6140287752 per_px=5996 compile_ms=77.5 gpu_ms=1589.9 gpu_glane_per_s=3.86 cpu_f64_ms=3300.8 cpu_f32_ms=3199.2 gpu_vs_f64: psnr=58.89 p999=1 mean=0.012 same_look=true cpu_f32_vs_f64: psnr=59.04 p999=1 mean=0.012 same_look=true
+run w=640 h=400 file=Private nregs=128 prog_instrs=270 prog_regs=121 octaves=8 lane_instrs=1535181489 per_px=5997 compile_ms=0.5 gpu_ms=149.2 gpu_glane_per_s=10.29 cpu_f64_ms=793.4 cpu_f32_ms=804.8 gpu_vs_f64: psnr=57.33 p999=1 mean=0.013 same_look=true cpu_f32_vs_f64: psnr=56.65 p999=1 mean=0.014 same_look=true
+## the same program as a native shader, and tiered (interpreter + the fbm as one native instruction)
+run w=1280 h=800 file=native nregs=128 prog_instrs=270 prog_regs=121 octaves=8 lane_instrs=6140287752 per_px=5996 compile_ms=58.9 gpu_ms=82.5 gpu_glane_per_s=74.47 cpu_f64_ms=3212.7 cpu_f32_ms=3272.0 gpu_vs_f64: psnr=59.34 p999=1 mean=0.011 same_look=true cpu_f32_vs_f64: psnr=59.04 p999=1 mean=0.012 same_look=true
+run w=1280 h=800 file=hybrid nregs=128 prog_instrs=268 prog_regs=121 octaves=8 lane_instrs=841422129 per_px=822 compile_ms=0.5 gpu_ms=124.9 gpu_glane_per_s=6.74 cpu_f64_ms=1499.8 cpu_f32_ms=1544.0 gpu_vs_f64: psnr=59.20 p999=1 mean=0.011 same_look=true cpu_f32_vs_f64: psnr=59.04 p999=1 mean=0.012 same_look=true
+run w=1280 h=800 file=native nregs=128 prog_instrs=270 prog_regs=121 octaves=8 lane_instrs=6140287752 per_px=5996 compile_ms=0.5 gpu_ms=65.6 gpu_glane_per_s=93.64 cpu_f64_ms=3212.1 cpu_f32_ms=3460.9 gpu_vs_f64: psnr=59.34 p999=1 mean=0.011 same_look=true cpu_f32_vs_f64: psnr=59.04 p999=1 mean=0.012 same_look=true
+run w=1280 h=800 file=hybrid nregs=128 prog_instrs=268 prog_regs=121 octaves=8 lane_instrs=841422129 per_px=822 compile_ms=0.5 gpu_ms=128.7 gpu_glane_per_s=6.54 cpu_f64_ms=1584.3 cpu_f32_ms=1510.0 gpu_vs_f64: psnr=59.20 p999=1 mean=0.011 same_look=true cpu_f32_vs_f64: psnr=59.04 p999=1 mean=0.012 same_look=true
+# done Wed Nov 11 09:25:41 PST 2026
