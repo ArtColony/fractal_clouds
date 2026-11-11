@@ -172,6 +172,36 @@
 /fc-max { 2 copy lt { exch } if pop } bind def  % pscat has max; Ghostscript doesn't
 /fc-min { 2 copy gt { exch } if pop } bind def
 
+% w h proc n fc-grid a1 .. an (#145): a w x h grid of n numbers per cell.
+% proc is called as `i j proc v1 .. vn` for every cell, and vk lands in ak
+% at (j*w + i). With pscat's kernelarrays the cells run compiled; without
+% it (or with /GridKernel false) they run here, row by row, j outer and i
+% inner. The compiled path then replays the last cell, so whatever the proc
+% defines is left as the loop leaves it. proc must not use the random
+% stream or write into arrays: each cell has to stand on its own.
+/GridKernel where { pop } { /GridKernel true def } ifelse
+/fc-grid {
+    /FgN exch def /FgP exch def /FgH exch def /FgW exch def
+    GridKernel /kernelarrays where { pop true } { false } ifelse and {
+        FgW FgH /FgP load FgN kernelarrays
+        /FgI FgW 1 sub def /FgJ FgH 1 sub def
+        FgI FgJ FgP FgN { pop } repeat
+    } {
+        /FgA FgN array def
+        0 1 FgN 1 sub { FgA exch FgW FgH mul array put } for
+        0 1 FgH 1 sub { /FgJ exch def
+            0 1 FgW 1 sub { /FgI exch def
+                FgI FgJ FgP
+                FgN 1 sub -1 0 { FgA exch get exch FgJ FgW mul FgI add exch put } for
+            } for
+        } for
+        FgA aload pop
+    } ifelse
+    % both paths leave the same names, so a bake cache file is the same
+    % either way (fc_cache refuses an array held twice)
+    /FgA null def /FgP null def
+} bind def
+
 /AA where { pop } { /AA false def } ifelse
 % k1 k2 -> bool: an edge if one is sky and the other isn't, or the
 % distances differ by more than 8%; -2 means "no neighbour"

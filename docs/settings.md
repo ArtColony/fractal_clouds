@@ -431,7 +431,7 @@ DPI=288 scripts/render_bands.sh gallery/alpine_forest.ps -- -D ErN=1024   # on b
   turn) counts as that bake's key instead of its contents. Render-only
   names are left out (`Crop`, `Res`, `PixSeed`, `RowTimes`, `AA`, `Pass`,
   `PassKeep`, `FrameGrid`, `FrameLabel`, `Profile`, and `LnSetUp`, `BakeCache`,
-  `BakeCacheSkip`, `BakeCacheDebug`, `FcCacheSrc`, `FcCacheTag`), so a probe, its bands, a
+  `BakeCacheSkip`, `BakeCacheDebug`, `FcCacheSrc`, `FcCacheTag`, `GridKernel`), so a probe, its bands, a
   crop and a preview at another `Res` all share a bake; so are the libraries'
   `usertime` stamps (`EbT0`, `FsT0` ...). A setting the key should leave out
   only causes a miss; add render-only ones of a piece's own to
@@ -494,6 +494,7 @@ table is in `docs/techniques.html`, section 16.
 | `Crop` | (none) | `[x0 y0 x1 y1]`, fractions of the frame from the top left: render only that patch, at the full frame's detail. | many |
 | `PixSeed` | false | Reseed the random stream per pixel (from a hash of its position) and (with `AA`) give a crop the depth keys of the row above it and the pixel to its left, so a pixel comes out the same however the frame is cropped. While `fc-pixel` runs, `FrI`/`FrJ` (column, row from the top left) and `FrU`/`FrV` hold the pixel's position, also for those precomputed keys. `render_bands.sh` turns it on: its bands stitch into exactly one uncropped `PixSeed` render. Nothing in the gallery pieces draws on the random stream per pixel (#27), so that equals a plain render. | (bands) |
 | `RowTimes` | false | Print `fc-row-t0 MS` when the render starts (after the bakes) and `fc-row J MS` after each row: the probe of `render_bands.sh --auto`. | (probe) |
+| `GridKernel` | true | Run the bakes' grids (the erosion map's terrain sample, the forest maps) as compiled kernels when pscat has `kernelarrays`, and in PostScript loops otherwise (#145). Both give the same maps; false forces the loops, for comparing. A piece that redefines `fc-forest-dens` or `fc-terrain-base` must keep them free of the random stream and of writes into arrays, as the shipped ones are. | true, false |
 
 Resolution comes from the page size times `DPI` (a `render.sh` variable):
 `DPI=72` gives 320×200 for a 320×200 pt piece, and `DPI=288` gives 1280×800.
@@ -1175,9 +1176,9 @@ These are procedures, not settings. Redefine them **after** loading
 | `fc-landscape-surface` | `t → r g b` | `fc-tree-shade` on a tree (`FsMat` 1; `FsKind` says which part: 0 a crown, 1 a trunk, 2 a log, 3 a crown's underside), otherwise `fc-terrain-shade`. Linear light, before haze. |
 | `fc-landscape-sky` | `dx dy dz → r g b` | `fc-sky` above the horizon, the haze colour below it. |
 | `fc-landscape-grade` | `r g b → r g b` | `fc-grade` when a grade setting is set (see Colour grade), otherwise nothing. Linear light, just before the tone curve. A piece that redefines it can call `fc-grade` itself (after loading `lib/fc_grade.ps`). |
-| `fc-forest-dens` | `x z h ny curv → density height-scale` | `fc_trees`' rules. Wrap it to keep trees off some ground, as `fc_water` does. Redefine it before `fc-landscape-setup`. |
+| `fc-forest-dens` | `x z h ny curv → density height-scale` | `fc_trees`' rules. Wrap it to keep trees off some ground, as `fc_water` does. Redefine it before `fc-landscape-setup`. It runs once per forest-map texel, possibly compiled (`GridKernel`), so it must not draw on the random stream or write into arrays. |
 | `fc-terrain-material` | reads and changes `Alb KlMul KskyMul KbMul` | Defined by `fc_trees` (forest floor), and chained onto by `fc_coast` (beaches) and `fc_water` (shores). With none of them it doesn't exist, and a piece can define it to paint the ground. |
-| `fc-terrain-base` | `x z → lift mask pin` | Defined by `fc_map.ps` (`MapOn`); otherwise absent and the noise massif is used. Map coordinates in; the lift in world units, the massif mask 0–1 and the pin 0–1 out. A piece can define its own (an analytic island, say) before `fc-landscape-setup`. |
+| `fc-terrain-base` | `x z → lift mask pin` | Defined by `fc_map.ps` (`MapOn`); otherwise absent and the noise massif is used. Map coordinates in; the lift in world units, the massif mask 0–1 and the pin 0–1 out. A piece can define its own (an analytic island, say) before `fc-landscape-setup`. The bakes call it per texel, possibly compiled (`GridKernel`), so it must not draw on the random stream or write into arrays. |
 | `fc-terrain-step` | `t s → s′` | The march's next step `s` from `t` along the ray, in `fc-terrain-hit` and `fc-forest-hit`, just after the height at `t`. The default keeps `s`; `fc_coast` shortens it near stacks, whose walls are too steep for the march's own step (#78). Must not lengthen it. |
 | `fc-pixel` | `u v → r g b` | `fc-landscape-pixel` (wrapped by `fc_passes.ps` when a pass is asked for). Replace it entirely for a different scene. |
 

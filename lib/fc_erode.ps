@@ -81,16 +81,12 @@
 % describe (fc-erode-far-bake runs them again inside ErFarD)
 /fc-erode-grow {
     /ErTex ErSize ErN 1 sub div def              % world units per texel
-    /ErMap ErN ErN mul array def
-    % 1. sample the procedural terrain (the massif and ridges, no fine detail)
-    0 1 ErN 1 sub { /Eby exch def
-        0 1 ErN 1 sub { /Ebx exch def
-            ErMap Eby ErN mul Ebx add
-            ErX0 Ebx ErTex mul add  ErZ0 Eby ErTex mul add  ErBaseOct fc-height-proc
-            TerrBase sub TerrH div
-            put
-        } for
-    } for
+    % 1. sample the procedural terrain (the massif and ridges, no fine
+    % detail), compiled where pscat can (#145)
+    ErN ErN { /Eby exch def /Ebx exch def
+        ErX0 Ebx ErTex mul add  ErZ0 Eby ErTex mul add  ErBaseOct fc-height-proc
+        TerrBase sub TerrH div
+    } 1 fc-grid /ErMap exch def
     /EbT1 usertime def
     ErDelta { /ErOrig ErMap length array def ErOrig 0 ErMap putinterval } if
     % 2. droplets, in ErRounds rounds with ErThermal thermal passes after

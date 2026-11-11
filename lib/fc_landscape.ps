@@ -119,6 +119,9 @@ Profile { (lib/fc_bench.ps) run } if
     WaterRise null ne { /WaterY 0 0 TerrOct fc-height-proc WaterRise add def } if
     TreesOn { Seed 303 add fc-trees-init } if
     Seed 202 add srand
+    % the coast's material slots in on the first fc-coast call; make that
+    % now, so the bakes' grids (fc-grid) never meet its bind and can compile
+    /fc-coast-material-install where { pop XcMatOn not { fc-coast-material-install } if } if
     % the bakes go through fc_cache.ps, which (with BakeCache on) reads
     % them back from renders/cache/ when their inputs haven't changed;
     % the rivers carve the erosion map, so they belong to its bake

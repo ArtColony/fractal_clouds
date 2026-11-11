@@ -471,61 +471,55 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     /FsX0 Yaw sin FsDist mul FsSize 2 div sub def
     /FsZ0 Yaw cos FsDist mul FsSize 2 div sub def
     /FsTex FsSize FsN 1 sub div def
-    /FsHt FsN FsN mul array def
+    % The grids below run compiled where pscat can (fc-grid, #145).
     % (#26) with snow in the geometry too, keep each texel's fill, so the
     % snow estimate's hollow test sees the ground under it, as the shading does
     /FsSnFill FsSnow 0 gt SnowFill 0 gt and def
-    FsSnFill { /FsSf FsN FsN mul array def } if
-    0 1 FsN 1 sub { /Fbj exch def
-        0 1 FsN 1 sub { /Fbi exch def
-            FsHt Fbj FsN mul Fbi add
-            FsX0 Fbi FsTex mul add FsZ0 Fbj FsTex mul add 6 fc-height put
-            FsSnFill { FsSf Fbj FsN mul Fbi add Hsf put } if
-        } for
-    } for
-    /FsDm FsN FsN mul array def /FsHs FsN FsN mul array def
-    /FsSl FsN FsN mul array def /FsAl FsN FsN mul array def
-    0 1 FsN 1 sub { /Fbj exch def
-        0 1 FsN 1 sub { /Fbi exch def
-            /Fbk Fbj FsN mul Fbi add def
-            % slope from the neighbouring texels
-            FsHt Fbi FsN 1 sub lt { Fbk 1 add } { Fbk } ifelse get
-            FsHt Fbi 0 gt { Fbk 1 sub } { Fbk } ifelse get sub
-            Fbi 0 gt Fbi FsN 1 sub lt and { 2 } { 1 } ifelse FsTex mul div /Fbgx exch def
-            FsHt Fbj FsN 1 sub lt { Fbk FsN add } { Fbk } ifelse get
-            FsHt Fbj 0 gt { Fbk FsN sub } { Fbk } ifelse get sub
-            Fbj 0 gt Fbj FsN 1 sub lt and { 2 } { 1 } ifelse FsTex mul div /Fbgz exch def
-            FsSl Fbk Fbgx dup mul Fbgz dup mul add sqrt put
-            FsX0 Fbi FsTex mul add FsZ0 Fbj FsTex mul add FsHt Fbk get
-            1 Fbgx dup mul Fbgz dup mul add 1 add sqrt div
-            % curvature over three texels each way (~5 units)
-            Fbi 3 ge Fbj 3 ge and Fbi FsN 4 sub le and Fbj FsN 4 sub le and {
-                FsHt Fbk 3 sub get FsHt Fbk 3 add get add
-                FsHt Fbk FsN 3 mul sub get add FsHt Fbk FsN 3 mul add get add
-                FsHt Fbk get 4 mul sub  FsTex 3 mul dup mul div 12 mul
-                -1 fc-max 1 fc-min
-            } { 0 } ifelse
-            fc-forest-dens
-            FsSnow 0 gt { exch fc-forest-snow mul exch } if   % (#26)
-            FsHs Fbk 3 -1 roll put FsDm Fbk 3 -1 roll put
-            FsAl Fbk Fdh Fdl sub put                 % height relative to the treeline (species)
-        } for
-    } for
+    FsSnFill {
+        FsN FsN { /Fbj exch def /Fbi exch def
+            FsX0 Fbi FsTex mul add FsZ0 Fbj FsTex mul add 6 fc-height Hsf
+        } 2 fc-grid /FsSf exch def /FsHt exch def
+    } {
+        FsN FsN { /Fbj exch def /Fbi exch def
+            FsX0 Fbi FsTex mul add FsZ0 Fbj FsTex mul add 6 fc-height
+        } 1 fc-grid /FsHt exch def
+    } ifelse
+    % slope, density, height scale and height above the treeline
+    FsN FsN { /Fbj exch def /Fbi exch def
+        /Fbk Fbj FsN mul Fbi add def
+        % slope from the neighbouring texels
+        FsHt Fbi FsN 1 sub lt { Fbk 1 add } { Fbk } ifelse get
+        FsHt Fbi 0 gt { Fbk 1 sub } { Fbk } ifelse get sub
+        Fbi 0 gt Fbi FsN 1 sub lt and { 2 } { 1 } ifelse FsTex mul div /Fbgx exch def
+        FsHt Fbj FsN 1 sub lt { Fbk FsN add } { Fbk } ifelse get
+        FsHt Fbj 0 gt { Fbk FsN sub } { Fbk } ifelse get sub
+        Fbj 0 gt Fbj FsN 1 sub lt and { 2 } { 1 } ifelse FsTex mul div /Fbgz exch def
+        Fbgx dup mul Fbgz dup mul add sqrt   % the slope
+        FsX0 Fbi FsTex mul add FsZ0 Fbj FsTex mul add FsHt Fbk get
+        1 Fbgx dup mul Fbgz dup mul add 1 add sqrt div
+        % curvature over three texels each way (~5 units)
+        Fbi 3 ge Fbj 3 ge and Fbi FsN 4 sub le and Fbj FsN 4 sub le and {
+            FsHt Fbk 3 sub get FsHt Fbk 3 add get add
+            FsHt Fbk FsN 3 mul sub get add FsHt Fbk FsN 3 mul add get add
+            FsHt Fbk get 4 mul sub  FsTex 3 mul dup mul div 12 mul
+            -1 fc-max 1 fc-min
+        } { 0 } ifelse
+        fc-forest-dens
+        FsSnow 0 gt { exch fc-forest-snow mul exch } if   % (#26)
+        Fdh Fdl sub                              % height relative to the treeline (species)
+    } 4 fc-grid /FsAl exch def /FsHs exch def /FsDm exch def /FsSl exch def
     /FsHt null def FsSnFill { /FsSf null def } if
     % the steepest slope within a texel of each texel, plus an allowance
     % for the octaves the map leaves out: fc-forest-hit's step bound
-    /FsLip FsN FsN mul array def
-    0 1 FsN 1 sub { /Fbj exch def
-        0 1 FsN 1 sub { /Fbi exch def
-            0
-            Fbj 1 sub 0 fc-max 1 Fbj 1 add FsN 1 sub fc-min { /Fbr exch def
-                Fbi 1 sub 0 fc-max 1 Fbi 1 add FsN 1 sub fc-min {
-                    FsSl exch Fbr FsN mul add get fc-max
-                } for
+    FsN FsN { /Fbj exch def /Fbi exch def
+        0
+        Fbj 1 sub 0 fc-max 1 Fbj 1 add FsN 1 sub fc-min { /Fbr exch def
+            Fbi 1 sub 0 fc-max 1 Fbi 1 add FsN 1 sub fc-min {
+                FsSl exch Fbr FsN mul add get fc-max
             } for
-            1.25 mul 0.6 add FsLip Fbj FsN mul Fbi add 3 -1 roll put
         } for
-    } for
+        1.25 mul 0.6 add
+    } 1 fc-grid /FsLip exch def
     /FsSl null def
     FsVarOn { fc-forest-variety } if             % (#100)
     % with palms, the density's maximum over the texels within reach
@@ -535,24 +529,16 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     % as a max along rows, then along columns
     FsPalmOn {
         /FsDxR FsCell FsTex div 1.5 add ceiling cvi def
-        /FsDx FsN FsN mul array def
-        /Fbt FsN FsN mul array def
-        0 1 FsN 1 sub { /Fbj exch def
-            0 1 FsN 1 sub { /Fbi exch def
-                0 Fbi FsDxR sub 0 fc-max 1 Fbi FsDxR add FsN 1 sub fc-min {
-                    FsDm exch Fbj FsN mul add get fc-max
-                } for
-                Fbt Fbj FsN mul Fbi add 3 -1 roll put
+        FsN FsN { /Fbj exch def /Fbi exch def
+            0 Fbi FsDxR sub 0 fc-max 1 Fbi FsDxR add FsN 1 sub fc-min {
+                FsDm exch Fbj FsN mul add get fc-max
             } for
-        } for
-        0 1 FsN 1 sub { /Fbj exch def
-            0 1 FsN 1 sub { /Fbi exch def
-                0 Fbj FsDxR sub 0 fc-max 1 Fbj FsDxR add FsN 1 sub fc-min {
-                    FsN mul Fbi add Fbt exch get fc-max
-                } for
-                FsDx Fbj FsN mul Fbi add 3 -1 roll put
+        } 1 fc-grid /Fbt exch def
+        FsN FsN { /Fbj exch def /Fbi exch def
+            0 Fbj FsDxR sub 0 fc-max 1 Fbj FsDxR add FsN 1 sub fc-min {
+                FsN mul Fbi add Fbt exch get fc-max
             } for
-        } for
+        } 1 fc-grid /FsDx exch def
         /Fbt null def
     } if
     /FsBaked true def
