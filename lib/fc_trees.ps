@@ -1616,10 +1616,12 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     /Fnn Fnx dup mul Fnz dup mul add sqrt 0.0001 fc-max def
     /Fnx Fnx Fnn div def /Fnz Fnz Fnn div def /Fny 0 def
     % bark, or weathered wood: furrows round the trunk, darker and damper low down
-    FcTKind 1 eq { FsSnagCol } { FsSpBark FcTSp get } ifelse
+    % (both branches leave three numbers, not an array: the same stack shape on
+    % each side of the if lets pscat's kernelimage compile it, #117)
+    FcTKind 1 eq { FsSnagCol aload pop } { FsSpBark FcTSp get aload pop } ifelse
     Fnz Fnx atan 0.03 mul FcTK 0.31 mul add  Fwg 1.7 mul FcTK 0.11 mul add fc-noise2 0.5 sub 0.5 mul 1 add
     Fwq 0.6 mul 0.7 add 1 fc-min mul
-    /Fwv exch def [ exch { Fwv mul } forall ] /Fwa exch def
+    /Fwv exch def [ 4 -1 roll Fwv mul 4 -1 roll Fwv mul 4 -1 roll Fwv mul ] /Fwa exch def
     FcTKind 1 eq { /Fwd Fwd 0.75 mul def } if     % a snag has no crown of its own over it
     fc-tree-shade-wood
 } bind def
