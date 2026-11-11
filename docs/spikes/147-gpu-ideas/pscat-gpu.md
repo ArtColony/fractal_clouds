@@ -71,6 +71,9 @@ What this says:
 - **Interpreting costs about 6–8× on the GPU** (425–497 ms against 66–83 ms native). The cost is the per-thread `switch` and its divergence when threads' `pc`s differ, plus register traffic through memory.
 - **A big register file costs about 1.6×, not a cliff.** golden_coast-sized files (4.4k) still work, in a private array or a storage buffer. Threadgroup memory is *slower* (1.59 s): 32 KB per 64-thread group limits occupancy. Drop that option.
 - **Tiering gets most of the speed back.** Compile only the hot subroutine natively and interpret the rest. Here that is 125–129 ms, within 2× of native and about 3.7× faster than pure interpretation, while the compiled part stays small enough to compile quickly.
+  - **It depends on the hot code's share.** The native fbm took over about 86% of the instructions run: 822 per pixel left, from 5,996 (hybrid: 6.74 G/s × 125 ms over 1,024,000 pixels).
+  - A kernel whose time is spread thinly gains less. Before trying it, measure each shared subroutine's share of dispatches on the CPU executor.
+  - fractal_clouds' noise is PostScript by default (`lib/fc_noise2.ps`/`fc_noise3.ps`, `NativeNoise false`): lattice gathers, not pscat's `gnoise2`/`vnoise2` operators. With `NativeNoise true` (fractal_clouds#16; it changes the look), each noise call is one IR instruction, and on the GPU one native WGSL function. That is the cheapest tiering there is.
 - **Against pscat's CPU executor** (a rough comparison, because the instruction sets differ):
   - The interpreter runs about 12.4–14.4 G lane-instructions/s.
   - Build2's executor runs about 12 G useful lane-instructions/s on mountains at 1280×800: 8.13 G 16-lane dispatches × 12.2 active lanes in 8.23 s (`kernel batches:` line).

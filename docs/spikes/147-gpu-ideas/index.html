@@ -72,8 +72,8 @@ h3 { font-size: 1.45rem; margin-top: 1.5em; }
 .row { display: grid; grid-template-columns: minmax(0, 15em) minmax(0, 1fr); gap: 12px; align-items: center; }
 .row .lab { font-size: 15px; line-height: 1.3; color: var(--ink-2); }
 .row .lab b { color: var(--ink); font-weight: 600; }
-.track { position: relative; height: 22px; display: flex; align-items: center; gap: 8px; min-width: 0; }
-.fill { height: 100%; background: var(--bar-2); border-radius: 1px; min-width: 2px; flex: none; }
+.track { height: 22px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; min-width: 0; }
+.fill { height: 100%; background: var(--bar-2); border-radius: 1px; min-width: 2px; justify-self: start; }
 .fill.hi { background: var(--bar); }
 .fill.bad { background: transparent; border: 1px dashed var(--no); }
 .val { font-family: var(--mono); font-size: 12.5px; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -127,7 +127,7 @@ pre { font-family: var(--mono); font-size: 13px; line-height: 1.5; background: v
 <section>
   <div class="prose">
     <h2>Why the GPU path was parked</h2>
-    <p>From the <a href="../117-kernelimage/index.html">kernelimage field report</a>. pscat's GPU preview lowers each compiled kernel to one WGSL shader, with every subroutine call inlined. For fractal_clouds' scenes, that runs into three walls:</p>
+    <p>From the <a href="https://claude.ai/artifact/G3i1nyhUghRHRHufqjER2g">kernelimage field report</a> (in the repo: <code>docs/spikes/117-kernelimage/index.html</code>). pscat's GPU preview lowers each compiled kernel to one WGSL shader, with every subroutine call inlined. For fractal_clouds' scenes, that runs into three walls:</p>
     <ol>
       <li><b>Size.</b> The inliner gives up past 2<sup>20</sup> instructions, and six of the eight scenes exceed it.</li>
       <li><b>The Metal compile.</b> Keeping subroutines as WGSL function calls instead made the compile run for more than ten minutes.</li>
@@ -164,7 +164,7 @@ pre { font-family: var(--mono); font-size: 13px; line-height: 1.5; background: v
     <div class="row"><div class="lab">Straight-line, 64,000 instr.</div><div class="track"><div class="fill" style="width:83.7%"></div><span class="val">4,186</span></div></div>
     <div class="row"><div class="lab">Straight-line, 256,000 instr.</div><div class="track"><div class="fill bad" style="width:12%"></div><span class="val bad">Metal compiler internal error</span></div></div>
     <div class="row"><div class="lab"><b>Fixed interpreter, any kernel size</b></div><div class="track"><div class="fill hi" style="width:1.7%"></div><span class="val">69–103 (0.6 cached)</span></div></div>
-    <p class="note">Bars are drawn to scale against 5,000 ms. The 256k bar marks a failure, not a time. Every cold compile used a new entry-point name, so Metal's shader cache couldn't help.</p>
+    <p class="note">Bars are drawn to scale against 5,000 ms, with the value at the end of each row. The 256k bar marks a failure, not a time. Every cold compile used a new entry-point name, so Metal's shader cache couldn't help.</p>
   </div>
   <div class="prose" style="margin-top:1.4em">
     <p>Two details matter for the other ideas:</p>
@@ -206,6 +206,7 @@ pre { font-family: var(--mono); font-size: 13px; line-height: 1.5; background: v
     <div class="idea">
       <h3>A+. Tiered: interpret the bulk, compile the hot code <span class="tag ok">new; the best result</span></h3>
       <p>New in this test. Pick the few subroutines where pixels spend their time (in fractal_clouds, the terrain and noise calls inside the ray-march loop) and compile only those as native GPU functions, called from the interpreter through one instruction. That shader stays small: 4,000 instructions compile in 0.14 s, 16,000 in 0.7 s. On the test frame it runs about 3.7× faster than pure interpretation and within 2× of a fully native shader.</p>
+      <p>That depends on how much of the work the compiled part carries. Here the native fbm took over about 86% of the instructions run (822 left per pixel, from 5,996). A scene whose time is spread thinly over many subroutines gains less. Measure each subroutine's share before choosing what to compile. The gallery's noise is currently PostScript code; pscat's native noise operators (fractal_clouds #16) would each become one native GPU function, the cheapest tiering there is.</p>
     </div>
     <div class="idea">
       <h3>B. Skip the WGSL text <span class="tag part">helps, not enough alone</span></h3>
