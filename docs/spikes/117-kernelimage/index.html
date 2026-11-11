@@ -267,7 +267,7 @@ td.k { font-family: var(--mono); font-size: 13px; color: var(--ink-2); white-spa
     <div class="stage"><b>kernel IR</b>calls inlined, constants written in as literals</div><span class="arrow">→</span>
     <div class="stage bad"><b>WGSL text</b>one huge function<span class="cost">≤ 1,048,576 instr, or refused</span></div><span class="arrow">→</span>
     <div class="stage bad"><b>naga</b>parse and translate<span class="cost">5–12 s per process</span></div><span class="arrow">→</span>
-    <div class="stage bad"><b>Metal compile</b>MSL to GPU code<span class="cost">&gt;10 min with real functions</span></div><span class="arrow">→</span>
+    <div class="stage bad"><b>Metal compile</b>MSL to GPU code<span class="cost">fast inlined · &gt;10 min when calls were kept (reverted)</span></div><span class="arrow">→</span>
     <div class="stage good"><b>dispatch</b>f32 on the GPU<span class="cost">20 ms (mountains, 160×100)</span></div>
   </div>
 </div>
@@ -298,8 +298,8 @@ td.k { font-family: var(--mono); font-size: 13px; color: var(--ink-2); white-spa
 </div>
 
 <div class="callout">
-  <p><b>A correction to the record first.</b> pscat's notes say the two real fixes, building naga IR directly and keeping calls out of line in MSL, are "not in reach through wgpu today". The pinned wgpu 30.0.1 source has both:</p>
-  <p><code>ShaderSource::Naga</code> behind the <code>naga-ir</code> feature takes a naga module and skips the WGSL parser. <code>Features::PASSTHROUGH_SHADERS</code> lists Metal and takes <code>msl</code> text or a precompiled <code>metallib</code>, skipping naga entirely. wgpu's own <code>PIPELINE_CACHE</code> is Vulkan-only, but Metal keeps its own system shader cache. pscat's #742 notes measured that cache: 75–660 ms cold, 17–25 ms warm.</p>
+  <p><b>An addition to pscat's notes.</b> They say the two real fixes, building naga IR directly and keeping calls out of line in MSL, are "not in reach through wgpu today". The pinned wgpu 30.0.1 source has an entry point for each, with caveats:</p>
+  <p><code>ShaderSource::Naga</code>, behind the <code>naga-ir</code> feature, takes a naga module and skips the WGSL parser. Validation and the MSL writer still run on the same large function, so removing the 5–12 s is expected but needs a profile to confirm. <code>Features::PASSTHROUGH_SHADERS</code> lists Metal and takes <code>msl</code> text, skipping naga entirely. It is an unsafe, experimental API, and its own docs don't promise working bindings outside SPIR-V, so hand-written MSL would have to match the buffer slots wgpu's Metal backend assigns. wgpu's <code>PIPELINE_CACHE</code> is Vulkan-only, but Metal keeps its own system shader cache. pscat's #742 notes measured it: 75–660 ms cold, 17–25 ms warm.</p>
 </div>
 
 <div class="pipe" role="img" aria-label="Alternative: kernel IR encoded as bytecode in a buffer, run by one fixed interpreter shader compiled once and cached">
@@ -331,7 +331,7 @@ td.k { font-family: var(--mono); font-size: 13px; color: var(--ink-2); white-spa
   <div class="idea">
     <h3>B. Skip naga, and cache the compiled shader on disk</h3>
     <p class="verdict">Removes wall 3 for mountains and storm · small, contained change · untested</p>
-    <p>pscat already writes shader text, so it could write MSL instead of WGSL and pass it through, or build the naga module directly. Either removes the 5–12 s parse. Add a disk cache of the compiled <code>metallib</code>, keyed by a hash of the source, and a repeated render costs milliseconds. On its own this doesn't help the six big scenes. It also makes a cleaner test bed for wall 2: hand-written MSL controls its own inlining, which naga's output doesn't.</p>
+    <p>pscat already writes shader text, so it could build the naga module directly, or write MSL and pass it through. Either should remove the 5–12 s parse. Once naga is out of the path, Metal's own shader cache makes a repeated render cost tens of milliseconds. On its own this doesn't help the six big scenes. It also makes a cleaner test bed for wall 2: hand-written MSL controls its own inlining, which naga's output doesn't.</p>
   </div>
 
   <div class="idea">
@@ -343,7 +343,7 @@ td.k { font-family: var(--mono); font-size: 13px; color: var(--ink-2); white-spa
   <div class="idea">
     <h3>D. Start on the CPU, let the GPU join when its shader is ready</h3>
     <p class="verdict">Never slower than the CPU alone · today it only applies to mountains and storm</p>
-    <p>Begin rendering rows on the CPU executor immediately. Compile the shader on another thread, and when it's ready, hand the GPU the rows nobody has started. Small frames finish on the CPU before the shader is ready, and large ones pick up most of the GPU's speed. This makes the 5–12 s toll free in the worst case. Mixing f32 GPU rows with exact CPU rows could show as banding, which would need a look check.</p>
+    <p>Begin rendering rows on the CPU executor immediately. Compile the shader on another thread, and when it's ready, hand the GPU the rows nobody has started. Small frames finish on the CPU before the shader is ready, and large ones pick up most of the GPU's speed. In the worst case the toll costs one core's share of the CPU render while the shader builds. Mixing f32 GPU rows with exact CPU rows could show as banding, which would need a look check.</p>
   </div>
 
   <div class="idea">
