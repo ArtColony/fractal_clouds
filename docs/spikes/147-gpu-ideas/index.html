@@ -1,0 +1,248 @@
+<title>GPU Interpreter Trials</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="fractal_clouds #147: testing the GPU approaches the kernelimage report left untried. A fixed interpreter shader removes the compile walls; compiling only the hot code gets most of the speed back.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: the field report's single reading column (65ch prose, 1120px for figures) and its cool paper palette, so the two documents read as a pair. */
+:root {
+  --paper: #eef1f2;
+  --paper-2: #e3e8ea;
+  --ink: #1a2329;
+  --ink-2: #4c5a63;
+  --ink-3: #6f7d86;
+  --rule: #c5cfd4;
+  --accent: #2b5a74;
+  --code-bg: #e2e7e9;
+  --code-ink: #1d2a31;
+  --ok: #2f6a4f;
+  --part: #8a5a14;
+  --no: #a3505c;
+  --bar: #2b5a74;
+  --bar-2: #8aa6b5;
+  --serif: "Newsreader", Georgia, "Times New Roman", Times, serif;
+  --display: "Instrument Serif", "Newsreader", Georgia, "Times New Roman", serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #12191e; --paper-2: #1a2329; --ink: #dde4e8; --ink-2: #a9b6be; --ink-3: #87959e;
+    --rule: #2d3a42; --accent: #8db9d2; --code-bg: #1c262d; --code-ink: #d6e0e6;
+    --ok: #8fcfaf; --part: #e2b56a; --no: #e0939c; --bar: #8db9d2; --bar-2: #4f6b7b;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #12191e; --paper-2: #1a2329; --ink: #dde4e8; --ink-2: #a9b6be; --ink-3: #87959e;
+  --rule: #2d3a42; --accent: #8db9d2; --code-bg: #1c262d; --code-ink: #d6e0e6;
+  --ok: #8fcfaf; --part: #e2b56a; --no: #e0939c; --bar: #8db9d2; --bar-2: #4f6b7b;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--serif); font-size: 18px; line-height: 1.55; }
+.page {
+  max-width: 1120px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 40px 80px;
+}
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+code { font-family: var(--mono); font-size: 0.82em; background: var(--code-bg); color: var(--code-ink); padding: 0.05em 0.3em; border-radius: 2px; overflow-wrap: anywhere; }
+h1, h2, h3 { font-family: var(--display); font-weight: 400; text-wrap: balance; line-height: 1.1; margin: 0; }
+h1 { font-size: clamp(2.6rem, 6vw, 4.2rem); }
+h2 { font-size: clamp(1.9rem, 4vw, 2.6rem); margin-top: 2.4em; padding-top: 0.6em; border-top: 1px solid var(--rule); }
+h3 { font-size: 1.45rem; margin-top: 1.5em; }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); }
+.prose { max-width: 65ch; }
+.prose > * + * { margin-top: 0.85em; }
+.prose p, .prose ul, .prose ol { margin-bottom: 0; }
+.prose ul, .prose ol { padding-left: 1.2em; }
+.prose li + li { margin-top: 0.35em; }
+.lede { font-size: 1.2rem; color: var(--ink-2); max-width: 62ch; margin-top: 0.8em; }
+.meta { font-family: var(--mono); font-size: 13px; color: var(--ink-3); margin-top: 1.2em; }
+.callout { margin-top: 1.4em; padding: 14px 18px; background: var(--paper-2); border-left: 3px solid var(--accent); max-width: 75ch; }
+.callout p { margin: 0; }
+.callout p + p { margin-top: 0.6em; }
+
+/* Bar charts: one linear scale per chart, values printed on every bar */
+.chart { margin-top: 1.4em; max-width: 900px; display: grid; gap: 8px; }
+.chart-title { font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.row { display: grid; grid-template-columns: minmax(0, 15em) minmax(0, 1fr); gap: 12px; align-items: center; }
+.row .lab { font-size: 15px; line-height: 1.3; color: var(--ink-2); }
+.row .lab b { color: var(--ink); font-weight: 600; }
+.track { position: relative; height: 22px; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.fill { height: 100%; background: var(--bar-2); border-radius: 1px; min-width: 2px; flex: none; }
+.fill.hi { background: var(--bar); }
+.fill.bad { background: transparent; border: 1px dashed var(--no); }
+.val { font-family: var(--mono); font-size: 12.5px; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.val.bad { color: var(--no); }
+.chart .note, .note { font-family: var(--mono); font-size: 12.5px; color: var(--ink-3); max-width: 80ch; }
+@media (max-width: 600px) { .row { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
+
+/* Tables */
+.tbl { overflow-x: auto; margin-top: 1.2em; }
+table { border-collapse: collapse; font-size: 15px; min-width: 100%; }
+th, td { padding: 7px 12px 7px 0; text-align: left; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; }
+td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tag { font-family: var(--mono); font-size: 12px; padding: 1px 6px; border-radius: 3px; border: 1px solid currentColor; white-space: nowrap; }
+.tag.ok { color: var(--ok); } .tag.part { color: var(--part); } .tag.no { color: var(--no); }
+
+/* Figure */
+.wide { margin: 2em 0 0; }
+.wide img { width: 100%; max-width: 100%; height: auto; display: block; border-radius: 2px; }
+.wide figcaption { font-size: 15px; color: var(--ink-2); margin-top: 8px; max-width: 80ch; }
+
+/* Ideas */
+.ideas { display: grid; gap: 0; margin-top: 1.2em; max-width: 80ch; }
+.idea { padding: 18px 0; border-bottom: 1px solid var(--rule); }
+.idea h3 { margin-top: 0; display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; }
+.idea > p, .idea > ul { margin: 0.6em 0 0; }
+.idea ul { padding-left: 1.2em; }
+pre { font-family: var(--mono); font-size: 13px; line-height: 1.5; background: var(--code-bg); color: var(--code-ink); padding: 12px 14px; overflow-x: auto; border-radius: 2px; margin: 1em 0 0; max-width: 80ch; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+
+<div class="page">
+<header>
+  <div class="eyebrow">fractal_clouds · issue #147 · follow-up to the kernelimage field report</div>
+  <h1>GPU Interpreter Trials</h1>
+  <p class="lede">The field report parked pscat's GPU path because every kernel became its own huge shader that took seconds to minutes to compile. This page tests the alternatives it listed. One fixed shader that <em>interprets</em> the kernel removes the compile problem entirely. Compiling only the hot inner code natively brings back most of the speed.</p>
+  <p class="meta">2026-11-11 · Apple M4 (10-core GPU), macOS 15.7.7 · wgpu 30.0.1 / naga 30.0.1, pscat's versions · proof of concept in <code>spikes/147-gpu-interp/</code></p>
+</header>
+
+<section class="prose">
+  <h2>In short</h2>
+  <ul>
+    <li><b>The compile wall is real, and has a hard ceiling.</b> A pscat-style straight-line shader of 64,000 instructions takes 4.2 s to compile cold. At 256,000 instructions, Metal's compiler crashes with an internal error. The gallery's smallest kernel (mountains) is 103,000 instructions, and the shared-subroutine scenes pass a million once inlined.</li>
+    <li><b>A fixed interpreter shader compiles in about 70–100 ms, whatever the kernel.</b> The kernel becomes data in a buffer. Cached, the compile drops to half a millisecond.</li>
+    <li><b>Interpreting costs about 6–8× on the GPU.</b> On a base M4, that puts a pure interpreter roughly level with pscat's CPU executor. It would make the GPU path <em>work</em>, but not make it faster.</li>
+    <li><b>Tiering gets most of it back:</b> interpret the bulk and compile only the hot subroutine. The test frame drops from about 470 ms to 125 ms (native is 66–83 ms). The compiled part stays small enough to compile quickly.</li>
+    <li><b>f32 looks the same.</b> GPU f32 against CPU f64 scores 59 dB on the test program, where fractal_clouds' "looks the same" bar is 40 dB.</li>
+  </ul>
+</section>
+
+<section>
+  <div class="prose">
+    <h2>Why the GPU path was parked</h2>
+    <p>From the <a href="../117-kernelimage/index.html">kernelimage field report</a>. pscat's GPU preview lowers each compiled kernel to one WGSL shader, with every subroutine call inlined. For fractal_clouds' scenes, that runs into three walls:</p>
+    <ol>
+      <li><b>Size.</b> The inliner gives up past 2<sup>20</sup> instructions, and six of the eight scenes exceed it.</li>
+      <li><b>The Metal compile.</b> Keeping subroutines as WGSL function calls instead made the compile run for more than ten minutes.</li>
+      <li><b>The WGSL parse.</b> naga, the shader translator inside wgpu, spends 5–12 s parsing, and pays it again in every process. This repo renders one frame per process.</li>
+    </ol>
+    <p>The CPU path had just become 22–77× faster than the interpreter, so the GPU was parked. The report listed six untried approaches, A to F. This page tests the ones that can be tested outside pscat.</p>
+  </div>
+</section>
+
+<section>
+  <div class="prose">
+    <h2>What was built</h2>
+    <p>A standalone Rust program, about 900 lines, using exactly pscat's wgpu and naga versions:</p>
+    <ul>
+      <li><b>A bytecode.</b> Each instruction is 16 bytes, <code>[op, d, a, b]</code>, with an immediate bit on operands. That is the same layout as the compact form pscat's CPU executor now runs (#1101).</li>
+      <li><b>The fixed interpreter shader.</b> About 3.7 KB of WGSL. Each GPU thread runs one pixel, with its own program counter and a small return stack for subroutine calls.</li>
+      <li><b>A synthetic terrain.</b> A ridged-fbm height field ray-marched at world-scale coordinates, with the fbm as a called subroutine. It stands in for a gallery scene but isn't one: 270 instructions, about 6,000 run per pixel.</li>
+      <li><b>Three reference versions:</b> the same program hand-written as native WGSL, a CPU interpreter in f64 and in f32, and a generator of pscat-shaped straight-line shaders for timing compiles against size.</li>
+    </ul>
+  </div>
+  <figure class="wide">
+    <img src="terrain_gpu.jpg" alt="Grey ridged mountains with green valleys and snowy peaks under a blue sky, rendered by the GPU interpreter at 1280 by 800" width="1280" height="800">
+    <figcaption>The synthetic terrain, rendered by the fixed interpreter shader on the GPU in f32 at 1280×800. It is indistinguishable from the CPU's f64 render: PSNR 58.9 dB, 99.9% of channel values within 1 of 255.</figcaption>
+  </figure>
+</section>
+
+<section>
+  <h2>Compile time</h2>
+  <div class="chart" role="img" aria-label="Cold shader compile time in milliseconds. Straight-line shaders: 1,000 instructions 59 ms, 4,000 143 ms, 16,000 656 ms, 64,000 4,186 ms, 256,000 crashed. Fixed interpreter at any size: 69 to 103 ms.">
+    <div class="chart-title">Cold pipeline creation, ms (linear scale; 96 registers)</div>
+    <div class="row"><div class="lab">Straight-line, 1,000 instr.</div><div class="track"><div class="fill" style="width:1.2%"></div><span class="val">59</span></div></div>
+    <div class="row"><div class="lab">Straight-line, 4,000 instr.</div><div class="track"><div class="fill" style="width:2.9%"></div><span class="val">143</span></div></div>
+    <div class="row"><div class="lab">Straight-line, 16,000 instr.</div><div class="track"><div class="fill" style="width:13.1%"></div><span class="val">656</span></div></div>
+    <div class="row"><div class="lab">Straight-line, 64,000 instr.</div><div class="track"><div class="fill" style="width:83.7%"></div><span class="val">4,186</span></div></div>
+    <div class="row"><div class="lab">Straight-line, 256,000 instr.</div><div class="track"><div class="fill bad" style="width:12%"></div><span class="val bad">Metal compiler internal error</span></div></div>
+    <div class="row"><div class="lab"><b>Fixed interpreter, any kernel size</b></div><div class="track"><div class="fill hi" style="width:1.7%"></div><span class="val">69–103 (0.6 cached)</span></div></div>
+    <p class="note">Bars are drawn to scale against 5,000 ms. The 256k bar marks a failure, not a time. Every cold compile used a new entry-point name, so Metal's shader cache couldn't help.</p>
+  </div>
+  <div class="prose" style="margin-top:1.4em">
+    <p>Two details matter for the other ideas:</p>
+    <ul>
+      <li><b>The parse grows faster than the shader.</b> From 16k to 64k instructions (4×), naga's WGSL parse grows 14×, from 125 ms to 1.75 s.</li>
+      <li><b>A Metal cache hit still pays the parse.</b> Creating the same 64k shader a second time takes 1.8 s, nearly all of it parsing WGSL again. Handing wgpu a ready-made naga module instead (idea B) skips the parse: 4.19 s → 2.28 s cold.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Render time</h2>
+  <div class="chart" role="img" aria-label="Synthetic terrain at 1280 by 800, milliseconds. Native shader 66 to 83. Tiered 125 to 129. Interpreter with up to 1,024 registers 425 to 497. Interpreter with 4,608 registers 737 to 831. Interpreter with threadgroup registers 1,590. CPU scalar interpreter, f64, 10 threads, about 3,200 to 3,500.">
+    <div class="chart-title">Synthetic terrain, 1280×800, ms (linear scale)</div>
+    <div class="row"><div class="lab">Native shader (hand-written)</div><div class="track"><div class="fill" style="width:2.2%"></div><span class="val">66–83</span></div></div>
+    <div class="row"><div class="lab"><b>Tiered: interpreter + native fbm</b></div><div class="track"><div class="fill hi" style="width:3.8%"></div><span class="val">125–129</span></div></div>
+    <div class="row"><div class="lab">Interpreter, 128 or 1,024 registers</div><div class="track"><div class="fill" style="width:13.8%"></div><span class="val">425–497</span></div></div>
+    <div class="row"><div class="lab">Interpreter, 4,608 registers</div><div class="track"><div class="fill" style="width:23.5%"></div><span class="val">737–831</span></div></div>
+    <div class="row"><div class="lab">Interpreter, threadgroup registers</div><div class="track"><div class="fill" style="width:47.6%"></div><span class="val">1,590</span></div></div>
+    <div class="row"><div class="lab">CPU: scalar interpreter, f64, 10 threads</div><div class="track"><div class="fill" style="width:100%"></div><span class="val">3,190–3,490</span></div></div>
+    <p class="note">Bars are to scale: the CPU row's midpoint, 3,340 ms, is the full width, and every bar uses its range's midpoint. All GPU rows render the same picture to within 59 dB of the CPU's f64 render.</p>
+  </div>
+  <div class="prose" style="margin-top:1.4em">
+    <ul>
+      <li><b>The interpreter's price is a constant factor.</b> It runs about 6–8× slower than native code, because each thread decodes its own instruction stream and keeps its registers in memory.</li>
+      <li><b>Large register files cost about 1.6×.</b> 4,608 registers is golden_coast's scale (4,402), and it still works, in either layout. Keeping registers in on-chip threadgroup memory was <em>slower</em>, because it limits how many threads a core can keep in flight.</li>
+      <li><b>The CPU row is not pscat.</b> It is the proof of concept's own scalar interpreter. pscat's CPU executor batches 16 pixels per instruction and is several times faster. Per instruction run, the GPU interpreter (about 12–14 billion lane-instructions a second) is roughly level with what pscat's executor reached on mountains (about 12 billion). The instruction sets differ, so read that as "same ballpark".</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>The approaches, with what we now know</h2>
+  <div class="ideas">
+    <div class="idea">
+      <h3>A. One fixed interpreter shader <span class="tag ok">removes all three walls</span></h3>
+      <p>The shader never changes, so its size limit, compile time and parse cost vanish. Kernel size becomes buffer size. On its own it is about as fast as pscat's CPU path on a base M4, so its value is to make large scenes run on the GPU at all, and to be the base for tiering.</p>
+    </div>
+    <div class="idea">
+      <h3>A+. Tiered: interpret the bulk, compile the hot code <span class="tag ok">new; the best result</span></h3>
+      <p>New in this test. Pick the few subroutines where pixels spend their time (in fractal_clouds, the terrain and noise calls inside the ray-march loop) and compile only those as native GPU functions, called from the interpreter through one instruction. That shader stays small: 4,000 instructions compile in 0.14 s, 16,000 in 0.7 s. On the test frame it runs about 3.7× faster than pure interpretation and within 2× of a fully native shader.</p>
+    </div>
+    <div class="idea">
+      <h3>B. Skip the WGSL text <span class="tag part">helps, not enough alone</span></h3>
+      <p>wgpu's <code>naga-ir</code> feature accepts a shader module built in code, so pscat could build it straight from the kernel and skip the parse. That saves the parse share of the compile (about 45% of the cold compile at 64k instructions) and nearly all of a cached compile. It does nothing about Metal's crash on very large shaders.</p>
+    </div>
+    <div class="idea">
+      <h3>C. Constants as a table <span class="tag part">small, cheap win</span></h3>
+      <p>Read settings from a buffer instead of writing them into the shader text. A changed seed, colour or frame size then reuses the cached compile. Under A it comes free. A sketch is in <code>samples/idea_c_constants.wgsl</code>.</p>
+    </div>
+    <div class="idea">
+      <h3>D. Start on the CPU, let the GPU join <span class="tag part">about 2× with A</span></h3>
+      <p>The CPU starts at the top of the frame at once. The GPU starts at the bottom when its shader is ready, and they meet in the middle, so a slow or failed compile costs nothing. With a GPU interpreter as fast as the CPU, that is about twice as fast. GPU rows are f32 and CPU rows exact, so this has to be an opt-in. A sketch is in <code>samples/idea_d_cpu_then_gpu.rs</code>.</p>
+    </div>
+    <div class="idea">
+      <h3>E, F. Wavefront passes; typed integers and a long-lived process <span class="tag no">not tested</span></h3>
+      <p>Unchanged from the field report. Neither can be tested without pscat itself.</p>
+    </div>
+  </div>
+</section>
+
+<section class="prose">
+  <h2>Recommendation</h2>
+  <div class="callout">
+    <p>When the GPU work resumes, build A in pscat over the compact instruction form the CPU executor already uses. Try it first on mountains and storm, which are small and have no shared subroutines, and compare with the CPU executor's 8.2 s for mountains at 1280×800. Then add tiering (A+) for the hot shared subroutines, with B and C for whatever is still compiled.</p>
+    <p>Expect A alone to roughly match the CPU on this machine. The gain comes from A+, from D running both devices together, and from bigger GPUs.</p>
+  </div>
+  <h3>Limits of this test</h3>
+  <ul>
+    <li>The program is synthetic and small. What transfers is the shape of the costs: the interpreter's flat compile time, and its constant slowdown per instruction run. Absolute numbers for real scenes have to be measured in pscat.</li>
+    <li>One machine, a base M4. GPUs with more cores widen the gap; the CPU path doesn't grow with them.</li>
+    <li>The 59 dB result is for this program. pscat kernels also carry integer and table paths, and f32 holds integers exactly only up to 2<sup>24</sup>.</li>
+  </ul>
+  <h3>Files</h3>
+  <ul>
+    <li><code>docs/spikes/147-gpu-ideas/pscat-gpu.md</code>: the same results as a hand-off for the pscat GPU session, mapped onto pscat's source files.</li>
+    <li><code>spikes/147-gpu-interp/</code>: the proof of concept. <code>sweep.sh</code> reruns every measurement here, and <code>sweep.log</code> holds this run.</li>
+    <li>Upstream: PSCatLabs/pscat #742 (compiled kernels), #1065 (GPU preview), #1101 (the faster CPU executor).</li>
+  </ul>
+</section>
+</div>
