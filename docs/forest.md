@@ -75,6 +75,12 @@ Large render: `gallery/previews/alpine_forest-1280x800.png`
 The cut points were guessed from crop timings; the sky band turned out the
 slowest, so `0.45 0.62 0.8` would balance better.
 
+Refreshed 2026-11-12 (#88, after native noise #16 and the stand changes in
+#85 and #100): rendered through pscat's compiled `kernelimage` on the
+compute-kernels test build (#117, not yet a release), with the same erosion
+settings and 3x3 supersampling: **213 s** wall, including the 31 s erosion bake,
+against 25.5 minutes wall interpreted above.
+
 ## Known limits
 
 - The near-tree march is the cost: crowns are marched in short steps

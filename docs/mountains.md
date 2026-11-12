@@ -49,6 +49,10 @@ differences were large.
 
 Large render: `gallery/previews/mountains-1280x800.png`
 (`DPI=288 scripts/render.sh -D ErN=1024 -D ErDrops=240000 gallery/mountains.ps`).
+Refreshed 2026-11-12 (#88, after native noise #16): rendered through pscat's
+compiled `kernelimage` on the compute-kernels test build (#117, not yet a
+release), with the same erosion settings and 3x3 supersampling: **79 s** wall,
+including the 31 s erosion bake, against 34 minutes interpreted above.
 
 ## Known limits
 
