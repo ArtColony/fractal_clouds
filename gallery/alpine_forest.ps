@@ -34,6 +34,15 @@
 /FsEdge where { pop } { /FsEdge 0.5 def } ifelse
 /FsUnder where { pop } { /FsUnder 1 def } ifelse
 /FsHMax where { pop } { /FsHMax 3.4 def } ifelse
+% (#85) the near crowns less like topiary: whorls that step in (the spruce's
+% branches droop less), notches between the branches, the lower tips
+% hanging, and each whorl lit on its own with the gaps between its branches
+% dark; only on crowns over 6 px in radius
+/FsDroop where { pop } { /FsDroop 0.18 def } ifelse
+/FsLobe where { pop } { /FsLobe 0.5 def } ifelse
+/FsTipDroop where { pop } { /FsTipDroop 1 def } ifelse
+/FsWhorlShade where { pop } { /FsWhorlShade 1 def } ifelse
+/FsNearPx where { pop } { /FsNearPx 6 def } ifelse
 /RockTint where { pop } { /RockTint 0.5 def } ifelse    % iron-stained, lichen and cooler high rock (#99); 1 read rust here (#131)
 /RockStreak where { pop } { /RockStreak 1 def } ifelse  % dark water streaks down the faces (#99)
 
