@@ -11,7 +11,7 @@
 % 640x400 (gallery/previews/evening_lake-640x400.png): DPI=144 scripts/render_bands.sh
 %   gallery/evening_lake.ps --auto 3; bands 7.4, 5.1, 5.3 min CPU (Apple silicon, Mac, #84)
 
-/Seed where { pop } { /Seed 5 def } ifelse
+/Seed where { pop } { /Seed 1 def } ifelse
 /AA where { pop } { /AA true def } ifelse
 /GroundOn where { pop } { /GroundOn true def } ifelse   % rocks, rough ground and grass close up (#29)
 /Pitch where { pop } { /Pitch 2 def } ifelse
