@@ -235,6 +235,10 @@ ShaftFwd 0 gt { /fc-shaft-sub /fc-shaft-sub-fwd load def } if
 
 /fc-haze-colour {                                % dx dz -> -
     /SfOk false def                              % (it may call fc-sky)
+    % fresh tables for every ray, made before anything reads them: under
+    % kernelimage a kernel writes only into arrays it made itself, and a
+    % name must hold the same kind of array on every path (#150)
+    /SfTab ShaftSteps 1 add array def /SfTT ShaftSteps 1 add array def
     2 copy fc-haze-colour-plain
     Mz eq exch Mx eq and /fc-cloud-shadow-oct where { pop true } { false } ifelse and {
         fc-shaft-march

@@ -146,6 +146,10 @@ Profile { (lib/fc_bench.ps) run } if
         fc-camera-update
         LnGrade { fc-grade-update } if
     } if
+    % sun shafts wrap the sky hook at the first ray unless it is done now;
+    % now keeps the bind out of the pixel procedure, so kernelimage can
+    % compile it (#150)
+    /fc-shaft-wrap-sky where { pop SfSkyWrapped not { fc-shaft-wrap-sky } if } if
     /LnSetUp true def
 } bind def
 
