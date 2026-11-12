@@ -68,6 +68,12 @@
 /CoastRag 0 fc-default               % how far (units of height) noise moves the edge; 0: off
 /CoastRagW 0.5 fc-default            % sharpen the edge: its softness 0..0.5 (0.5: as it was)
 /CoastRagS 0.15 fc-default           % the noise's frequency (per unit): lobes ~1/S
+% (#141) dune grass: the grass nearest the beach paler and straw-coloured, in
+% tufts, over a band CoastDuneW (units of height) above the beach's edge
+/CoastDune 0 fc-default               % how far the grass there turns; 0: off
+/CoastDuneW 1.5 fc-default            % the band's height above the edge
+/CoastDuneCol [ 0.72 0.63 0.38 ] fc-colour   % marram: pale straw
+/XcTop CoastBerm 1.6 add CoastRag add CoastDune 0 gt { CoastDuneW add } if def
 /CoastCobbleK 0 fc-default           % (#40) more cobble under cliffs: added to CoastCobbles there
 /CoastDrift 0 fc-default             % (#40) driftwood logs along the top of the beach, 0..1
 /CoastDriftBand [ 8 24 ] fc-default  % ... between these distances from the water
@@ -306,9 +312,9 @@
 % beach is installed on the first fc-coast call instead (setup, after every
 % library has loaded), running before the trees' and the water's hooks.
 /fc-coast-material {
-    /XcMw 0 def /XcMd 1e9 def                    % (read by fc_midground.ps, #103)
+    /XcMw 0 def /XcMd 1e9 def /XcDg 0 def        % (read by fc_midground.ps, #103, #141)
     Kh MapSea sub /XcE exch def
-    XcE CoastBerm 1.6 add CoastRag add lt XcE -4 gt and {
+    XcE XcTop lt XcE -4 gt and {
         Kx TerrOX add Kz TerrOZ add fc-coast-dist /XcMk exch def /XcMd exch def
         XcMd CoastSandW lt {
             % (#141) the height the beach's edge reads, pushed up or down by
@@ -324,6 +330,23 @@
             1 XcMk 0.6 mul sub mul /XcMw exch def
             CoastRagW 0.5 lt CoastRag 0 gt and XcMw 0 gt and XcMw 1 lt and {
                 0.5 CoastRagW sub 0.5 CoastRagW add XcMw fc-smooth /XcMw exch def
+            } if
+            % (#141) and tufts of it out on the sand near the edge, thinning
+            % to none where the beach is full sand
+            CoastDune 0 gt XcMw 0 gt and XcMw 1 lt and {
+                0.5 0.68 Kx 1.7 mul 2.2 add Kz 1.7 mul 6.6 add fc-noise2 fc-smooth
+                0.98 0.35 XcMw fc-smooth mul CoastDune mul 1 fc-min
+                1 exch sub XcMw mul /XcMw exch def
+            } if
+            % (#141) dune grass, under any sand: 1 at the edge, gone
+            % CoastDuneW above it, in tufts
+            CoastDune 0 gt {
+                CoastBerm 1.6 add CoastDuneW add CoastBerm 1.0 add XcEr fc-smooth
+                0.80 0.93 Ny fc-smooth mul
+                1 CoastSandW 0.6 mul CoastSandW XcMd fc-smooth sub mul
+                0.42 0.62 Kx 0.9 mul 5.3 add Kz 0.9 mul 8.1 add fc-noise2 fc-smooth 0.25 mul 0.75 add mul
+                CoastDune mul 1 fc-min /XcDg exch def
+                XcDg 0 gt { Alb CoastDuneCol XcDg mix3v /Alb exch def } if
             } if
             XcMw 0 gt {
                 Kx 0.05 mul 3.9 add Kz 0.05 mul 7.2 add fc-noise2 /XcMn exch def

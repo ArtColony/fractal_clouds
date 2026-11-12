@@ -96,6 +96,9 @@
     /MgP exch def
     % lush: deeper, more saturated green
     0.02 -0.16 MgP fc-smooth 0.7 mul MgG mul /MgL exch def
+    % (#141) not the coast's dune grass (XcDg): that is dry, never lush
+    /XcMw where { pop XcDg } { 0 } ifelse     % (set with XcMw)
+    1 exch sub MgL mul /MgL exch def
     /Alb [ 0 1 2 { dup Alb exch get exch MidLush exch get 1 sub MgL mul 1 add mul } for ] def
     % dry: toward straw, in swathes, broken by the 1-unit octave
     MgGrassO MgGrassC MgGrassS 4 fc-mid-oct 0.5 sub 1.0 fc-mid-w mul /MgQ exch def
