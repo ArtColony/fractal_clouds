@@ -372,6 +372,31 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
 %            old ones darker and bluer (fc-forest-tint: red +-40%, green
 %            +-28%, blue +-4% at FsAge 1)
 /FsVarOn FsAge 0 gt FsEdge 0 gt or FsGaps 0 gt or def
+
+% Round 2 (#100): structure that follows the ground, in the bake's density
+% and height (fc-forest-stand), each 0 (off) by default:
+%   FsClump  tree islands: the density times a noise patch at FsClumpScale
+%            (a few cells across), so trees gather in groups with open
+%            ground between, instead of spreading evenly
+%   FsGully  the stand follows the ground's curvature: denser in gullies,
+%            thinner on ribs, where the trees are also up to 0.3 FsGully
+%            shorter (heights only come down)
+/FsClump 0 fc-default
+/FsClumpScale 0.22 fc-default
+/FsGully 0 fc-default
+/FsStandOn FsClump 0 gt FsGully 0 gt or def
+/fc-forest-stand {                               % d hs -> d hs (reads Fdx Fdz Fdc)
+    /Fts exch def
+    FsClump 0 gt {
+        0.38 0.62 Fdx FsClumpScale mul 7.7 add Fdz FsClumpScale mul 1.9 add fc-noise2 fc-smooth
+        1.7 mul FsClump mul 1 FsClump sub add 1 fc-min mul
+    } if
+    FsGully 0 gt {
+        Fdc FsGully mul 1 add 0 fc-max mul 1 fc-min
+        /Fts 1 Fdc sub 0.15 mul FsGully mul 1 exch sub Fts mul def
+    } if
+    Fts
+} bind def
 /FsTintOn FsAge 0 gt FsJit 0 gt or def
 /fc-forest-variety {
     FsGaps 0 gt {
@@ -510,6 +535,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
         } { 0 } ifelse
         fc-forest-dens
         FsSnow 0 gt { exch fc-forest-snow mul exch } if   % (#26)
+        FsStandOn { fc-forest-stand } if                % (#100)
         Fdh Fdl sub                              % height relative to the treeline (species)
     } 4 fc-grid /FsAl exch def /FsHs exch def /FsDm exch def /FsSl exch def
     /FsHt null def FsSnFill { /FsSf null def } if

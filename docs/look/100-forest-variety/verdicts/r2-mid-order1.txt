@@ -1,0 +1,7 @@
+REALISM: B
+AESTHETICS: B
+
+- B’s varied tree spacing and open patches feel more natural.
+- Its visible terrain gives the forest a stronger sense of place.
+- Clearings and tree clusters create a more pleasing visual rhythm.
+- A’s dense, repeated spires make the procedural pattern more apparent.
