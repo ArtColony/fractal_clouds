@@ -76,6 +76,10 @@
 /FsTipDroop 0 fc-default             % the lower whorls' tips hang further
 /FsHoles 0 fc-default                % gaps between the whorls near the rim, and holes in them
 /FsNearPx 12 fc-default              % crown radius on screen (px) where they start
+% (#85) a conifer crown's whorls lit one by one, close up (0 off: as before)
+/FsWhorlShade 0 fc-default           % how far the normal follows each whorl's own droop
+/FsWhorlDark 0.55 fc-default         % the shadow under each whorl, from the one above
+/FsWhorlGap 0.5 fc-default           % the dark gaps between a whorl's branches
 /FsMix [ 1 ] fc-default              % weights of the species in FsSpecies, in order
 /FsAutumn 0 fc-default               % 0 summer; 1 larches gold and broadleaves turned
 /FsBark [ 0.21 0.16 0.12 ] fc-colour         % spruce bark
@@ -1387,6 +1391,34 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     /Fwu Fwr FcR div 1 fc-min def
     /Fwsl 1 Fwu sub 0.0001 fc-max FcEnv 1 sub exp FcEnv mul FcH mul FcR div def    % envelope slope
     /Fwq Fw0 FcH div 0 fc-max def                        % 0 at the crown's foot, 1 at the tip
+    % (#85, FsWhorlShade) close up, the whorls from the profile that made
+    % the crown (fc-tree-prof again, at the hit, with this crown's values):
+    % FwF is how far down its band the hit is (1 just under the whorl
+    % above, 0 at this whorl's hanging tip), and the normal takes the
+    % branch's own droop there instead of the envelope's slope
+    /FwG 0 def /FwF 0.5 def /FwArm 1 def
+    FsWhorlShade 0 gt {
+        /FcDroop FsSpDroop FwSp get def /FcTiers FsSpTiers FwSp get def
+        /FcL FsTrunks { FcR FcPx div 4 sub 8 div 0 fc-max 1 fc-min } { 0 } ifelse def
+        FcL 0 gt { FsSpRag FwSp get FsSpLobes FwSp get } { 1 1 } ifelse /FcLobes exch def /FcRag exch def
+        /Fpk 0 def /Fpl 0 def
+        Fwdx Fwdz fc-tree-prof pop
+        Fpk 1 ge Fpu 1 lt and Fpl 0 gt and {
+            /FwG FsWhorlShade Fpl mul 1 fc-min def
+            1 Fpu sub FcEnv exp FcDroop add FcTiers mul Fpk sub 0 fc-max 1 fc-min /FwF exch def
+            % droop y = Fpy - FcDroop w^FpP along the branch, w = u / reach
+            FpP Fpw 0.001 fc-max FpP 1 sub exp mul FcDroop mul Fpw mul Fpu 0.001 fc-max div
+            0.94 mul FcH mul FcR div 4 fc-min
+            FwG mul Fwsl 1 FwG sub mul add /Fwsl exch def
+            % its branches: 6 to 9 arms round the trunk, turned from whorl to
+            % whorl and wavering, with gaps into the dark inside between
+            % them, widest up the band where the arms are still apart
+            FsR 6 get FcK get 3.99 mul floor 6 add Fpa mul Fpk 137.5 mul add
+            FsR 3 get FcK get 360 mul add
+            Fpa 0.05 mul Fpk 1.3 mul FcK 0.41 mul add fc-noise2 0.5 sub 120 mul add
+            cos 1 add 0.5 mul 0.25 0.75 3 -1 roll fc-smooth /FwArm exch def
+        } if
+    } if
     % foliage clumps along the branches: tilt the normal by noise laid out
     % around the trunk and up the whorls
     Fwr 0.02 lt { 0 } { Fwdz Fwdx atan } ifelse 0.05 mul FcK 0.29 mul add /Fwg exch def
@@ -1402,7 +1434,9 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     Fwq FcTiers mul FsR 5 get FcK get 0.3 mul add dup floor sub /Fwf exch def
     % and between the branch clumps, gaps into the dark inside of the crown
     0.36 0.56 Fwg 2.3 mul 5.7 add Fwh 1.3 mul 2.9 add fc-noise2 fc-smooth 0.75 mul 0.25 add
-    Fwf 0.6 mul 0.4 add mul
+    Fwf 0.6 mul 0.4 add 1 FwG sub mul
+    1 FwF 0.55 sub 0.45 div 0 fc-max dup mul FsWhorlDark mul sub
+    1 FwArm sub FwF 0.6 mul 0.4 add mul FsWhorlGap mul 1 exch sub mul FwG mul add mul
     FcR FcPx div 4 sub 8 div 0 fc-max 1 fc-min /Fwlod exch def
     Fwlod mul 1 Fwlod sub 0.7 mul add /Fwwh exch def
     % close up (trunks on): sprays of needles with dark gaps between them,
