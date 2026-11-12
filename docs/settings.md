@@ -940,6 +940,12 @@ sea (their load is lost).
 | `CoastCobbles` | 0.3 | How much of the beaches is cobble, 0–1. | |
 | `CoastSandW` | 40 | How far inland the beach material reaches. | |
 | `CoastCobbleK` | 0 | More cobble under cliffs: added to `CoastCobbles` in proportion to how cliffed the shore is (#40), so coves under cliffs are cobble and open beaches sand. | 1.2 (`/PNWCoast`) |
+| `CoastRag` | 0 | A ragged beach edge (#141): noise moves the height the sand-to-grass edge reads by up to this much (units), so grass reaches into the sand in lobes and sand fans into the grass, instead of one airbrushed gradient. 0 leaves every beach as before. Above about 1, the grass lobes out on the beach read as painted lawn. | 0.8 (tropical_island) |
+| `CoastRagW` | 0.5 | With `CoastRag`: the edge's softness, 0–0.5 (0.5 as it was; lower sharpens it). Blind judging preferred it soft. | |
+| `CoastRagS` | 0.15 | With `CoastRag`: the noise's frequency (per unit); lobes about 1/`CoastRagS` across. | |
+| `CoastDune` | 0 | Dune grass (#141): the grass in a band `CoastDuneW` above the beach's edge turns toward `CoastDuneCol` (pale straw), in tufts, and tufts of it reach out onto the sand near the edge. The weight also reaches `fc_midground.ps` (`XcDg`), so its grass stays dry there, never lush. 0 leaves every beach as before. At 1, or with a sharpened edge, blind judging read the straw band as painted. | 0.5 (tropical_island) |
+| `CoastDuneW` | 1.5 | The dune band's height above the beach's edge (units). | |
+| `CoastDuneCol` | [0.72 0.63 0.38] | The dune grass, sRGB. | |
 | `CoastDrift` | 0 | Driftwood along the top of the beach, 0–1 (#40): logs 0.8–1.8 units long and 0.1–0.2 across, lying at any angle, a third sunk in the sand, one candidate per 2.5-unit cell kept by noise (half of them at 1) (more with a higher value; the random stream is untouched). A heightfield bump, so near detail only (more than five terrain octaves), on low shores only (cliffedness under 0.5). | 1 (`/PNWCoast`) |
 | `CoastDriftBand` | [8 24] | `lo hi`: the band of (wobbled) distance from the water the logs lie in: the high-tide line at the back of the beach. | |
 | `CoastDriftCol` | [0.60 0.57 0.52] | Bleached wood, sRGB, darker along the grain. | |

@@ -1,0 +1,7 @@
+REALISM: A
+AESTHETICS: A
+
+- A’s grass-to-sand transition looks slightly more irregular and natural.
+- The softer edge helps the slope blend into the beach.
+- The lighter sand creates a more pleasing balance with the dense palms.
+- The differences are subtle; both retain visibly procedural foliage and ground textures.

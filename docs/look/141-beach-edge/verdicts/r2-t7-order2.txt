@@ -1,0 +1,5 @@
+REALISM: B
+AESTHETICS: B
+- B’s grass-to-sand transition looks softer and more natural.
+- A’s sharper, angular patches make the terrain feel more visibly procedural.
+- B’s smoother tonal flow gives the palms and shoreline a more cohesive setting.

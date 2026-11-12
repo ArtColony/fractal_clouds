@@ -52,6 +52,9 @@
 % (#141) the beach's edge wanders in lobes across the slope, not one
 % airbrushed gradient (more, or sharpened, reads as painted lawn patches)
 /CoastRag where { pop } { /CoastRag 0.8 def } ifelse
+% and the grass nearest it a little paler and drier, with tufts on the sand
+% (a strong straw band, or a sharpened edge, reads as painted)
+/CoastDune where { pop } { /CoastDune 0.5 def } ifelse
 /MidSwell where { pop } { /MidSwell 0.6 def } ifelse
 /MidSwellK where { pop } { /MidSwellK 1 def } ifelse
 /MidRipple where { pop } { /MidRipple 0.3 def } ifelse
