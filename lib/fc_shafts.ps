@@ -56,6 +56,13 @@
 %                      smoothstep from ShaftEdge/2 to 1 - ShaftEdge/2, so
 %                      the gaps in the clouds cast distinct beams rather
 %                      than the soft, low-octave shading (0: off)
+%   ShaftBaseFade 0    fade the shadow out over this many units below the
+%                      cloud base (#130): light the deck's lit base and
+%                      gaps scatter in fills the air just under it, and a
+%                      low sun otherwise shadows a flat slab there, seen as
+%                      a dark band along the deck (0: off)
+%   ShaftBase   null   that base's height (null: CloudLo; set it for a
+%                      CloudLayers sky)
 
 /ShaftSteps 48 fc-default
 /ShaftDark 0.8 fc-default
@@ -66,6 +73,8 @@
 /ShaftG 0.7 fc-default
 /SfF 1 def
 /ShaftEdge 0 fc-default
+/ShaftBaseFade 0 fc-default
+/ShaftBase null fc-default
 /SfEa ShaftEdge 2 div def /SfEw 1 ShaftEdge sub dup 0.000001 lt { pop 0.000001 } if def
 
 /SfTab ShaftSteps 1 add array def
@@ -123,7 +132,8 @@
         SfW 0.00002 gt {
             SfI SfJ add SfDt mul /SfS exch def
             Mx SfS mul My SfS mul CamY add Mz SfS mul ShaftOct fc-cloud-shadow-oct
-            fc-shaft-edge 1 exch sub SfW mul SfAcc add /SfAcc exch def
+            fc-shaft-edge 1 exch sub My SfS mul CamY add fc-shaft-fade
+            SfW mul SfAcc add /SfAcc exch def
         } if
         SfTab SfI 1 add SfAcc put SfTT SfI 1 add SfT1 put
         /SfT0 SfT1 def
@@ -154,6 +164,17 @@ ShaftEdge 0 gt {
         dup dup mul exch 2 mul 3 exch sub mul
     } bind def
 } { /fc-shaft-edge { } def } ifelse
+
+% a probe's shadow (1 - T) at height y, faded toward the cloud base (#130)
+ShaftBaseFade 0 gt {
+    /SfBase ShaftBase null eq { CloudLo } { ShaftBase } ifelse def
+    /fc-shaft-fade {                             % s y -> s'
+        SfBase exch sub dup 0 lt { pop } {       % at or above the base: as it is
+            ShaftBaseFade div dup 1 gt { pop 1 } if
+            dup dup mul exch 2 mul 3 exch sub mul mul
+        } ifelse
+    } bind def
+} { /fc-shaft-fade { pop } def } ifelse
 
 % the shadowed in-scatter up to distance t on the table's ray; within a
 % step it is interpolated by transmittance, not distance, so it never

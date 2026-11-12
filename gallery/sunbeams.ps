@@ -37,6 +37,10 @@
 % no stronger than the #49 shafts' at 48 steps
 /ShaftSteps where { pop } { /ShaftSteps 128 def } ifelse
 /ShaftJitter where { pop } { /ShaftJitter 0.6 def } ifelse
+% (#130) a sun this low shadows the air just under the deck as a flat slab,
+% seen as a dark band along it: fade the shadow out over the 30 units below
+% the cloud base (the beams above the deck and toward the ground stay)
+/ShaftBaseFade where { pop } { /ShaftBaseFade 30 def } ifelse
 
 /RockTint where { pop } { /RockTint 1 def } ifelse
 /RockStreak where { pop } { /RockStreak 1 def } ifelse
