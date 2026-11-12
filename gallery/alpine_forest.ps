@@ -34,6 +34,10 @@
 /FsEdge where { pop } { /FsEdge 0.5 def } ifelse
 /FsUnder where { pop } { /FsUnder 1 def } ifelse
 /FsHMax where { pop } { /FsHMax 3.4 def } ifelse
+% (#100, round 2) the stand follows the ground: trees in islands with open
+% ground between, denser in the gullies and thinner, shorter on the ribs
+/FsClump where { pop } { /FsClump 0.6 def } ifelse
+/FsGully where { pop } { /FsGully 1 def } ifelse
 % (#85) the near crowns less like topiary: whorls that step in (the spruce's
 % branches droop less), notches between the branches, the lower tips
 % hanging, and each whorl lit on its own with the gaps between its branches
