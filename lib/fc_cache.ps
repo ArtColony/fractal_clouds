@@ -150,8 +150,12 @@ ZcHv /packedarraytype ZcHv /arraytype get put
         /ZcDepth ZcDepth 1 sub def
     } ifelse
 } bind def
+% (#166) the chain is linear (h(k) B^n + h(v)), so a plain sum of entries
+% would separate into names and values, and two settings that swap values
+% would share a key: each entry is squared (mod p) before it is added
 /fc-cache-he {                                   % k v -> e1 e2  (one entry)
     exch 7 11 3 -1 roll fc-cache-hv (=) fc-cache-ht 3 -1 roll fc-cache-hv
+    dup mul 40503 add ZcP2 mod exch dup mul 40499 add ZcP1 mod exch
 } bind def
 /fc-cache-add {                                  % s1 s2 e1 e2 -> s1' s2'
     3 -1 roll add ZcP2 mod 3 1 roll add ZcP1 mod exch
