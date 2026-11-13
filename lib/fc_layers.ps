@@ -1,0 +1,97 @@
+%!PS-Adobe-3.0
+% fc_layers.ps -- rock in layers by elevation (fractal_clouds#160, epic #164):
+% a table of beds, each with its colour and whether it stands as cliff or
+% weathers to slope. fc_terrain.ps loads this file when a piece sets
+% Layers (an array). With a real grid (DemOn), heights are the grid's metres.
+%
+%   /Layers [                       top to bottom
+%     [ base-m [ r g b ] cliff ]    the bed down to base-m (metres, at
+%     ...                           LayersRef), its colour (sRGB) and how
+%   ] def                           cliff-forming it is: 1 stands as cliff,
+%                                   0 weathers to slope
+%   the last bed carries on below its base
+%
+% The beds are horizontal planes, tilted by LayersDip (metres per metre of
+% map x and z) and wandering by LayersWobble metres of fractal noise, so a
+% contact isn't a ruled line. Where a bed meets the next, the colours blend
+% over LayersBlend metres. Each bed shows faint bedding, LayersBed metres
+% apart, on steep faces. On gentler ground a slope-forming bed is covered
+% by talus from the nearest cliff above, LayersTalus at most. On near-flat
+% ground every bed takes on LayersSoil, LayersSoilCol, its benches and
+% plateaus.
+%
+% The hook chains onto fc-terrain-material (others may follow), reads
+% Kx Kz Kh Ny Kpat and sets Alb. The rays bend for Earth curvature (#158)
+% rather than the ground dropping, so Kh is the true height.
+%
+% Names: this file keeps its temporaries under Ly*.
+
+/LayersUnit DemOn { DemUnit } { 10 } ifelse fc-default  % metres per world unit
+/LayersBase DemOn { DmBase } { 0 } ifelse fc-default     % metres at world y = 0
+/LayersRef [ 0 0 ] fc-default        % map point (world units) where the bases hold
+/LayersDip [ 0 0 ] fc-default        % the beds rise this many metres per metre of map x, z
+/LayersWobble 6 fc-default           % metres: how far a contact wanders
+/LayersBlend 4 fc-default            % metres over which one bed's colour gives way to the next
+/LayersBed 7 fc-default              % metres between bedding planes within a bed
+/LayersBedAmp 0.08 fc-default        % bedding's brightness swing on steep faces
+/LayersTalus 0.6 fc-default          % at most this much talus over a slope-forming bed
+/LayersSoil 0.35 fc-default          % at most this much soil on near-flat ground
+/LayersSoilCol [ 0.62 0.55 0.45 ] fc-colour
+/LayersMix 1 fc-default              % 0..1: how far the beds replace the terrain's own rock colour
+
+% the table, linear colours, and each bed's nearest cliff-former above
+/LyN Layers length def
+/LyBase [ Layers { 0 get } forall ] def
+/LyCol [ Layers { 1 get [ exch { 2.2 exp } forall ] } forall ] def
+/LyCliff [ Layers { 2 get } forall ] def
+/LyAbove [ 0 1 LyN 1 sub { /LyI exch def
+    LyI LyI -1 0 { dup LyCliff exch get 0.5 ge { exch pop exit } { pop } ifelse } for
+    LyCol exch get
+} for ] def
+
+/LyMatPrev /fc-terrain-material where { pop /fc-terrain-material load } { { } } ifelse def
+% (every mix below is unconditional, with its weight 0 where it doesn't
+% apply: kernelimage compiles a branch only if it leaves the same kinds
+% of things on the stack)
+/fc-terrain-material {
+    LyMatPrev
+    % the point's height in metres, with the dip and the wobble taken out
+    /LyX Kx TerrOX add def /LyZ Kz TerrOZ add def
+    Kh LayersUnit mul LayersBase add
+    LyX LayersRef 0 get sub LayersDip 0 get mul LyZ LayersRef 1 get sub LayersDip 1 get mul add LayersUnit mul sub
+    LyX 0.045 mul 4.1 add LyZ 0.045 mul 7.7 add fc-noise2 0.5 sub
+    LyX 0.19 mul 1.3 add LyZ 0.19 mul 2.9 add fc-noise2 0.5 sub 0.4 mul add
+    LayersWobble 2 mul mul add
+    /LyE exch def
+    % the bed: the first whose base is below the point (the bases fall,
+    % so it is the count of those at or above it)
+    /LyI 0 def
+    0 1 LyN 2 sub { LyBase exch get LyE ge { /LyI LyI 1 add def } if } for
+    /LyDn LyI 1 add LyN 1 sub fc-min def /LyUp LyI 1 sub 0 fc-max def
+    % halfway to the bed below at its base, and to the one above at its top
+    LyCol LyI get
+    LyCol LyDn get
+    LyI LyN 1 sub lt {
+        LyBase LyI get LayersBlend add  LyBase LyI get LayersBlend sub  LyE fc-smooth 0.5 mul
+    } { 0 } ifelse mix3v
+    LyCol LyUp get
+    LyI 0 gt {
+        LyBase LyUp get LayersBlend sub  LyBase LyUp get LayersBlend add  LyE fc-smooth 0.5 mul
+    } { 0 } ifelse mix3v
+    % bedding on steep faces
+    LyE LayersBed div 360 mul sin LayersBedAmp mul
+    0.92 0.6 Ny fc-smooth mul 1 add
+    /LyB exch def [ exch { LyB mul } forall ]
+    % talus over a slope-former, from the cliff above
+    LyAbove LyI get
+    LyCliff LyI get 0.5 lt {
+        0.55 0.85 Ny fc-smooth LayersTalus mul
+        Kx 0.11 mul 3.7 add Kz 0.11 mul 8.3 add fc-noise2 0.6 mul 0.7 add mul
+    } { 0 } ifelse mix3v
+    % soil on benches and plateaus
+    LayersSoilCol 0.88 0.97 Ny fc-smooth LayersSoil mul mix3v
+    % the terrain's own patches and mottling
+    [ exch { Kpat mul } forall ]
+    Alb exch LayersMix mix3v
+    /Alb exch def
+} bind def

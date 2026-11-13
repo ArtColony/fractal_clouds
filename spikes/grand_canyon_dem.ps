@@ -6,6 +6,7 @@
 %   scripts/render.sh spikes/grand_canyon_dem.ps
 /DemOn true def
 (data/terrain/grand_canyon.ps) run
+/Layers where { pop } { (data/terrain/grand_canyon_layers.ps) run } ifelse
 /Erode where { pop } { /Erode false def } ifelse
 /StandLL where { pop } { /StandLL [ 36.0617 -112.1078 ] def } ifelse     % Mather Point, on the rim
 /LookLL where { pop } { /LookLL [ 36.1250 -112.0700 ] def } ifelse       % across the canyon, north-north-east

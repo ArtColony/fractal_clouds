@@ -707,6 +707,10 @@ SnowFill 0 gt {
 
 % terrain from a map: the hook, the painted grid and the feature list
 MapOn { (lib/fc_map.ps) run } if
+% rock in layers by elevation (#160): a piece's table of beds
+/Layers null fc-default
+Layers null ne { (lib/fc_layers.ps) run } if
+
 % foreground ground cover (#29): wraps fc-height, so it loads last
 GroundOn { (lib/fc_ground.ps) run } if
 % meadow and beach texture (#103)

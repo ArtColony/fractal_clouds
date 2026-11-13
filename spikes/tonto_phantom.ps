@@ -10,6 +10,7 @@
 %   scripts/render.sh -D Yaw=330 --pass depth spikes/tonto_phantom.ps
 /DemOn true def
 (data/terrain/grand_canyon.ps) run
+/Layers where { pop } { (data/terrain/grand_canyon_layers.ps) run } ifelse
 /Erode where { pop } { /Erode false def } ifelse
 /Curve where { pop } { /Curve true def } ifelse
 /StandLL where { pop } { /StandLL [ 36.089756 -112.094454 ] def } ifelse
@@ -18,7 +19,7 @@
 /Pitch where { pop } { /Pitch 4 def } ifelse
 /HFov where { pop } { /HFov 64 def } ifelse
 /TMax where { pop } { /TMax 3000 def } ifelse
-/HazeDist where { pop } { /HazeDist 6000 def } ifelse
+/HazeDist where { pop } { /HazeDist 20000 def } ifelse
 /HazeH where { pop } { /HazeH 120 def } ifelse
 /SnowLine where { pop } { /SnowLine 1000 def } ifelse
 /TreeLine where { pop } { /TreeLine -1000 def } ifelse

@@ -936,6 +936,34 @@ The ground passes through every grid value (Catmull-Rom). The only addition is z
 
 Speed, compiled (kernelimage, test build): the Grand Canyon view at 1280×800 with 3×3 supersampling takes 38 s with the 768² grid and 44 s with a 1024² grid.
 
+### Rock layers (`Layers`, `fc_layers.ps`)
+
+Rock coloured by elevation in beds (#160). A piece sets `Layers`, a table of beds from the top down, and `fc_terrain.ps` loads `fc_layers.ps`. Each bed is `[ base-m [ r g b ] cliff ]`: the bed runs down to base-m metres, has that colour (sRGB), and has a cliff value (1 stands as cliff, 0 weathers to slope). The last bed carries on below its base. The Grand Canyon's table is `data/terrain/grand_canyon_layers.ps`. It runs from the Kaibab at the rim to the Vishnu Schist, with thicknesses from the Bright Angel Trail section.
+
+The hook chains onto `fc-terrain-material` and replaces the rock's colour, keeping its patches and mottling:
+- **Contacts** are level planes, tilted by `LayersDip` and wandering by `LayersWobble` metres of noise. Neighbouring beds blend over `LayersBlend` metres.
+- **Bedding** appears on steep faces, `LayersBed` metres apart.
+- **Talus** from the nearest cliff-former above covers slope-formers on gentler ground.
+- **Soil** covers benches and plateaus.
+
+The rays bend for curvature (#158) rather than the ground dropping, so the heights are true. Every mix is unconditional, with its weight 0 where it doesn't apply. That keeps the hook compiled under kernelimage, which retires any branch that leaves a different array on the stack.
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `Layers` | null | The table of beds; any array loads `fc_layers.ps`. | grand_canyon_layers.ps |
+| `LayersUnit` | `DemUnit`, else 10 | Metres per world unit. | |
+| `LayersBase` | the grid's base, else 0 | Metres at world y = 0. | |
+| `LayersRef` | [0 0] | Map point (world units) where the bases hold. | Mather Point |
+| `LayersDip` | [0 0] | The beds rise this many metres per metre of map x, z. | [0 0] |
+| `LayersWobble` | 6 | Metres: how far a contact wanders. | 6 |
+| `LayersBlend` | 4 | Metres over which one bed gives way to the next. | 8 |
+| `LayersBed` | 7 | Metres between bedding planes. | 7 |
+| `LayersBedAmp` | 0.08 | Bedding's brightness swing on steep faces. | 0.08 |
+| `LayersTalus` | 0.6 | At most this much talus over a slope-former. | 0.6 |
+| `LayersSoil` | 0.35 | At most this much soil on near-flat ground. | 0.35 |
+| `LayersSoilCol` | [0.62 0.55 0.45] | The soil's colour. | [0.55 0.51 0.44] |
+| `LayersMix` | 1 | How far the beds replace the terrain's own rock colour. | 1 |
+
 ### Earth curvature (`Curve`)
 
 Over long sight lines the ground falls away below the camera's level: by d²/(2R) at distance d, less about 13% for standard refraction. That is 7 m at 10 km, 27 m at 20 km and 109 m at 40 km (#158). `Curve` true puts this in.
