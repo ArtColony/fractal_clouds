@@ -1,0 +1,38 @@
+%!PS-Adobe-3.0
+% curve_islands.ps -- earth curvature (#158), the known case: four equal
+% islands, 100 m high and 70 m across, 10, 20, 30 and 40 km out across open water, seen
+% through a 2-degree lens from 2 m above the sea. With Curve off each
+% stands on the horizon; with it on the far ones sink: hidden about 1.5,
+% 15, 41 and 82 m (textbook, standard refraction), the nearest whole.
+%   scripts/render.sh spikes/curve_islands.ps             (Curve on)
+%   scripts/render.sh -D Curve=false spikes/curve_islands.ps
+/Curve where { pop } { /Curve true def } ifelse
+/Erode false def /TreesOn false def
+/CamHeight 0.2 def /WaterY 0 def           % 2 m above the sea (world units are 10 m)
+/TerrH 14 def /TerrBase -5 def                % (TerrTop, the march's ceiling, 12.5)
+/TMax 6000 def
+/HFov 2 def /Pitch 0.12 def /Yaw 0 def
+/HazeDist where { pop } { /HazeDist 40000 def } ifelse
+/HazeH 60 def
+/SnowLine 1000 def /TreeLine -1000 def
+/CloudLo 300 def /CloudHi 340 def /Threshold 0.7 def /CoverAmp 0.3 def
+/SunElev 25 def /SunAzim -50 def
+/RippleAmp 0.004 def
+(lib/fc_landscape.ps) run
+% the islands: [ distance (world units), bearing (degrees right) ]
+/CiIsles [ [ 1000 -0.72 ] [ 2000 -0.24 ] [ 3000 0.24 ] [ 4000 0.72 ] ] def
+/CiIsles [ CiIsles { aload pop sin exch dup 3 1 roll mul exch } forall ] def   % x z pairs
+% each a steep-sided mesa 100 m high and about 70 m across; sea floor 50 m down
+/fc-height { pop /CiZ exch def /CiX exch def
+    -5
+    0 2 CiIsles length 1 sub { /CiI exch def
+        CiX CiIsles CiI get sub dup mul CiZ CiIsles CiI 1 add get sub dup mul add sqrt
+        3.5 exch sub 8 mul 10 fc-min fc-max
+    } for
+} def
+% the march's floor step (0.2 + 0.004 t) is wider than these islands far
+% out; this test keeps it under a world unit
+/fc-terrain-step { exch pop 0.8 fc-min } def
+/Res where { pop } { /Res 1 def } ifelse
+640 400 fc-landscape
+showpage

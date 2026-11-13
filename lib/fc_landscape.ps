@@ -142,7 +142,7 @@ Profile { (lib/fc_bench.ps) run } if
             WaterY null ne { WaterY fc-max } if
             /MapSea where { pop MapSea null ne { MapSea fc-max } if } if
         } ifelse
-        CamY sub LnLkD atan dup 180 gt { 360 sub } if LookTilt add /Pitch exch def
+        CamY sub CvA LnLkD dup mul mul sub LnLkD atan dup 180 gt { 360 sub } if LookTilt add /Pitch exch def
         fc-camera-update
         LnGrade { fc-grade-update } if
     } if
@@ -179,13 +179,14 @@ LnGrade {
 % --- the pixel ---------------------------------------------------------------
 /fc-landscape-pixel {                            % u v -> r g b
     fc-ray /Mz exch def /My exch def /Mx exch def
+    /CvB Mx dup mul Mz dup mul add CvA mul def   % the ray's bend (#158; 0 unless Curve)
     Mx Mz fc-haze-colour
     fc-landscape-hit dup 0 gt {
         /LnT exch def /FcKey LnT def
         LnT fc-landscape-surface LnT fc-haze
     } {
         pop /LnT TMax def
-        Mx My Mz fc-landscape-sky
+        Mx My CvB TMax mul 2 mul add Mz fc-landscape-sky   % (the bent ray's heading where it leaves)
     } ifelse
     /LnB exch def /LnG exch def /LnR exch def
     LnT fc-clouds

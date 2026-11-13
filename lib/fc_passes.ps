@@ -187,6 +187,7 @@ Pass /material eq { /AA false store } if          % an average of IDs is no ID
 /fc-pass-fast {                                  % u v -> r g b
     /FcKey -1 def                                % fc_render resets it for the centre sample only
     fc-ray /Mz exch def /My exch def /Mx exch def
+    /CvB Mx dup mul Mz dup mul add CvA mul def
     Mx Mz fc-haze-colour
     fc-landscape-hit dup 0 gt { dup /PsT exch def /FcKey exch def } { pop } ifelse
     Pass /mask eq {

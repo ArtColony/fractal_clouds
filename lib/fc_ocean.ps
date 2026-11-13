@@ -121,7 +121,7 @@ OcWaves { /OcW exch def
     OcSkyOnly { -1 } {
     WaterY null ne My 0 lt and { WaterY CamY lt } { false } ifelse {
         /OcTm TMax def
-        WaterY CamY sub My div WaterClear 6 mul add TMax fc-min /TMax exch def
+        WaterY fc-water-plane-t WaterClear 6 mul add TMax fc-min /TMax exch def
         OcDryPrev
         /TMax OcTm def
     } { OcDryPrev } ifelse
@@ -138,7 +138,7 @@ OcWaves { /OcW exch def
     % depth straight down
     AqLev OcX OcZ SeaDepthOct fc-height sub /OcD exch def
     % the pixel's footprint along the view (as the ripples measure it)
-    OcT PixAng mul My abs 0.12 fc-max div /OcFp exch def
+    OcT PixAng mul AqMy abs 0.12 fc-max div /OcFp exch def
     % the swell steepens as it comes into the surf
     SurfDepth 3 mul 0 OcD fc-smooth SwellShoal mul 1 add SwellAmp mul /OcA exch def
     /OcGx 0 def /OcGz 0 def /OcH 0 def /OcLost 0 def
@@ -213,12 +213,12 @@ OcWaves { /OcW exch def
     OcShadePrev /OcB exch def /OcG exch def /OcR exch def
     % sun glitter: a microfacet lobe, widened by the slope the waves lose
     GlitterGain 0 gt SunDir 1 get 0 gt and {
-        SunDir 0 get Mx sub SunDir 1 get My sub SunDir 2 get Mz sub
+        SunDir 0 get Mx sub SunDir 1 get AqMy sub SunDir 2 get Mz sub
         /OcVz exch def /OcVy exch def /OcVx exch def
         /OcVn OcVx dup mul OcVy dup mul add OcVz dup mul add sqrt def
         AqNrx OcVx mul AqNry OcVy mul add AqNrz OcVz mul add OcVn div 0.001 fc-max /OcNh exch def
-        Mx OcVx mul My OcVy mul add Mz OcVz mul add neg OcVn div 0 fc-max /OcHv exch def
-        Mx AqNrx mul My AqNry mul add Mz AqNrz mul add neg 0.05 fc-max /OcNv exch def
+        Mx OcVx mul AqMy OcVy mul add Mz OcVz mul add neg OcVn div 0 fc-max /OcHv exch def
+        Mx AqNrx mul AqMy AqNry mul add Mz AqNrz mul add neg 0.05 fc-max /OcNv exch def
         GlitterRough dup mul OcLost AqLost add dup mul 0.5 mul add /OcS2 exch def
         1 OcNh dup mul sub OcNh dup mul div OcS2 div /OcE exch def
         OcE 30 lt {
@@ -293,18 +293,18 @@ OcWaves { /OcW exch def
             % the edge widens to the height a pixel spans on the slope, but
             % only on gentle ground near the water: on a steep wall that
             % height runs up the whole face, which then mirrored the sky (#78)
-            OcT PixAng mul My abs 0.05 fc-max div
+            OcT PixAng mul My CvB OcT mul 2 mul add abs 0.05 fc-max div
             1 Ny dup mul sub 0 fc-max sqrt Ny 0.05 fc-max div mul WetSand 2 mul fc-min /OcWp exch def
             OcWe WetSand OcWp add lt OcWe WetSand -0.5 mul OcWp sub gt and Ny WetSlope 0 get gt and {
                 WetSand OcWp add WetSand 0.3 mul OcWp sub OcWe fc-smooth WetMirror mul
                 WetSlope 0 get WetSlope 1 get Ny fc-smooth mul
-                My neg 0 fc-max 1 exch sub 5 exp 0.98 mul 0.02 add mul /OcWw exch def
+                My CvB OcT mul 2 mul add neg 0 fc-max 1 exch sub 5 exp 0.98 mul 0.02 add mul /OcWw exch def
                 OcWw 0.01 gt {
                     /OcB exch def /OcG exch def /OcR exch def
                     % sky and clouds only: no march over the ground (cheaper,
                     % and it can't meet the sand it leaves)
                     /OcSkyOnly true def
-                    OcT My OcT mul CamY add fc-water-reflect-at
+                    OcT My OcT mul CamY add CvB OcT dup mul mul add fc-water-reflect-at
                     /OcSkyOnly false def
                     OcB sub OcWw mul OcB add 3 1 roll
                     OcG sub OcWw mul OcG add 3 1 roll

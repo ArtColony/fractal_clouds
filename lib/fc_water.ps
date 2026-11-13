@@ -63,7 +63,7 @@
 /Ocean false fc-default              % true: lib/fc_ocean.ps's sea (waves, depth colour, foam, surf, wet sand; #38)
 
 /RvBaked false def
-/AqWet false def /AqRiv false def
+/AqWet false def /AqRiv false def /AqMy 0 def
 
 % --- level ---------------------------------------------------------------------
 /fc-river-level {                                % x z -> y | -1000
@@ -259,9 +259,9 @@
 % reflection of the view ray in the normal, with the view ray's heading
 /fc-water-reflect {                              % -> r g b
     % R = D - 2 (D.N) N
-    /AqDn Mx AqNrx mul My AqNry mul add Mz AqNrz mul add def
+    /AqDn Mx AqNrx mul AqMy AqNry mul add Mz AqNrz mul add def
     /AqRx Mx AqNrx AqDn 2 mul mul sub def
-    /AqRy My AqNry AqDn 2 mul mul sub 0.002 fc-max def
+    /AqRy AqMy AqNry AqDn 2 mul mul sub 0.002 fc-max def
     /AqRz Mz AqNrz AqDn 2 mul mul sub def
     /AqRn AqRx dup mul AqRy dup mul add AqRz dup mul add sqrt def
     /AqRx AqRx AqRn div def /AqRy AqRy AqRn div def /AqRz AqRz AqRn div def
@@ -274,9 +274,13 @@
     % the virtual camera: straight above the origin, on the line through
     % the water point along (heading of D, slope of R)
     /AqS AqSurfT AqDh mul AqRh div def
-    /AqSvX Mx def /AqSvY My def /AqSvZ Mz def /AqSvC CamY def /AqSvM MarchT0 def
+    /AqSvX Mx def /AqSvY My def /AqSvZ Mz def /AqSvC CamY def /AqSvM MarchT0 def /AqSvB CvB def
     /Mx AqHx AqRh mul def /Mz AqHz AqRh mul def /My AqRy def
-    /AqOy AqLev AqS AqRy mul sub def
+    % (Curve: the virtual ray bends too, and leaves the water point at the
+    % reflected slope; its height at t is AqOy + My t + CvB t^2)
+    /CvB CvA AqRh dup mul mul def
+    /My AqRy CvB AqS mul 2 mul sub def
+    /AqOy AqLev AqS My mul sub CvB AqS dup mul mul sub def
     /CamY AqOy def /MarchT0 AqS def
     fc-water-dry-hit /AqH exch def
     AqH 0 gt {
@@ -293,7 +297,7 @@
     /fc-haze /fc-water-haze load def
     AqH fc-clouds
     /fc-haze /AqHazeOrig load def
-    /Mx AqSvX def /My AqSvY def /Mz AqSvZ def /CamY AqSvC def /MarchT0 AqSvM def
+    /Mx AqSvX def /My AqSvY def /Mz AqSvZ def /CamY AqSvC def /MarchT0 AqSvM def /CvB AqSvB def
     Cr AqR Tr mul add Cg AqG Tr mul add Cb AqB Tr mul add
 } bind def
 
@@ -302,6 +306,7 @@
 % outside fc-water-shade
 /fc-water-reflect-at {                           % t y -> r g b
     /AqLev exch def /AqSurfT exch def
+    /AqMy My CvB AqSurfT mul 2 mul add def
     /AqNrx 0 def /AqNry 1 def /AqNrz 0 def
     fc-water-reflect
 } bind def
@@ -315,12 +320,14 @@
 /fc-water-shade {                                % t -> r g b
     /AqSurfT exch def
     /AqPx Mx AqSurfT mul def /AqPz Mz AqSurfT mul def
+    % the ray's slope where it meets the water (it bends, #158; My when straight)
+    /AqMy My CvB AqSurfT mul 2 mul add def
     % a water hit counts as farther for the antialiasing edge test, so the
     % shoreline (water and bank at about the same distance) is smoothed
     /FcKey AqSurfT 1.2 mul def
     AqPx AqPz AqSurfT fc-water-normal /AqNrz exch def /AqNry exch def /AqNrx exch def
     % Fresnel (Schlick, water's F0 0.02)
-    Mx AqNrx mul My AqNry mul add Mz AqNrz mul add neg 0 fc-max
+    Mx AqNrx mul AqMy AqNry mul add Mz AqNrz mul add neg 0 fc-max
     1 exch sub 5 exp 0.98 mul 0.02 add /AqFr exch def
     % below the surface: the water's colour, and the bed through shallows
     AqSurfT  AqBedT 0 gt { AqBedT AqSurfT sub My neg mul } { 1000 } ifelse
@@ -356,12 +363,12 @@
     % went in, then bisect
     % (the nearest hit so far: the ground, or a lake the river runs into)
     RvBaked AqBest 0 gt and {
-        Mx AqBest mul Mz AqBest mul fc-river-level My AqBest mul CamY add gt {
+        Mx AqBest mul Mz AqBest mul fc-river-level My AqBest mul CamY add CvB AqBest dup mul mul add gt {
             /AqDt ErTex 0.5 mul Mx dup mul Mz dup mul add sqrt 0.01 fc-max div def
             /AqB AqBest def /AqA AqBest def /AqOut false def
             128 {
                 /AqA AqA AqDt sub MarchT0 fc-max def
-                Mx AqA mul Mz AqA mul fc-river-level My AqA mul CamY add le { /AqOut true def exit } if
+                Mx AqA mul Mz AqA mul fc-river-level My AqA mul CamY add CvB AqA dup mul mul add le { /AqOut true def exit } if
                 /AqB AqA def
                 AqA MarchT0 le { exit } if
             } repeat
@@ -369,7 +376,7 @@
             AqOut {
                 8 {
                     /AqM AqA AqB add 2 div def
-                    Mx AqM mul Mz AqM mul fc-river-level My AqM mul CamY add le
+                    Mx AqM mul Mz AqM mul fc-river-level My AqM mul CamY add CvB AqM dup mul mul add le
                     { /AqA AqM def } { /AqB AqM def } ifelse
                 } repeat
                 /AqBest AqA AqB add 2 div def
@@ -386,13 +393,25 @@
 /fc-water-plane {                                % level region -> -
     /AqPr exch def /AqPl exch def
     My 0 lt AqPl CamY lt and {
-        AqPl CamY sub My div /AqTp exch def
+        AqPl fc-water-plane-t /AqTp exch def
         AqTp TMax le AqBest 0 lt AqTp AqBest lt or and {
             AqPr true eq { true } { Mx AqTp mul Mz AqTp mul AqPr fc-water-in-lake } ifelse {
                 /AqBest AqTp def /AqWet true def /AqLev AqPl def
             } if
         } if
     } if
+} bind def
+
+% where a descending ray (My < 0) from above a level meets it: straight,
+% or (Curve, #158) the first root of CamY + My t + CvB t^2 = level, 1e30
+% when the bent ray passes over it (beyond the horizon)
+/fc-water-plane-t {                              % level -> t
+    CvB 0 gt {
+        CamY exch sub /AqQc exch def
+        My dup mul 4 CvB mul AqQc mul sub dup 0 lt { pop 1e30 } {
+            sqrt My sub AqQc 2 mul exch div
+        } ifelse
+    } { CamY sub My div } ifelse
 } bind def
 
 % is (x, z) inside a map lake, or within its shore band? (fc_map.ps's

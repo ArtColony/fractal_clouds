@@ -929,6 +929,27 @@ The ground passes through every grid value (Catmull-Rom). The only addition is z
 
 Speed, compiled (kernelimage, test build): the Grand Canyon view at 1280×800 with 3×3 supersampling takes 38 s with the 768² grid and 44 s with a 1024² grid.
 
+### Earth curvature (`Curve`)
+
+Over long sight lines the ground falls away below the camera's level: by d²/(2R) at distance d, less about 13% for standard refraction. That is 7 m at 10 km, 27 m at 20 km and 109 m at 40 km (#158). `Curve` true puts this in.
+
+The world stays level and the ray bends instead, which is the same thing seen from the camera. The ray's height at t is CamY + My·t + `CvB`·t², with `CvB` = `CvA`·(Mx² + Mz²) and `CvA` = (1 − `CurveRefr`)/(2·`CurveR`/`CurveUnit`). As a result:
+- Heights, water levels, the snow line and the coast's bands keep their true values.
+- Distant land sinks behind the horizon, and the sea's horizon dips below level.
+- The water's Fresnel, glitter and reflections use the ray's slope where it meets the surface.
+- Clouds, haze, shafts and the storm still see straight rays.
+
+With `Curve` off, `CvA` and `CvB` are exactly 0 and every image is unchanged to the bit.
+
+`spikes/curve_check.ps` measures the horizon's dip and the hidden height of a wall across open water through the real hit code. Both match the textbook to four figures. `spikes/curve_islands.ps` renders four 100 m islands 10 to 40 km out, and their tops land within a pixel of the textbook. The write-up is in `docs/spikes/158-curvature/`.
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `Curve` | false | Bend the rays for the earth's curvature and refraction. | true (spikes/curve_islands.ps) |
+| `CurveR` | 6371008.8 | The earth's radius, metres. | |
+| `CurveRefr` | 0.13 | Refraction coefficient k: the light bends this fraction of the curvature back. 0.13 is standard; 0 is the bare geometry. | |
+| `CurveUnit` | `DemUnit`, else 10 | Metres per world unit. | |
+
 ## The coast (`fc_coast.ps`, with `MapSea`)
 
 The map's bake measures each texel's signed distance to the coastline

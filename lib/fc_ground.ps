@@ -280,7 +280,7 @@
 /fc-terrain-step {                               % t s -> s'
     /GnQs exch def /GnQt exch def
     GnNear {
-        My GnQt mul CamY add GnHq sub /GnQc exch def
+        My GnQt mul CamY add CvB GnQt dup mul mul add GnHq sub /GnQc exch def
         GnQc GnBand lt {
             GnQc BoulderH 1.3 mul div  BoulderSize 0.35 mul GnF 0.5 mul fc-max  fc-max
             0.6 mul GnStepMin fc-max GnQs fc-min /GnQs exch def

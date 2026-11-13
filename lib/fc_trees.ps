@@ -1237,7 +1237,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
 /fc-forest-f {
     /Fft exch def
     /Ffx Mx Fft mul def /Ffz Mz Fft mul def
-    My Fft mul CamY add  Ffx Ffz FsO fc-height sub /Ffg exch def
+    My Fft mul CamY add CvB Fft dup mul mul add  Ffx Ffz FsO fc-height sub /Ffg exch def
     TreesOn {
         /FcY Ffg def
         Ffg Ffx Ffz Fft Ffx Ffz fc-forest-mapt fc-canopy sub
@@ -1252,8 +1252,8 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
     /FcA FsHor dup mul def /FcRay true def
     {
         FsT TMax gt { exit } if
-        /FsY My FsT mul CamY add def
-        FsY FsTop gt My 0 gt and { exit } if
+        /FsY My FsT mul CamY add CvB FsT dup mul mul add def
+        FsY FsTop gt My CvB FsT mul 2 mul add 0 gt and { exit } if
         /FsO FsT fc-terrain-oct def
         /FsX Mx FsT mul def /FsZ Mz FsT mul def
         /FsGap FsY FsX FsZ FsO fc-height sub def
@@ -1310,7 +1310,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
         FsX FsZ fc-forest-mapt /FsHsc exch def /FsD exch def
         FsHit fc-forest-w /FsW exch def
         FsD 0.001 gt FsW 0 gt and {
-            /FcY My FsHit mul CamY add FsX FsZ FsO fc-height sub def
+            /FcY My FsHit mul CamY add CvB FsHit dup mul mul add FsX FsZ FsO fc-height sub def
             /FcPx FsHit PixAng mul def
             FsX FsZ FsD FsHsc fc-crowns FsW mul 0.05 gt FcIn 100 lt FcIKind 2 eq and FsTrunks and or   % (a log is lower than 0.05)
                 FsTrunks not FcY FcIn 0.3 mul ge or and {
@@ -1390,7 +1390,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
 % stack depth either way, so a compiled kernel can take both)
 /fc-tree-shade-1 {
     /Fwt exch def
-    /Fwx Mx Fwt mul def /Fwy My Fwt mul CamY add def /Fwz Mz Fwt mul def
+    /Fwx Mx Fwt mul def /Fwy My Fwt mul CamY add CvB Fwt dup mul mul add def /Fwz Mz Fwt mul def
     /FsO Fwt fc-terrain-oct def /FcPx Fwt PixAng mul def
     Fwx Fwz fc-forest-mapt /Fwhs exch def /Fwd exch def
     FsTrunks FsBlobOn or { /FcY Fwy Fwx Fwz FsO fc-height sub def } if     % (for FcIn)
@@ -1627,7 +1627,7 @@ FsPalmOn { /FcRtMax FcRtMax FsCell 0.25 mul add def } if
 % the ground)
 /fc-tree-shade-at {                              % t -> -
     /Fwt exch def
-    /Fwx Mx Fwt mul def /Fwy My Fwt mul CamY add def /Fwz Mz Fwt mul def
+    /Fwx Mx Fwt mul def /Fwy My Fwt mul CamY add CvB Fwt dup mul mul add def /Fwz Mz Fwt mul def
     /FsO Fwt fc-terrain-oct def
     /Fwg Fwy Fwx Fwz FsO fc-height sub def
     Fwx Fwz fc-forest-map pop /Fwd exch def

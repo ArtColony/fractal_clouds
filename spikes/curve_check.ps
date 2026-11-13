@@ -1,0 +1,51 @@
+%!PS-Adobe-3.0
+% curve_check.ps -- earth curvature (#158) against the textbook: a wall
+% stands out of open water CcD world units away, and the camera is CcH
+% above the water. Through fc-landscape-hit (the march and the water
+% plane together) this finds
+%   - the dip: the lowest ray that still meets the water, in degrees
+%     below horizontal (with Curve off the water reaches the horizontal)
+%   - the hidden height: the lowest point of the wall in view, above the
+%     water (with Curve off, 0: the wall's foot at the waterline)
+% and prints them; docs/spikes/158-curvature/README.md has the textbook
+% values to compare (sqrt(2h/R') and (d - sqrt(2hR'))^2 / (2R'),
+% R' = R / (1 - k)).
+%   printf '/Curve true def /CcH 0.2 def /CcD 2000 def\n(spikes/curve_check.ps) run\n' > c.ps
+%   pscat --page 10x10 --png c.png c.ps
+/Curve where { pop } { /Curve true def } ifelse
+/CcH where { pop } { /CcH 0.2 def } ifelse      % 2 m
+/CcD where { pop } { /CcD 2000 def } ifelse     % 20 km
+/Ocean where { pop } { /Ocean false def } ifelse
+/Erode false def /TreesOn false def
+/CamHeight CcH def /WaterY 0 def
+/TerrH 100 def /TerrBase -50 def
+/TMax 20000 def /MarchT0 0.5 def
+(lib/fc_landscape.ps) run
+fc-landscape-setup
+% the world: sea floor at -50, a 150-unit wall from z = CcD on
+/fc-height { pop exch pop CcD gt { 100 } { -50 } ifelse } def
+% a ray at p degrees below horizontal, heading +z: wall (true) or water
+/cc-ray { /CcP exch def
+    /Mx 0 def /My CcP neg sin def /Mz CcP cos def
+    /CvB Mz dup mul CvA mul def
+    fc-landscape-hit /CcT exch def
+    CcT 0 gt { AqWet not } { false } ifelse
+} def
+/cc-print { 32 string cvs print } def
+% the dip: bisect between a ray that meets the water (5 degrees down)
+% and one that passes over it (straight out), with the wall moved away
+/CcDsave CcD def /CcD 1e9 def
+/CcA 5 def /CcB 0 def
+60 { /CcM CcA CcB add 2 div def
+    CcM cc-ray pop CcT 0 gt AqWet and { /CcA CcM def } { /CcB CcM def } ifelse } repeat
+(dip_deg ) print CcA cc-print (\n) print
+% the hidden height: bisect between a ray that meets the water and one
+% that meets the wall, and take the wall hit's height
+/CcD CcDsave def
+/CcA 5 def /CcB -1 def
+60 { /CcM CcA CcB add 2 div def
+    CcM cc-ray { /CcB CcM def } { /CcA CcM def } ifelse } repeat
+CcB cc-ray pop
+(hidden ) print My CcT mul CamY add CvB CcT dup mul mul add cc-print
+( t ) print CcT cc-print (\n) print
+showpage
