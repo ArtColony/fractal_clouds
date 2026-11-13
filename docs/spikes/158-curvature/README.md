@@ -58,7 +58,7 @@ Two things this spike ran into, both about the test rather than the curvature:
 
 ## The Grand Canyon
 
-`spikes/grand_canyon_dem.ps` (Mather Point, looking across to the North Rim about 16 km away) with `Curve` off and on, and their difference. The far rim drops by about a pixel at 960 px wide, and the skyline is the main thing that moves. Rendering takes 9 s either way (kernelimage, 960×600, 2×2).
+`spikes/grand_canyon_dem.ps` (from Mather Point, looking north-north-east) with `Curve` off and on, and their difference. The skyline is 12 to 17 km out, and it drops by about a pixel at 960 px wide; it is the main thing that moves. Part of that skyline is not the North Rim. The 24 km grid ends about 12.4 km north of Mather, and between bearings of about −10° and 30° the skyline is the grid's edge carried on. The real North Rim, 16 to 18 km out, fills only bearings 40° to 70°. A wider grid fixes this (#159). Rendering takes 9 s either way (kernelimage, 960×600, 2×2).
 
 ![Grand Canyon far rim: off, on, difference](grand_canyon-rim-off-on-diff.png)
 
