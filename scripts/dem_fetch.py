@@ -12,6 +12,10 @@ writes:
     OUT.bin    N*N little-endian binary64 heights in metres, row by row, the
                north row first and each row west to east: read it with
                (OUT.bin) N N mul readreals
+    OUT.ps     the same for a piece: DemFile, DemN, DemCell, DemLo, DemHi,
+               DemSlope (the steepest cell), DemLat0 DemLon0 (each kept if
+               already defined); run it before loading lib/fc_landscape.ps
+               with DemOn true (lib/fc_dem.ps, #156)
     OUT.json   where it came from: source, tiles and their sha256, licence
                and attribution, the grid's centre, size and cell, the
                projection, and the height range
@@ -232,6 +236,19 @@ def main():
     with open(a.out + ".json", "w") as f:
         json.dump(meta, f, indent=2)
         f.write("\n")
+    gy, gx = np.gradient(h, cell)
+    slope = float(np.hypot(gx, gy).max())
+    meta["slope_max"] = slope
+    with open(a.out + ".json", "w") as f:
+        json.dump(meta, f, indent=2)
+        f.write("\n")
+    with open(a.out + ".ps", "w") as f:
+        f.write("% " + os.path.basename(a.out) + ": a real terrain grid (scripts/dem_fetch.py, #155);\n")
+        f.write("% " + meta["attribution"] + "\n")
+        for k, v in [("DemFile", "(" + a.out + ".bin)"), ("DemN", str(n)), ("DemCell", repr(cell)),
+                     ("DemLo", repr(float(h.min()))), ("DemHi", repr(float(h.max()))),
+                     ("DemSlope", repr(slope)), ("DemLat0", repr(lat0)), ("DemLon0", repr(lon0))]:
+            f.write(f"/{k} where {{ pop }} {{ /{k} {v} def }} ifelse\n")
     if a.preview:
         hillshade(h, cell, a.preview)
     print(f"dem_fetch: {a.out}.bin: {n}x{n}, cell {cell:.1f} m, heights {h.min():.0f}..{h.max():.0f} m, "

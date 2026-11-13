@@ -1,0 +1,26 @@
+%!PS-Adobe-3.0
+% dem_check.ps -- does the ground (lib/fc_dem.ps, #156) pass through the
+% grid? fc-height-proc at 300 grid cells against the grid's own heights,
+% in metres: without the detail (exact but for rounding) and with all of it
+% (off by about DemDetail cells, mean about 0).
+/DemOn true def
+(data/terrain/grand_canyon.ps) run
+/Erode false def
+(lib/fc_landscape.ps) run
+42 srand
+/Ck { DemFile DemN DemN mul readreals } def
+/CkH Ck def
+/ck-run {                                        % oct -> maxerr meanerr
+    /CkO exch def /CkMax 0 def /CkSum 0 def
+    300 {
+        rand DemN mod /CkI exch def rand DemN mod /CkJ exch def
+        CkI DmC sub DmCw mul  DmC CkJ sub DmCw mul  CkO fc-height-proc
+        TerrBase sub TerrH div DemHi DemLo sub mul DemLo add      % back to metres
+        CkH CkJ DemN mul CkI add get sub
+        dup /CkSum exch CkSum add def abs dup CkMax gt { /CkMax exch def } { pop } ifelse
+    } repeat
+    CkMax CkSum 300 div
+} bind def
+(dem_check: cell ) print DemCell 40 string cvs print ( m, detail ) print DemDetail DemCell mul 40 string cvs print ( m\n) print
+2 ck-run (  no detail:   max |err| ) print exch 40 string cvs print ( m, mean ) print 40 string cvs print ( m\n) print
+8 ck-run (  full detail: max |err| ) print exch 40 string cvs print ( m, mean ) print 40 string cvs print ( m\n) print

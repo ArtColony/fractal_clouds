@@ -18,6 +18,11 @@
 % pixels. Colours are given in sRGB and used in linear light.
 % Reads PixAng (radians per image pixel; fc_render.ps sets it).
 
+% Real terrain (#156): a measured elevation grid as the ground. lib/fc_dem.ps
+% sets the terrain's scale (TerrH, TerrBase, TerrScale, TerrFn 4) from the
+% grid, so it loads before the defaults below.
+/DemOn false fc-default
+DemOn { (lib/fc_dem.ps) run } if
 /TerrScale 0.011 fc-default          % 1 / wavelength of the main ridges
 /TerrH 52 fc-default                 % height of the tallest peaks
 /TerrBase -6 fc-default              % valley floor
@@ -101,7 +106,8 @@ GroundOn { /GroundOct 3 fc-default /TerrNormMin 0.03 fc-default } if
 /TerraceFault 70 fc-default          % spacing of the faults, world units (0: none)
 /TerraceThrow 0.7 fc-default         % how far a fault shifts the beds, in beds
 
-% TerrFn: 0 ridged only, 1 erosion fBm only, 3 the massif hierarchy
+% TerrFn: 0 ridged only, 1 erosion fBm only, 3 the massif hierarchy,
+% 4 a real grid (DemOn, lib/fc_dem.ps)
 /TerrFn 3 fc-default
 
 % Terrain from a map (fc_map.ps, loaded at the end of this file when MapOn
@@ -191,6 +197,14 @@ SnowFill 0 gt {
         Hx2 Hz2 Ho fc-eroded 0.25 sub 0.55 div
         dup 0 lt { pop 0 } if 1.5 exp 1.1 mul
     } {
+    TerrFn 4 eq {
+        % (#156) a real grid, and zero-mean detail only below its cell
+        Hmx Hmz fc-dem-height
+        Ho 2 sub DemOct fc-min dup 0 gt {
+            /Hdo exch def
+            Hmx TerrScale mul 3.7 add Hmz TerrScale mul 1.3 add Hdo fc-eroded 0.5 sub DmDa mul add
+        } { pop } ifelse
+    } {
     /fc-terrain-base where {
         pop
         % the map says where the mountains are: its lift, massif mask and how
@@ -223,6 +237,7 @@ SnowFill 0 gt {
         } { 0 } ifelse
         Hm 0.6 mul 0.4 add mul dup /Hdt exch def      % the detail, kept for fc-terrace
         Hm Hrd 0.92 mul 0.18 add mul 0.06 add add
+    } ifelse
     } ifelse
     } ifelse } ifelse
     TerrH mul TerrBase add
@@ -322,6 +337,7 @@ SnowFill 0 gt {
 } bind def
 
 /TerrTop TerrH 1.25 mul TerrBase add def
+/TerrStep 0.42 fc-default            % the march's step: this much of the height above the ground
 % t s -> s': a hook on the march's next step s from t along the ray
 % (lib/fc_coast.ps keeps it short near map stacks)
 /fc-terrain-step { exch pop } def
@@ -347,7 +363,7 @@ SnowFill 0 gt {
             exit
         } if
         /Gprev Gt def
-        /Gt Gt Gt Gd 0.42 mul Gt 0.004 mul 0.2 add 2 copy lt { exch } if pop fc-terrain-step add def
+        /Gt Gt Gt Gd TerrStep mul Gt 0.004 mul 0.2 add 2 copy lt { exch } if pop fc-terrain-step add def
     } loop
     Ghit
 } bind def
@@ -641,7 +657,7 @@ SnowFill 0 gt {
 % the coarse shadow terrain can stand above the detailed surface by about
 % the height of the octaves it leaves out; without this bias every point
 % would start "inside" the mountain and read as shadowed
-/ShadBias TerrH 0.5 ShadOctT exp mul 0.8 mul def
+/ShadBias TerrH 0.5 ShadOctT exp mul 0.8 mul fc-default
 /fc-terrain-shadow {                             % x y z -> lit 0..1
     /Wz exch def /Wy exch def /Wx exch def
     /Wy Wy 0.3 add def
