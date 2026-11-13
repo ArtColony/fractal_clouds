@@ -236,7 +236,7 @@
 % the march's own step is safe: the top is gentle and the walls only fall.
 /fc-terrain-step {
     /XcSs exch def /XcRt exch def
-    My XcRt mul CamY add XcSs My 0 fc-min mul add /XcRy exch def
+    My XcRt mul CamY add CvB XcRt dup mul mul add XcSs My 0 fc-min mul add /XcRy exch def
     XcRy XcStY lt { XcSt XcRt 0.0007 mul 0.035 add fc-max dup XcSs lt { /XcSs exch def } { pop } ifelse } if
     XcRy XcMsY lt { XcMs dup XcSs lt { /XcSs exch def } { pop } ifelse } if
     XcSs

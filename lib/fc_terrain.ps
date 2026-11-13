@@ -343,12 +343,28 @@ SnowFill 0 gt {
 /fc-terrain-step { exch pop } def
 /MarchT0 0.5 fc-default             % where marches start along the ray (a reflection starts at the water)
 
+% Earth curvature (#158): Curve true lowers the ground and water by
+% d^2 (1 - CurveRefr) / (2 CurveR) at horizontal distance d from the camera,
+% so distant land sinks behind the horizon and the sea's horizon dips.
+% The world stays level and the ray bends instead (the same thing, seen
+% from the camera): its height at t is CamY + My t + CvB t^2, with
+% CvB = CvA (Mx^2 + Mz^2) set per ray. Heights, the water's level, the snow
+% line and the like keep their true values. Clouds, haze, shafts and the
+% storm still see straight rays. Off: CvA and CvB are 0, and every ray is
+% straight to the bit.
+/Curve false fc-default
+/CurveR 6371008.8 fc-default         % the earth's radius, metres
+/CurveRefr 0.13 fc-default           % refraction: light bends this fraction of the way back (0.13 standard)
+/CurveUnit DemOn { DemUnit } { 10 } ifelse fc-default  % metres per world unit
+/CvA Curve { 1 CurveRefr sub 2 CurveR mul CurveUnit div div } { 0 } ifelse def
+/CvB 0 def                           % the ray's bend (fc_landscape sets it per pixel)
+
 /fc-terrain-hit {                                % -> t | -1
     /Gt MarchT0 def /Gprev MarchT0 0.5 gt { MarchT0 } { 0 } ifelse def /Ghit -1 def
     {
         Gt TMax gt { exit } if
-        /Gy My Gt mul CamY add def
-        Gy TerrTop gt My 0 gt and { exit } if
+        /Gy My Gt mul CamY add CvB Gt dup mul mul add def
+        Gy TerrTop gt My CvB Gt mul 2 mul add 0 gt and { exit } if
         /Go Gt fc-terrain-oct def
         Mx Gt mul Mz Gt mul Go fc-height
         Gy exch sub /Gd exch def
@@ -356,7 +372,7 @@ SnowFill 0 gt {
             /Ga Gprev def /Gb Gt def
             5 {
                 /Gm Ga Gb add 2 div def
-                My Gm mul CamY add  Mx Gm mul Mz Gm mul Go fc-height  sub
+                My Gm mul CamY add CvB Gm dup mul mul add  Mx Gm mul Mz Gm mul Go fc-height  sub
                 0 lt { /Gb Gm def } { /Ga Gm def } ifelse
             } repeat
             /Ghit Ga Gb add 2 div def
@@ -377,7 +393,7 @@ SnowFill 0 gt {
 
 /fc-terrain-shade {                              % t -> r g b
     /Kt exch def
-    /Kx Mx Kt mul def /Ky My Kt mul CamY add def /Kz Mz Kt mul def
+    /Kx Mx Kt mul def /Ky My Kt mul CamY add CvB Kt dup mul mul add def /Kz Mz Kt mul def
     /Ko Kt fc-terrain-oct def
     /Ke Kt PixAng mul 2 mul TerrNormMin fc-max def
     /Kh Kx Kz Ko fc-height def
