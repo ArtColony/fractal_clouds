@@ -1,0 +1,35 @@
+%!PS-Adobe-3.0
+% tonto_phantom.ps -- a real viewpoint (#159): the Grand Canyon from the
+% Tonto Trail above Phantom Ranch, where the public-domain NPS panorama
+% "Phantom Ranch As Seen From Tonto Trail 3225" (31 March 2013, Wikimedia
+% Commons, from the park's Flickr) was taken. The camera stands where
+% scripts/skyline_overlay.py's fit put it: 155 m south-west of the photo's
+% geotag and 29 m above the grid's ground there (the geotag's ground is
+% 1178 m). docs/spikes/159-viewpoint/ has the overlay.
+%   scripts/render.sh spikes/tonto_phantom.ps                (north, 64 degrees)
+%   scripts/render.sh -D Yaw=330 --pass depth spikes/tonto_phantom.ps
+/DemOn true def
+(data/terrain/grand_canyon.ps) run
+/Erode where { pop } { /Erode false def } ifelse
+/Curve where { pop } { /Curve true def } ifelse
+/StandLL where { pop } { /StandLL [ 36.089756 -112.094454 ] def } ifelse
+/CamHeight where { pop } { /CamHeight 1190.2 714 sub 10 div def } ifelse   % eye at 1190.2 m
+/Yaw where { pop } { /Yaw 0 def } ifelse
+/Pitch where { pop } { /Pitch 4 def } ifelse
+/HFov where { pop } { /HFov 64 def } ifelse
+/TMax where { pop } { /TMax 3000 def } ifelse
+/HazeDist where { pop } { /HazeDist 6000 def } ifelse
+/HazeH where { pop } { /HazeH 120 def } ifelse
+/SnowLine where { pop } { /SnowLine 1000 def } ifelse
+/TreeLine where { pop } { /TreeLine -1000 def } ifelse
+/CloudLo where { pop } { /CloudLo 330 def } ifelse
+/CloudHi where { pop } { /CloudHi 370 def } ifelse
+/Threshold where { pop } { /Threshold 2 def } ifelse      % a clear day: no clouds
+/SunElev where { pop } { /SunElev 52 def } ifelse     % 11:06 MST, 31 March 2013
+/SunAzim where { pop } { /SunAzim 150 def } ifelse
+(lib/fc_landscape.ps) run
+/Res where { pop } { /Res 1 def } ifelse
+/FrW where { pop } { /FrW 1280 def } ifelse
+/FrH where { pop } { /FrH 800 def } ifelse
+FrW FrH fc-landscape
+showpage

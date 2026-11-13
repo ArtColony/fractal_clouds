@@ -45,6 +45,14 @@
 %                    higher; a map lake's level isn't used: give y)
 %   LookTilt  0      degrees added to the Pitch LookAt works out (positive
 %                    tilts the view up, lowering the target in the frame)
+%   StandLL   null   with DemOn: [lat lon] or [lat lon m] -- StandAt from a
+%                    latitude and longitude (the grid's projection); m sets
+%                    CamAbove, metres above the ground
+%   LookLL    null   with DemOn: [lat lon] or [lat lon elevation-m] -- LookAt
+%                    likewise (the elevation is metres above sea level)
+%   FocalMM   null   a number: HFov from a real lens, 2 atan(SensorMM / 2 /
+%                    FocalMM) (35 mm equivalent with SensorMM 36)
+%   SensorMM  36     the sensor's width, mm
 %   BakeCache false  keep the erosion and forest bakes in renders/cache/ and
 %                    read them back (lib/fc_cache.ps)
 %   Pass      /beauty  /mask, /depth, /material or /matte: draw that render
@@ -74,6 +82,36 @@
 /StandAt where { pop } { /StandAt null def } ifelse
 /LookAt where { pop } { /LookAt null def } ifelse
 /LookTilt where { pop } { /LookTilt 0 def } ifelse
+% (#159) on a real grid (DemOn), by latitude and longitude instead: the
+% grid's own projection, as fc_dem.ps's fc-dem-xz (not loaded yet)
+/StandLL where { pop } { /StandLL null def } ifelse
+/LookLL where { pop } { /LookLL null def } ifelse
+StandLL null ne LookLL null ne or {
+    /LnU 10 def
+    /DemUnit where { pop
+        /LnU DemUnit def } if
+    /fc-landscape-ll {                           % [lat lon ...] -> x z
+        dup 1 get DemLon0 sub 1 index 0 get cos mul 6371008.8 mul 3.14159265358979 mul 180 div LnU div
+        exch 0 get DemLat0 sub 6371008.8 mul 3.14159265358979 mul 180 div LnU div
+    } bind def
+    StandLL null ne {
+        /StandAt [ StandLL fc-landscape-ll ] def
+        StandLL length 3 ge { /CamAbove StandLL 2 get LnU div def } if
+    } if
+    LookLL null ne {
+        LookLL length 3 ge {
+            % a height in metres: above the grid's base (DemBase, else its lowest point)
+            /LnB null def
+            /DemBase where { pop
+                /LnB DemBase def } if
+            /LookAt [ LookLL fc-landscape-ll LookLL 2 get LnB null eq { DemLo } { LnB } ifelse sub LnU div exch ] def
+        } { /LookAt [ LookLL fc-landscape-ll ] def } ifelse
+    } if
+} if
+% a real camera's field of view: the sensor's width over the focal length
+/FocalMM where { pop } { /FocalMM null def } ifelse
+/SensorMM where { pop } { /SensorMM 36 def } ifelse
+FocalMM null ne { /HFov SensorMM 2 div FocalMM atan 2 mul def } if
 StandAt null ne { /TerrOX StandAt 0 get def /TerrOZ StandAt 1 get def } if
 /LnLkOn false def
 LookAt null ne {
