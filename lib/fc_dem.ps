@@ -1,0 +1,107 @@
+%!PS-Adobe-3.0
+% fc_dem.ps -- real terrain: a measured elevation grid as the ground, with
+% fractal detail only below its cell (fractal_clouds#156, #157; epic #164).
+%
+% fc_terrain.ps loads this file first thing when DemOn is true, before its
+% own defaults, so the grid sets the terrain's scale. A piece runs a grid's
+% settings file (scripts/dem_fetch.py writes it next to the grid) and turns
+% the ground on, before loading the landscape: DemOn true, then
+%
+%   (data/terrain/grand_canyon.ps) run      % DemFile DemN DemCell DemLo ...
+%
+% and Erode false (the grid is already eroded), then lib/fc_landscape.ps.
+%
+% Map coordinates are the grid's: x east, z north, in world units of
+% DemUnit metres, 0 0 at the grid's centre (DemLat0 DemLon0). StandAt and
+% LookAt (fc_landscape.ps) take them; fc-dem-xz gives them for a latitude
+% and longitude.
+%
+%   x z fc-dem-height u       the grid at a map point, Catmull-Rom over 4x4
+%                             cells (it passes through every cell's value),
+%                             0..1 over DemLo..DemHi; beyond the grid the
+%                             edge cells carry on
+%   lat lon fc-dem-xz x z     map coordinates of a latitude and longitude
+%                             (the grid's own local projection)
+%
+% fc-height-proc (TerrFn 4) is fc-dem-height plus zero-mean erosion fBm at
+% wavelengths from 1.5 cells down, DemDetail cells high, and only where
+% those octaves are over two pixels: the ridgelines, rims and buttes stay
+% where the grid has them, within a fraction of a cell. Set here, as
+% defaults the piece can override:
+%   TerrH TerrBase   the grid's relief and floor in world units
+%   TerrScale        1 / (1.5 cells): fc-terrain-oct's octaves count the
+%                    detail's
+%   TerrStep         the march's step, as a fraction of the height above
+%                    the ground: small enough for the grid's steepest cell
+%                    (DemSlope) plus the detail's slope
+%   ShadBias         the shadow march's bias: the detail's height, not the
+%                    procedural octaves'
+%
+% Names: this file keeps its temporaries under Dm*.
+
+/DemUnit 10 fc-default               % metres per world unit (trees, camera and clouds keep their sizes)
+/DemBase null fc-default             % metres at world y = 0; null: the grid's lowest point
+/DemDetail 0.3 fc-default            % fractal detail under the cell: its height, in cells
+/DemOct 4 fc-default                 % ... and its octaves at most
+/DemSlope where { pop } { /DemSlope 2 def } ifelse
+/DemLat0 where { pop } { /DemLat0 0 def } ifelse
+/DemLon0 where { pop } { /DemLon0 0 def } ifelse
+
+/DmBase DemBase null eq { DemLo } { DemBase } ifelse def
+/DmCw DemCell DemUnit div def                    % world units per cell
+/DmC DemN 1 sub 2 div def                        % the centre cell
+/DmN1 DemN 1 sub def
+/TerrH DemHi DemLo sub DemUnit div fc-default
+/TerrBase DemLo DmBase sub DemUnit div fc-default
+/TerrScale 1 DmCw 1.5 mul div fc-default
+/TerrFn 4 fc-default
+% the march holds for slopes up to about 1 / TerrStep
+1 DemSlope DemDetail 1.5 mul add 1.1 mul div dup 0.42 gt { pop 0.42 } if /TerrStep exch fc-default
+/ShadBias DmCw DemDetail mul 2 mul fc-default
+
+% the grid, normalised to 0..1 over DemLo..DemHi
+DemFile DemN DemN mul readreals /DmH exch def
+/DmS 1 DemHi DemLo sub div def
+0 1 DmH length 1 sub { DmH exch 2 copy get DemLo sub DmS mul put } for
+
+% Catmull-Rom weights for t in 0..1 -> w0 w1 w2 w3
+/fc-dem-w {
+    /Dmt exch def /Dmt2 Dmt Dmt mul def /Dmt3 Dmt2 Dmt mul def
+    Dmt3 neg Dmt2 2 mul add Dmt sub 0.5 mul
+    Dmt3 3 mul Dmt2 5 mul sub 2 add 0.5 mul
+    Dmt3 -3 mul Dmt2 4 mul add Dmt add 0.5 mul
+    Dmt3 Dmt2 sub 0.5 mul
+} bind def
+
+% one row of the 4x4 (row r, clamped) across the columns Dmi0..Dmi3
+/fc-dem-row {                                    % r -> v
+    0 fc-max DmN1 fc-min DemN mul /Dmro exch def
+    DmH Dmro Dmi0 add get Dmw0 mul
+    DmH Dmro Dmi1 add get Dmw1 mul add
+    DmH Dmro Dmi2 add get Dmw2 mul add
+    DmH Dmro Dmi3 add get Dmw3 mul add
+} bind def
+
+/fc-dem-height {                                 % x z -> u
+    DmC exch DmCw div sub 0 fc-max DmN1 fc-min /Dmfj exch def      % rows run south
+    DmCw div DmC add 0 fc-max DmN1 fc-min /Dmfi exch def
+    Dmfi floor cvi DemN 2 sub fc-min /Dmi exch def
+    Dmfj floor cvi DemN 2 sub fc-min /Dmj exch def
+    Dmfi Dmi sub fc-dem-w /Dmw3 exch def /Dmw2 exch def /Dmw1 exch def /Dmw0 exch def
+    /Dmi0 Dmi 1 sub 0 fc-max def /Dmi1 Dmi def /Dmi2 Dmi 1 add def /Dmi3 Dmi 2 add DmN1 fc-min def
+    Dmfj Dmj sub fc-dem-w /Dmv3 exch def /Dmv2 exch def /Dmv1 exch def /Dmv0 exch def
+    Dmj 1 sub fc-dem-row Dmv0 mul
+    Dmj fc-dem-row Dmv1 mul add
+    Dmj 1 add fc-dem-row Dmv2 mul add
+    Dmj 2 add fc-dem-row Dmv3 mul add
+} bind def
+
+% latitude, longitude -> map x z (world units), the grid's local projection
+/fc-dem-xz {
+    /Dmlon exch def /Dmlat exch def
+    Dmlon DemLon0 sub Dmlat cos mul 6371008.8 mul 3.14159265358979 mul 180 div DemUnit div
+    Dmlat DemLat0 sub 6371008.8 mul 3.14159265358979 mul 180 div DemUnit div
+} bind def
+
+% the detail's height in fc-height-proc's units (TerrH), per unit of fBm
+/DmDa DemDetail DmCw mul TerrH div 2 mul def

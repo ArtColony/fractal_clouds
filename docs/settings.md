@@ -903,6 +903,32 @@ A lake's bed is flat only at the scale of the map: the valley-floor detail
 (about ±`0.2 DetailAmp TerrH`, ±1.7 units with the defaults) stays, so a
 lake shallower than that shows rocks and islands of bed.
 
+## Real terrain (`fc_dem.ps`, with `DemOn`)
+
+A measured elevation grid as the ground (#156, epic #164). `scripts/dem_fetch.py` (#155) writes the grid, `NAME.bin`, and a settings file, `NAME.ps`, that sets `DemFile`, `DemN`, `DemCell`, `DemLo`, `DemHi`, `DemSlope`, `DemLat0` and `DemLon0`. A piece sets `DemOn` true, runs `NAME.ps`, and sets `Erode` false before loading the landscape (`spikes/grand_canyon_dem.ps`).
+
+`fc_terrain.ps` loads `fc_dem.ps` before its own defaults, so the grid sets the terrain's scale:
+- `TerrH` and `TerrBase` come from the grid's relief.
+- `TerrScale` is 1/(1.5 cells), so the detail's octaves follow distance.
+- `TerrFn` is 4.
+- `TerrStep` and `ShadBias` are set as in the table below.
+
+Map coordinates are the grid's: x east, z north, in world units, with 0 0 at its centre. `StandAt` and `LookAt` take them; `lat lon fc-dem-xz` gives them.
+
+The ground passes through every grid value (Catmull-Rom). The only addition is zero-mean erosion fBm at wavelengths from 1.5 cells down, where those octaves are over two pixels. On the Grand Canyon grid it stays within 3.1 m of the grid at 300 random cells (mean 0.03 m; the cell is 31 m), measured by `spikes/dem_check.ps`.
+
+| Setting | Default | What it does | Used |
+|---|---|---|---|
+| `DemOn` | false | Load `fc_dem.ps`: the grid in `DemFile` is the ground (`TerrFn` 4). | true (spikes/grand_canyon_dem.ps) |
+| `DemUnit` | 10 | Metres per world unit. 10 keeps trees, `CamAbove` and cloud heights at their usual sizes. | 10 |
+| `DemBase` | null | Metres at world y = 0. null means the grid's lowest point. | |
+| `DemDetail` | 0.3 | The detail under the cell: its height, in cells. | 0.3 |
+| `DemOct` | 4 | The detail's octaves at most. | 4 |
+| `TerrStep` | 0.42 | The terrain march's step, as a fraction of the height above the ground. It holds for slopes up to about 1/`TerrStep`. With `DemOn` it is set from the grid's steepest cell (`DemSlope`) plus the detail's slope: 0.25 for the Grand Canyon (slope 3.5). | 0.25 (DEM) |
+| `ShadBias` | 0.8·`TerrH`·0.5^`ShadOctT` | The shadow march's start bias (see below). With `DemOn` it is the detail's height, not the procedural octaves'. | |
+
+Speed, compiled (kernelimage, test build): the Grand Canyon view at 1280×800 with 3×3 supersampling takes 38 s with the 768² grid and 44 s with a 1024² grid.
+
 ## The coast (`fc_coast.ps`, with `MapSea`)
 
 The map's bake measures each texel's signed distance to the coastline

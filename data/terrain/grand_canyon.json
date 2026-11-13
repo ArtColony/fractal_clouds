@@ -35,5 +35,6 @@
   "height_min_m": 714.0,
   "height_max_m": 2520.268713840866,
   "made": "2026-11-12",
-  "made_by": "scripts/dem_fetch.py (#155)"
+  "made_by": "scripts/dem_fetch.py (#155)",
+  "slope_max": 3.4906326117480018
 }

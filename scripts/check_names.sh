@@ -9,10 +9,11 @@
 # material hook's Alb KlMul KskyMul KbMul (and Ksnow, which fc_ground.ps clears on its boulders), and the settings and per-pixel
 # values fc_landscape.ps sets for the other libraries, such as the ray
 # Mx My Mz that fc_water.ps points along a reflection, TMax that fc_ocean.ps shortens under the sea, the ProfileProcs list each library adds to,
-# and FcShapeMul, which a ShapeMul layer's Shape sets for fc_clouds.ps) go in ALLOW.
+# FcShapeMul, which a ShapeMul layer's Shape sets for fc_clouds.ps, and the terrain
+# settings fc_dem.ps sets from a real grid before fc_terrain.ps's defaults) go in ALLOW.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-ALLOW=" PixAng Pitch Yaw Ksnow TerrOX TerrOZ ErBaked ErBaking ErDelta Alb KlMul KskyMul KbMul CamY FcKey TreeLine TreesOn SkyAmb AmbTop AmbBot Mx My Mz MarchT0 MpX MpZ TMax ProfileProcs TerrTop TerrCoast WaterY MapSea AqMatPrev CloudLayers FcShapeMul "
+ALLOW=" PixAng Pitch Yaw TerrH TerrBase TerrScale TerrFn TerrStep ShadBias Ksnow TerrOX TerrOZ ErBaked ErBaking ErDelta Alb KlMul KskyMul KbMul CamY FcKey TreeLine TreesOn SkyAmb AmbTop AmbBot Mx My Mz MarchT0 MpX MpZ TMax ProfileProcs TerrTop TerrCoast WaterY MapSea AqMatPrev CloudLayers FcShapeMul "
 
 dups=$(for f in lib/*.ps; do
     { grep -o '/[A-Za-z][A-Za-z0-9]*' "$f" || true; } | sort -u | sed "s|^/||; s|$| $f|"

@@ -1,0 +1,34 @@
+%!PS-Adobe-3.0
+% grand_canyon_dem.ps -- the first real-terrain view (#156): the Copernicus
+% grid (data/terrain/grand_canyon, #155) as the ground, from near Mather
+% Point on the South Rim looking north across the canyon. Materials are
+% still the mountains' (strata are #160); this checks the geometry.
+%   scripts/render.sh spikes/grand_canyon_dem.ps
+/DemOn true def
+(data/terrain/grand_canyon.ps) run
+/Erode where { pop } { /Erode false def } ifelse
+% a latitude and longitude in map units (fc_dem.ps's fc-dem-xz, which
+% isn't loaded yet when StandAt is read)
+/gc-xz { /Glon exch def /Glat exch def
+    [ Glon DemLon0 sub Glat cos mul 6371008.8 mul 3.14159265 mul 180 div 10 div
+      Glat DemLat0 sub 6371008.8 mul 3.14159265 mul 180 div 10 div ] } def
+/StandAt where { pop } { /StandAt 36.0617 -112.1078 gc-xz def } ifelse     % Mather Point, on the rim
+/LookAt where { pop } { /LookAt 36.1250 -112.0700 gc-xz def } ifelse      % across the canyon, north-north-east
+/LookTilt where { pop } { /LookTilt -9 def } ifelse
+/CamAbove where { pop } { /CamAbove 1.5 def } ifelse
+/HFov where { pop } { /HFov 60 def } ifelse
+/TMax where { pop } { /TMax 2600 def } ifelse
+/HazeDist where { pop } { /HazeDist 2500 def } ifelse
+/HazeH where { pop } { /HazeH 120 def } ifelse
+/SnowLine where { pop } { /SnowLine 1000 def } ifelse
+/TreeLine where { pop } { /TreeLine -1000 def } ifelse
+/CloudLo where { pop } { /CloudLo 330 def } ifelse
+/CloudHi where { pop } { /CloudHi 370 def } ifelse
+/Threshold where { pop } { /Threshold 0.64 def } ifelse
+/CoverAmp where { pop } { /CoverAmp 0.4 def } ifelse
+/SunElev where { pop } { /SunElev 35 def } ifelse
+/SunAzim where { pop } { /SunAzim -60 def } ifelse
+(lib/fc_landscape.ps) run
+/Res where { pop } { /Res 1 def } ifelse
+320 200 fc-landscape
+showpage
