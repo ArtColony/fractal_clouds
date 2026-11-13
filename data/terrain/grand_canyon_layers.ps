@@ -1,0 +1,31 @@
+% grand_canyon_layers: the Grand Canyon's beds for lib/fc_layers.ps (#160),
+% for the grand_canyon grid. Run after the grid's settings file:
+%   (data/terrain/grand_canyon_layers.ps) run
+%
+% Bases are metres above sea level at Mather Point (LayersRef), from the
+% standard section along the Bright Angel and South Kaibab trails: about
+% 90 m of Kaibab, 75 Toroweap, 100 Coconino, 90 Hermit, 290 Supai, 150
+% Redwall, 120 Muav, 110 Bright Angel, 60 Tapeats, then the Vishnu
+% basement. These are approximate thicknesses; individual beds vary by tens
+% of metres across the park. The beds are taken as level (LayersDip 0).
+% The regional rise toward the Kaibab uplift to the north is real but
+% gentle. A rise of 15 m per km put Tapeats under the Tonto Trail camera
+% of docs/spikes/159-viewpoint, where the photo shows Bright Angel slope,
+% so it is left out until better data replaces it.
+% Colours are sRGB, picked by eye against that public-domain NPS panorama.
+/Layers where { pop } { /Layers [
+    [ 2060 [ 0.78 0.74 0.64 ] 1   ]     % Kaibab Limestone: pale grey cliff at the rim
+    [ 1985 [ 0.74 0.67 0.56 ] 0.5 ]     % Toroweap Formation: ledges and slope
+    [ 1885 [ 0.86 0.79 0.64 ] 1   ]     % Coconino Sandstone: the white cliff band
+    [ 1795 [ 0.56 0.32 0.26 ] 0   ]     % Hermit Formation: red slope
+    [ 1505 [ 0.57 0.33 0.27 ] 0.5 ]     % Supai Group: red ledges and slopes
+    [ 1355 [ 0.52 0.35 0.30 ] 1   ]     % Redwall Limestone: grey, stained red from above
+    [ 1235 [ 0.51 0.46 0.41 ] 0.6 ]     % Muav Limestone: grey-buff ledges
+    [ 1125 [ 0.50 0.49 0.42 ] 0   ]     % Bright Angel Shale: green-grey slope (the Tonto Platform)
+    [ 1065 [ 0.45 0.31 0.26 ] 1   ]     % Tapeats Sandstone: brown cliff, the inner gorge's lip
+    [ 0    [ 0.38 0.29 0.27 ] 0.8 ]     % Vishnu Schist: the dark inner gorge, red-brown with the Supergroup
+] def } ifelse
+/LayersRef where { pop } { /LayersRef [ -334.4 -41.1 ] def } ifelse    % Mather Point, 36.0613 N 112.1072 W
+/LayersDip where { pop } { /LayersDip [ 0 0 ] def } ifelse
+/LayersBlend where { pop } { /LayersBlend 8 def } ifelse
+/LayersSoilCol where { pop } { /LayersSoilCol [ 0.55 0.51 0.44 ] def } ifelse
