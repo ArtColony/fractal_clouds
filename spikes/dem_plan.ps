@@ -1,0 +1,39 @@
+%!PS-Adobe-3.0
+% dem_plan.ps -- a real elevation grid (scripts/dem_fetch.py, #155) read
+% into pscat and drawn from above as a hillshade, to check the load path:
+%   scripts/render.sh spikes/dem_plan.ps
+% DemFile and DemN name the grid (its .json says where it came from).
+/DemFile where { pop } { /DemFile (data/terrain/grand_canyon.bin) def } ifelse
+/DemN where { pop } { /DemN 768 def } ifelse
+/DemCell where { pop } { /DemCell 31.290743 def } ifelse    % metres (the .json's cell_m)
+DemFile DemN DemN mul readreals /DemH exch def
+/DemLo 1e9 def /DemHi -1e9 def
+DemH { dup DemLo lt { dup /DemLo exch def } if dup DemHi gt { /DemHi exch def } { pop } ifelse } forall
+(dem_plan: ) print DemN 9 string cvs print (^2, heights ) print DemLo cvi 9 string cvs print
+(..) print DemHi cvi 9 string cvs print ( m\n) print
+% light from the north-west, 45 degrees up (row 0 is north)
+/DemL 1 3 sqrt div def
+/dem-at { DemN mul add DemH exch get } bind def            % i j -> h
+/dem-shade {                                              % i j -> 0..1
+    /Dj exch def /Di exch def
+    Di 1 add DemN 1 sub 2 copy gt { exch } if pop Dj dem-at
+    Di 1 sub 0 2 copy lt { exch } if pop Dj dem-at sub 2 DemCell mul div /Dgx exch def
+    Di Dj 1 add DemN 1 sub 2 copy gt { exch } if pop dem-at
+    Di Dj 1 sub 0 2 copy lt { exch } if pop dem-at sub 2 DemCell mul div /Dgs exch def   % southward
+    % normal (-gx, gs, 1) against (-L, L, L)
+    Dgx DemL mul Dgs DemL mul add DemL add
+    Dgx dup mul Dgs dup mul add 1 add sqrt div 0 2 copy lt { exch } if pop
+    0.75 mul 0.25 add
+    Di Dj dem-at DemLo sub DemHi DemLo sub div 0.3 mul 0.7 add mul
+} bind def
+/DemRow DemN string def
+gsave
+72 72 translate 468 468 scale
+DemN DemN 8 [ DemN 0 0 DemN neg 0 DemN ]
+{ /Dr2 Dr2 1 add def
+  0 1 DemN 1 sub { dup Dr2 1 sub dem-shade 255 mul cvi 255 2 copy gt { exch } if pop DemRow 3 1 roll put } for
+  DemRow } bind
+/Dr2 0 def
+image
+grestore
+showpage
