@@ -7,13 +7,8 @@
 /DemOn true def
 (data/terrain/grand_canyon.ps) run
 /Erode where { pop } { /Erode false def } ifelse
-% a latitude and longitude in map units (fc_dem.ps's fc-dem-xz, which
-% isn't loaded yet when StandAt is read)
-/gc-xz { /Glon exch def /Glat exch def
-    [ Glon DemLon0 sub Glat cos mul 6371008.8 mul 3.14159265 mul 180 div 10 div
-      Glat DemLat0 sub 6371008.8 mul 3.14159265 mul 180 div 10 div ] } def
-/StandAt where { pop } { /StandAt 36.0617 -112.1078 gc-xz def } ifelse     % Mather Point, on the rim
-/LookAt where { pop } { /LookAt 36.1250 -112.0700 gc-xz def } ifelse      % across the canyon, north-north-east
+/StandLL where { pop } { /StandLL [ 36.0617 -112.1078 ] def } ifelse     % Mather Point, on the rim
+/LookLL where { pop } { /LookLL [ 36.1250 -112.0700 ] def } ifelse       % across the canyon, north-north-east
 /LookTilt where { pop } { /LookTilt -9 def } ifelse
 /CamAbove where { pop } { /CamAbove 1.5 def } ifelse
 /HFov where { pop } { /HFov 60 def } ifelse

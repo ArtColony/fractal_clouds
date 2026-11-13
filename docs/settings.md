@@ -915,6 +915,13 @@ A measured elevation grid as the ground (#156, epic #164). `scripts/dem_fetch.py
 
 Map coordinates are the grid's: x east, z north, in world units, with 0 0 at its centre. `StandAt` and `LookAt` take them; `lat lon fc-dem-xz` gives them.
 
+A real viewpoint (#159) takes latitude and longitude instead (`fc_landscape.ps`, which converts them by the grid's own projection):
+- `StandLL` [lat lon] sets `StandAt`; [lat lon m] also sets `CamAbove` to m metres above the ground.
+- `LookLL` [lat lon] sets `LookAt`; [lat lon m] aims at that elevation in metres above sea level.
+- `FocalMM` and `SensorMM` (default 36, so `FocalMM` is the 35 mm equivalent) set `HFov` from a real lens: 2·atan(`SensorMM`/2/`FocalMM`).
+
+`scripts/skyline_overlay.py` checks a view against a photo. It fits the camera to the photo's skyline, then draws pscat's ridgelines on the photo (`docs/spikes/159-viewpoint/`).
+
 The ground passes through every grid value (Catmull-Rom). The only addition is zero-mean erosion fBm at wavelengths from 1.5 cells down, where those octaves are over two pixels. On the Grand Canyon grid it stays within 3.1 m of the grid at 300 random cells (mean 0.03 m; the cell is 31 m), measured by `spikes/dem_check.ps`.
 
 | Setting | Default | What it does | Used |
