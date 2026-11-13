@@ -1,0 +1,39 @@
+{
+  "source": "Copernicus GLO-30 DSM",
+  "source_key": "cop30",
+  "tiles": [
+    {
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N35_00_W113_00_DEM/Copernicus_DSM_COG_10_N35_00_W113_00_DEM.tif",
+      "sha256": "5103c75c674fd6924a898203488f7761404b684a47d5e9e2e6fd3adcff2fb04a"
+    },
+    {
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N35_00_W112_00_DEM/Copernicus_DSM_COG_10_N35_00_W112_00_DEM.tif",
+      "sha256": "105a2ff831e660c878bb72ac88147c79659444167ef8931b5b4d4eeefc54b4b1"
+    },
+    {
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N36_00_W113_00_DEM/Copernicus_DSM_COG_10_N36_00_W113_00_DEM.tif",
+      "sha256": "3778b88efb81c8f05aa483d1d5267c07c55e058f34df6603f29be0ac99289e7b"
+    },
+    {
+      "url": "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_N36_00_W112_00_DEM/Copernicus_DSM_COG_10_N36_00_W112_00_DEM.tif",
+      "sha256": "92df94da758bde3c9da71db304967893ae63b01f7bf314cca5ea07c73ac4e26e"
+    }
+  ],
+  "licence": "Copernicus DEM licence: free use and redistribution with attribution",
+  "attribution": "Produced using Copernicus WorldDEM-30 (c) DLR e.V. 2010-2014 and (c) Airbus Defence and Space GmbH 2014-2018, provided under COPERNICUS by the European Union and ESA; all rights reserved.",
+  "vertical_datum": "EGM2008",
+  "units": "metres",
+  "center_lat_lon": [
+    36.065,
+    -112.07
+  ],
+  "size_m": 24000.0,
+  "n": 768,
+  "cell_m": 31.290743155149936,
+  "layout": "N*N little-endian binary64, row 0 north, rows west to east; x east, z north, metres from the centre",
+  "projection": "local: lat = lat0 + z/R, lon = lon0 + x/(R cos lat), R = 6371008.8 m",
+  "height_min_m": 714.0,
+  "height_max_m": 2520.268713840866,
+  "made": "2026-11-12",
+  "made_by": "scripts/dem_fetch.py (#155)"
+}

@@ -39,6 +39,7 @@ display faces.
 | `docs/techniques.html` | How it works: the algorithms, with diagrams and references (open it in a browser) |
 | `scripts/render.sh` | Render, lint and time pieces into `renders/` (git-ignored) |
 | `scripts/render_bands.sh` | One large frame as parallel horizontal bands, stitched; `--auto N --plan` prints the cuts and predicted times without rendering |
+| `data/terrain/` | Real elevation grids (binary64, metres) with their source and attribution, made by `scripts/dem_fetch.py` from public data (#155) |
 | `scripts/regress.sh` | Pixel-regression check of the gallery against `tests/regress/linux/` or a git ref; run by CI (`.github/workflows/ci.yml`) |
 | `docs/using-the-libraries.md` | Using `lib/fc_*.ps` from another repo: releases, pinning one with `.fc-version`, cutting a release |
 | `scripts/release.sh`, `scripts/fetch_fc.sh` | Build a release (tarball, standalone techniques page, `SHA256SUMS`); install the pinned one into a project |
